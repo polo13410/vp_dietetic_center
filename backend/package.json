@@ -13,7 +13,7 @@
     },
     "scripts": {
         "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
-        "dev": "sam local start-api"
+        "dev": "sam local start-api -t template.yaml --skip-pull-image"
     },
     "jest": {
         "testMatch": [

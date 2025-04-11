@@ -3,7 +3,7 @@ name: Main - Deploy Infrastructure and Lambdas
 on:
   push:
     branches:
-      - develop
+      - main
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:

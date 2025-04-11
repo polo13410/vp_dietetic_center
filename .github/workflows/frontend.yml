@@ -21,9 +21,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ inputs.directory }}
 
     environment: ${{ inputs.environment }}
 
@@ -35,6 +32,9 @@ jobs:
 
       - name: Initialize submodules
         run: git submodule update --init --recursive
+
+      - name: Set working directory to frontend
+        run: cd frontend
 
       - name: Set up Node.js
         uses: actions/setup-node@v2

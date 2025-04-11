@@ -1,35 +1,16 @@
-variable "app_name" {
-  description = "Name of the application"
-  type        = string
-  default     = "dietetic-center"
+variable "aws_region" {
+  description = "The AWS region to deploy to"
 }
 
 variable "environment" {
-  description = "Deployment environment"
-  type        = string
-  default     = "dev"
+  description = "The environment to deploy to"
 }
 
-variable "aws_region" {
-  description = "AWS region to deploy resources"
-  type        = string
-  default     = "us-east-1"
+variable "app_name_suffix" {
+  description = "The suffix for the application name"
+  default     = "vp-diet-center"
 }
 
-variable "domain_name" {
-  description = "Domain name for the application"
-  type        = string
-  default     = "dietetic-center.example.com"
-}
-
-variable "db_username" {
-  description = "Database username"
-  type        = string
-  sensitive   = true
-}
-
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
+locals {
+  app_name = "${var.environment}-${var.app_name_suffix}"
 }

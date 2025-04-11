@@ -1,0 +1,60 @@
+name: Front - Deploy React App
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      directory:
+        required: true
+        type: string
+      deploy:
+        default: false
+        type: boolean
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  aws_region: ${{ vars.AWS_REGION }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.directory }}
+
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+      # - name: Run tests
+      #   run: pnpm test
+
+      - name: Run linter
+        run: pnpm lint
+
+      - name: Build the app
+        run: pnpm run build
+
+      - name: Deploy to S3
+        if: inputs.deploy == true
+        run: aws s3 sync build/ s3://${{ inputs.environment }}-${{ vars.APP_NAME }}-front-app --delete
+
+      # TODO: When cloudfront is enabled, use this.
+      # - name: Invalidate CloudFront cache
+      #   run: aws cloudfront create-invalidation --distribution-id ${{ vars.FRONT_APP_CF_DISTRIBUTION_ID }} --paths "/*"

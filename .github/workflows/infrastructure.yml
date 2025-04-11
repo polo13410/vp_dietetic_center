@@ -37,11 +37,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        with:
-          submodules: true # Ensure submodules are initialized and updated
-
-      - name: Initialize submodules
-        run: git submodule update --init --recursive
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3

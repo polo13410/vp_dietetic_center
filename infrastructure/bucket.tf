@@ -45,8 +45,14 @@ data "aws_iam_policy_document" "vp_front_app" {
     resources = ["${aws_s3_bucket.vp_front_app.arn}/*"]
 
     principals {
-      type        = "AWS"
-      identifiers = [aws_cloudfront_origin_access_control.vp_front_app.id]
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.vp_front_app.arn]
     }
   }
 
@@ -55,8 +61,14 @@ data "aws_iam_policy_document" "vp_front_app" {
     resources = [aws_s3_bucket.vp_front_app.arn]
 
     principals {
-      type        = "AWS"
-      identifiers = [aws_cloudfront_origin_access_control.vp_front_app.id]
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.vp_front_app.arn]
     }
   }
 }

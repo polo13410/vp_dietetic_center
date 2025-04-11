@@ -34,7 +34,7 @@ jobs:
     uses: ./.github/workflows/frontend.yml
     with:
       environment: ${{ github.event.inputs.environment || 'staging' }}
-      directory: ./frontend
+      directory: ./front
       deploy: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     secrets: inherit
 

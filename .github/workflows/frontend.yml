@@ -55,6 +55,5 @@ jobs:
         if: inputs.deploy == true
         run: aws s3 sync dist/ s3://${{ inputs.environment }}-${{ vars.APP_NAME }}-front-app --delete
 
-      # TODO: When cloudfront is enabled, use this.
-      # - name: Invalidate CloudFront cache
-      #   run: aws cloudfront create-invalidation --distribution-id ${{ vars.FRONT_APP_CF_DISTRIBUTION_ID }} --paths "/*"
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ vars.FRONT_APP_CF_DISTRIBUTION_ID }} --paths "/*"

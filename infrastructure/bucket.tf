@@ -16,18 +16,18 @@ resource "aws_s3_bucket_ownership_controls" "vp_front_app" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "vp_front_app" {
-  bucket                  = aws_s3_bucket.vp_front_app.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = false
-}
+# resource "aws_s3_bucket_public_access_block" "vp_front_app" {
+#   bucket                  = aws_s3_bucket.vp_front_app.id
+#   block_public_acls       = true
+#   block_public_policy     = true
+#   ignore_public_acls      = true
+#   restrict_public_buckets = false
+# }
 
 resource "aws_s3_bucket_acl" "vp_front_app" {
   depends_on = [
     aws_s3_bucket_ownership_controls.vp_front_app,
-    aws_s3_bucket_public_access_block.vp_front_app,
+    # aws_s3_bucket_public_access_block.vp_front_app,
   ]
 
   bucket = aws_s3_bucket.vp_front_app.id

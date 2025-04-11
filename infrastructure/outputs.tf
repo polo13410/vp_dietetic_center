@@ -1,12 +1,9 @@
-output "bucket_vp_front_app_url" {
-  value       = aws_s3_bucket.vp_front_app.website_endpoint
-  description = "The URL of the S3 bucket for the frontend app"
+output "cloudfront_distribution_vp_front_app" {
+  value       = aws_cloudfront_distribution.vp_front_app.id
+  description = "The ID of the CloudFront distribution for the frontend app"
 }
 
-# output "cloudfront_distribution_vp_front_app" {
-#   value = aws_cloudfront_distribution.frontend_distribution.id
-# }
-
-# output "cloudfront_domain_name_vp_front_app" {
-#   value = aws_cloudfront_distribution.frontend_distribution.domain_name
-# }
+output "cloudfront_domain_name_vp_front_app" {
+  value       = aws_cloudfront_distribution.domain_name
+  description = "The domain name of the CloudFront distribution for the frontend app"
+}

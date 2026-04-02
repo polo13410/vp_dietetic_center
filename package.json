@@ -7,7 +7,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix",
+    "lint:fix": "turbo run lint:fix && prettier --write \"apps/api/src/**/*.ts\" \"apps/frontend/src/**/*.{ts,tsx,js,jsx}\" \"packages/types/src/**/*.ts\" \"**/*.{json,md,yaml,yml}\" --ignore-path .gitignore",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",

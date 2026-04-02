@@ -8,6 +8,9 @@ export class CreateTaskDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID() patientId?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() appointmentId?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() assignedToId?: string;
-  @ApiPropertyOptional({ enum: TaskPriority, default: TaskPriority.MEDIUM }) @IsOptional() @IsEnum(TaskPriority) priority?: TaskPriority;
+  @ApiPropertyOptional({ enum: TaskPriority, default: TaskPriority.MEDIUM })
+  @IsOptional()
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
   @ApiPropertyOptional() @IsOptional() @IsDateString() dueAt?: string;
 }

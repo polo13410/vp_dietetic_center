@@ -11,6 +11,7 @@ pnpm dev
 ```
 
 ## Structure
+
 ```
 src/
 ├── components/
@@ -35,12 +36,14 @@ src/
 ```
 
 ## Design system
+
 - Tailwind CSS 4
 - Shadcn/ui components (Radix UI primitives)
 - Palette : Indigo (primary), Slate (neutral)
 - Typographie : System font stack
 
 ## Auth
+
 - Store Zustand persisté (user + isAuthenticated)
 - Access token en mémoire
 - Refresh token en cookie httpOnly

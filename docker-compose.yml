@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   postgres:
@@ -10,11 +10,11 @@ services:
       POSTGRES_USER: vp_user
       POSTGRES_PASSWORD: vp_password
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vp_user -d vp_dietetic"]
+      test: ['CMD-SHELL', 'pg_isready -U vp_user -d vp_dietetic']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,8 +24,8 @@ services:
     container_name: vp_mailhog
     restart: unless-stopped
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
     logging:
       driver: none
 
@@ -54,7 +54,7 @@ services:
       GCS_BUCKET_NAME: vp-dietetic-dev-documents
       GOOGLE_CLOUD_PROJECT: vp-dietetic-dev
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - ./apps/api/src:/app/src
       - ./apps/api/prisma:/app/prisma
@@ -71,9 +71,9 @@ services:
       - api
     environment:
       VITE_API_URL: http://localhost:3000/api/v1
-      VITE_APP_NAME: "VP Dietetic Center"
+      VITE_APP_NAME: 'VP Dietetic Center'
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       - ./apps/frontend/src:/app/src
       - ./apps/frontend/public:/app/public

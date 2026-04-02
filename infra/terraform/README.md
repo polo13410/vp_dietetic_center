@@ -70,6 +70,7 @@ Copier `*.tfvars.example` en `*.tfvars` et remplir les valeurs.
 ## Déploiement via CI/CD
 
 Les workflows GitHub Actions gèrent automatiquement :
+
 - `terraform plan` sur chaque PR (commentaire automatique)
 - `terraform apply` sur merge vers `develop` (env dev/staging)
 - `terraform apply` sur merge vers `main` avec approbation manuelle (prod)

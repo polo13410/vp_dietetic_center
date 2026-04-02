@@ -48,7 +48,14 @@ export class SearchService {
             { content: { contains: q, mode: 'insensitive' } },
           ],
         },
-        select: { id: true, title: true, type: true, status: true, patientId: true, createdAt: true },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          patientId: true,
+          createdAt: true,
+        },
         take: 5,
       }),
     ]);

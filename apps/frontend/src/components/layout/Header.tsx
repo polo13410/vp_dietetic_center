@@ -1,6 +1,7 @@
-import { Search, Bell, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+
+import { Bell, LogOut, Search } from 'lucide-react';
 
 import { useLogout } from '../../hooks/useAuth';
 import { Button } from '../ui/button';

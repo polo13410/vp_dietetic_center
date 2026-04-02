@@ -3,6 +3,7 @@
 Backend NestJS pour l'application de gestion psycho-nutritionnelle.
 
 ## Stack
+
 - Node.js 24 + NestJS 11 + TypeScript
 - PostgreSQL 15 + Prisma 6
 - JWT (access + refresh token httpOnly)
@@ -29,6 +30,7 @@ pnpm dev
 ```
 
 ## Scripts
+
 ```bash
 pnpm dev             # Watch mode
 pnpm build           # Build production
@@ -40,6 +42,7 @@ pnpm db:seed         # Seeder
 ```
 
 ## Structure
+
 ```
 src/
 ├── modules/
@@ -63,6 +66,7 @@ src/
 ```
 
 ## Auth
+
 - `POST /api/v1/auth/login` → access_token (15min) + refresh_token (httpOnly cookie, 7j)
 - `POST /api/v1/auth/refresh` → nouveau access_token
 - `POST /api/v1/auth/logout` → révocation refresh token

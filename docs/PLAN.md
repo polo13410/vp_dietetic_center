@@ -42,64 +42,68 @@ patients, rendez-vous, notes cliniques, suivi psycho-nutritionnel, documents, t�
 
 ### Environnements
 
-| Env     | Branche       | Déploiement    | Base de données      |
-|---------|---------------|----------------|----------------------|
-| local   | any           | docker-compose | PostgreSQL local      |
-| dev     | develop       | automatique    | Cloud SQL dev        |
-| staging | develop→main  | automatique    | Cloud SQL staging    |
-| prod    | main          | manuel approuvé| Cloud SQL prod       |
+| Env     | Branche      | Déploiement     | Base de données   |
+| ------- | ------------ | --------------- | ----------------- |
+| local   | any          | docker-compose  | PostgreSQL local  |
+| dev     | develop      | automatique     | Cloud SQL dev     |
+| staging | develop→main | automatique     | Cloud SQL staging |
+| prod    | main         | manuel approuvé | Cloud SQL prod    |
 
 ---
 
 ## 3. Stack technique
 
 ### Frontend — `apps/frontend`
-| Outil | Version | Usage |
-|-------|---------|-------|
-| React | 19.x | UI framework |
-| TypeScript | 5.x | Typage |
-| Vite | 6.x | Build/Dev server |
-| React Router | 7.x | Routing |
-| TanStack Query | 5.x | Server state |
-| React Hook Form | 7.x | Formulaires |
-| Zod | 3.x | Validation schémas |
-| Tailwind CSS | 4.x | Styles |
-| Shadcn/ui | latest | Composants (Radix UI) |
-| Recharts | 2.x | Graphiques |
-| date-fns | 3.x | Dates |
-| Vitest | 3.x | Tests unitaires |
-| Playwright | latest | Tests E2E (scaffold) |
+
+| Outil           | Version | Usage                 |
+| --------------- | ------- | --------------------- |
+| React           | 19.x    | UI framework          |
+| TypeScript      | 5.x     | Typage                |
+| Vite            | 6.x     | Build/Dev server      |
+| React Router    | 7.x     | Routing               |
+| TanStack Query  | 5.x     | Server state          |
+| React Hook Form | 7.x     | Formulaires           |
+| Zod             | 3.x     | Validation schémas    |
+| Tailwind CSS    | 4.x     | Styles                |
+| Shadcn/ui       | latest  | Composants (Radix UI) |
+| Recharts        | 2.x     | Graphiques            |
+| date-fns        | 3.x     | Dates                 |
+| Vitest          | 3.x     | Tests unitaires       |
+| Playwright      | latest  | Tests E2E (scaffold)  |
 
 ### Backend — `apps/api`
-| Outil | Version | Usage |
-|-------|---------|-------|
-| Node.js | 24.x | Runtime |
-| NestJS | 11.x | Framework |
-| TypeScript | 5.x | Typage |
-| Prisma | 6.x | ORM |
-| PostgreSQL | 15.x | Base de données |
-| Passport.js | 0.7.x | Auth stratégies |
-| JWT | - | Access + Refresh tokens |
-| bcrypt | - | Hashing passwords |
-| class-validator | - | Validation DTO |
-| class-transformer | - | Transformation DTO |
-| nestjs-throttler | - | Rate limiting |
-| helmet | - | Headers sécurité |
-| pino | - | Logs structurés |
-| Swagger/OpenAPI | - | Documentation API |
-| Vitest | 3.x | Tests |
+
+| Outil             | Version | Usage                   |
+| ----------------- | ------- | ----------------------- |
+| Node.js           | 24.x    | Runtime                 |
+| NestJS            | 11.x    | Framework               |
+| TypeScript        | 5.x     | Typage                  |
+| Prisma            | 6.x     | ORM                     |
+| PostgreSQL        | 15.x    | Base de données         |
+| Passport.js       | 0.7.x   | Auth stratégies         |
+| JWT               | -       | Access + Refresh tokens |
+| bcrypt            | -       | Hashing passwords       |
+| class-validator   | -       | Validation DTO          |
+| class-transformer | -       | Transformation DTO      |
+| nestjs-throttler  | -       | Rate limiting           |
+| helmet            | -       | Headers sécurité        |
+| pino              | -       | Logs structurés         |
+| Swagger/OpenAPI   | -       | Documentation API       |
+| Vitest            | 3.x     | Tests                   |
 
 ### Packages partagés — `packages/`
+
 - `packages/types` — Types TypeScript partagés (DTOs, enums, interfaces)
 - `packages/config` — Configs ESLint, Prettier, TypeScript base
 
 ### Infrastructure
-| Outil | Usage |
-|-------|-------|
-| Terraform | IaC Google Cloud |
-| Docker | Containerisation |
+
+| Outil     | Usage                  |
+| --------- | ---------------------- |
+| Terraform | IaC Google Cloud       |
+| Docker    | Containerisation       |
 | Turborepo | Orchestration monorepo |
-| pnpm | Gestion dépendances |
+| pnpm      | Gestion dépendances    |
 
 ---
 
@@ -123,6 +127,7 @@ Tag ──────────────────── tags configurab
 ```
 
 ### Règles métier clés
+
 - Soft delete sur Patient (statut : ACTIVE | INACTIVE | ARCHIVED | DELETED)
 - Notes cliniques : brouillon → finalisé (verrouillé après finalisation)
 - Audit log : toute action CREATE/UPDATE/DELETE sur entités sensibles
@@ -133,9 +138,11 @@ Tag ──────────────────── tags configurab
 ## 5. API REST — Conventions
 
 ### Versioning
+
 Toutes les routes préfixées `/api/v1/`
 
 ### Endpoints principaux
+
 ```
 POST   /api/v1/auth/login
 POST   /api/v1/auth/logout
@@ -202,12 +209,14 @@ GET    /api/v1/health
 ## 6. Authentification & Sécurité
 
 ### Flux JWT
+
 1. `POST /auth/login` → access_token (15min) + refresh_token httpOnly cookie (7j)
 2. Client utilise access_token dans header `Authorization: Bearer ...`
 3. Sur 401, client appelle `POST /auth/refresh` avec cookie
 4. Nouveau access_token émis
 
 ### Rôles & Permissions
+
 ```
 ADMIN        → tout + gestion utilisateurs + audit logs
 PRATICIENNE  → ses patients + rendez-vous + notes + documents + tâches
@@ -215,6 +224,7 @@ ASSISTANTE   → lecture patients + gestion rendez-vous + tâches administrative
 ```
 
 ### Mesures de sécurité
+
 - Helmet (headers HTTP sécurisés)
 - Rate limiting : 100 req/15min global, 5 req/min sur auth
 - CORS restreint aux origines connues
@@ -226,6 +236,7 @@ ASSISTANTE   → lecture patients + gestion rendez-vous + tâches administrative
 - Secrets jamais en clair dans le code (Secret Manager / .env)
 
 ### RGPD / Données de santé
+
 - Minimisation des données collectées
 - Consentements versionnés et traçables
 - Export données patient (droit d'accès)
@@ -345,6 +356,7 @@ vp_dietetic_center/
 ## 8. Roadmap et phases de développement
 
 ### Phase 1 — Fondations (Semaines 1-3) ✅ SCAFFOLD CRÉÉ
+
 - [x] Monorepo configuré (Turborepo + pnpm)
 - [x] Backend NestJS bootstrapé avec auth JWT
 - [x] Frontend React bootstrapé avec routing protégé
@@ -356,6 +368,7 @@ vp_dietetic_center/
 - [ ] Seeds de démonstration complets
 
 ### Phase 2 — Core fonctionnel (Semaines 4-7)
+
 - [ ] Module patients CRUD complet + fiche complète
 - [ ] Module rendez-vous avec vue liste et agenda
 - [ ] Module notes cliniques (libre + structurée)
@@ -364,6 +377,7 @@ vp_dietetic_center/
 - [ ] Upload documents Cloud Storage
 
 ### Phase 3 — Métier avancé (Semaines 8-11)
+
 - [ ] Suivi psycho-nutritionnel complet + graphiques
 - [ ] Tâches et rappels
 - [ ] Timeline patient
@@ -372,6 +386,7 @@ vp_dietetic_center/
 - [ ] Notifications in-app
 
 ### Phase 4 — Qualité & Production (Semaines 12-14)
+
 - [ ] Tests couverture ≥ 70%
 - [ ] Tests E2E Playwright critiques
 - [ ] Audit sécurité (dépendances, headers, auth)
@@ -382,6 +397,7 @@ vp_dietetic_center/
 - [ ] Déploiement production
 
 ### Phase 5 — Améliorations futures
+
 - [ ] Application mobile (React Native ou PWA)
 - [ ] Rappels SMS/email automatisés
 - [ ] Portail patient (accès limité)
@@ -396,6 +412,7 @@ vp_dietetic_center/
 ## 9. Conventions de code
 
 ### Commits (Conventional Commits)
+
 ```
 feat(patients): add timeline view
 fix(auth): refresh token not invalidated on logout
@@ -406,6 +423,7 @@ refactor(notes): extract note finalizer service
 ```
 
 ### Branches
+
 ```
 main         → production
 develop      → intégration, déploiement staging auto
@@ -415,6 +433,7 @@ chore/xxx    → maintenance
 ```
 
 ### Nommage fichiers
+
 - Backend : `kebab-case.ts` (NestJS convention)
 - Frontend : `PascalCase.tsx` pour composants, `camelCase.ts` pour autres
 - Tests : `*.spec.ts` (backend), `*.test.tsx` (frontend)
@@ -424,6 +443,7 @@ chore/xxx    → maintenance
 ## 10. Variables d'environnement clés
 
 ### Backend (`apps/api/.env`)
+
 ```
 NODE_ENV=development
 PORT=3000
@@ -436,6 +456,7 @@ CORS_ORIGINS=http://localhost:5173
 ```
 
 ### Frontend (`apps/frontend/.env`)
+
 ```
 VITE_API_URL=http://localhost:3000/api/v1
 VITE_APP_NAME=VP Dietetic Center
@@ -445,14 +466,14 @@ VITE_APP_NAME=VP Dietetic Center
 
 ## 11. Contacts et responsabilités
 
-| Rôle | Responsabilité |
-|------|---------------|
+| Rôle           | Responsabilité                                    |
+| -------------- | ------------------------------------------------- |
 | Chef de projet | Architecture globale, cohérence technique, revues |
-| Dev Backend | Modules NestJS, API, Prisma, sécurité |
-| Dev Frontend | Pages React, composants, intégration API |
-| DevOps | Terraform, CI/CD, monitoring, déploiements |
-| QA | Tests, recette fonctionnelle |
+| Dev Backend    | Modules NestJS, API, Prisma, sécurité             |
+| Dev Frontend   | Pages React, composants, intégration API          |
+| DevOps         | Terraform, CI/CD, monitoring, déploiements        |
+| QA             | Tests, recette fonctionnelle                      |
 
 ---
 
-*Document maintenu par l'équipe technique. Toute décision architecturale structurante doit être consignée dans `docs/ADR/`.*
+_Document maintenu par l'équipe technique. Toute décision architecturale structurante doit être consignée dans `docs/ADR/`._

@@ -9,9 +9,15 @@ export class ReportsService {
 
   async getActivityReport(user: User, from?: string, to?: string) {
     const practFilter = user.role !== UserRole.ADMIN ? { practitionerId: user.id } : {};
-    const dateFilter = from || to
-      ? { startAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } }
-      : {};
+    const dateFilter =
+      from || to
+        ? {
+            startAt: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to) } : {}),
+            },
+          }
+        : {};
 
     const [totalAppointments, byStatus, newPatients, activePatients] = await Promise.all([
       this.prisma.appointment.count({ where: { ...practFilter, ...dateFilter } }),

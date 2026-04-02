@@ -45,6 +45,7 @@ pnpm dev
 ```
 
 L'application sera disponible sur :
+
 - Frontend : http://localhost:5173
 - API : http://localhost:3000
 - Swagger : http://localhost:3000/api/docs
@@ -52,11 +53,11 @@ L'application sera disponible sur :
 
 ### Comptes de démonstration
 
-| Email | Mot de passe | Rôle |
-|-------|-------------|------|
-| admin@vp-dietetic.fr | Admin1234! | ADMIN |
-| praticienne@vp-dietetic.fr | Pratic1234! | PRATICIENNE |
-| assistante@vp-dietetic.fr | Assist1234! | ASSISTANTE |
+| Email                      | Mot de passe | Rôle        |
+| -------------------------- | ------------ | ----------- |
+| admin@vp-dietetic.fr       | Admin1234!   | ADMIN       |
+| praticienne@vp-dietetic.fr | Pratic1234!  | PRATICIENNE |
+| assistante@vp-dietetic.fr  | Assist1234!  | ASSISTANTE  |
 
 ---
 

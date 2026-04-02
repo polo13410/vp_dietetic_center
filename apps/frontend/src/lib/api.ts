@@ -1,5 +1,8 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
+// Avoid circular import — import lazily
+import { useAuthStore } from '../stores/authStore';
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
 
 export const api = axios.create({
@@ -69,8 +72,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-// Avoid circular import — import lazily
-import { useAuthStore } from '../stores/authStore';
 
 export default api;

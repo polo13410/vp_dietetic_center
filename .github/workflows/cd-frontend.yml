@@ -70,7 +70,8 @@ jobs:
             --build-arg VITE_APP_NAME="VP Dietetic Center" \
             --tag "$IMAGE" \
             --tag "$IMAGE_LATEST" \
-            apps/frontend/
+            --file apps/frontend/Dockerfile \
+            .
 
           docker push "$IMAGE"
           docker push "$IMAGE_LATEST"

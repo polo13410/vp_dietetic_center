@@ -5,7 +5,7 @@ WORKDIR /app
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 FROM base AS deps
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
@@ -14,6 +14,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # ─── Development ──────────────────────────────────────────────────────────────
 FROM base AS development
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
 COPY . .
 WORKDIR /app/apps/frontend
 EXPOSE 5173
@@ -22,6 +23,7 @@ CMD ["pnpm", "run", "dev", "--host"]
 # ─── Builder ──────────────────────────────────────────────────────────────────
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
 COPY . .
 
 ARG VITE_API_URL

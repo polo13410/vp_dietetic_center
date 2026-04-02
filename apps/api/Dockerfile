@@ -5,7 +5,7 @@ WORKDIR /app
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 FROM base AS deps
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
@@ -38,15 +38,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Installer seulement les dépendances de production
-COPY apps/api/package.json .
-COPY pnpm-lock.yaml .
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
-
-# Copier le build et Prisma
-COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/apps/api/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/apps/api/prisma ./prisma
+# Réutiliser l'installation workspace déjà résolue par le builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+WORKDIR /app/apps/api
 
 # Utilisateur non-root
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001

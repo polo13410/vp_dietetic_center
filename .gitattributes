@@ -1,0 +1,16 @@
+# Force LF line endings in the repository for all text files.
+# This overrides core.autocrlf=true on Windows and keeps Prettier's
+# endOfLine:"lf" setting in sync with what git stores.
+* text=auto eol=lf
+
+# Explicitly mark binary files so git never touches their line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

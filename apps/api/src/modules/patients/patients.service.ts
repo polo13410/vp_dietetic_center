@@ -1,14 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PatientStatus, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
-import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientQueryDto } from './dto/patient-query.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 
 const PATIENT_SELECT = {
   id: true,
@@ -186,13 +182,27 @@ export class PatientsService {
         where: { patientId: id },
         orderBy: { createdAt: 'desc' },
         take: 50,
-        select: { id: true, title: true, type: true, status: true, createdAt: true, finalizedAt: true },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          createdAt: true,
+          finalizedAt: true,
+        },
       }),
       this.prisma.task.findMany({
         where: { patientId: id },
         orderBy: { createdAt: 'desc' },
         take: 20,
-        select: { id: true, title: true, status: true, priority: true, dueAt: true, completedAt: true },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          dueAt: true,
+          completedAt: true,
+        },
       }),
     ]);
 

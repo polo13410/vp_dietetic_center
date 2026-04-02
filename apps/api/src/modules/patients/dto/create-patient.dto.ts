@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
@@ -9,7 +10,6 @@ import {
   IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 class EmergencyContactDto {
   @IsString() name: string;

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { randomBytes, createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -23,7 +23,9 @@ export class AuthService {
 
     // Check account lock
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException('Compte temporairement bloqué. Réessayez dans quelques minutes.');
+      throw new UnauthorizedException(
+        'Compte temporairement bloqué. Réessayez dans quelques minutes.',
+      );
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);

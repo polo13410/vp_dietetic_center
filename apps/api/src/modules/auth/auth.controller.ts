@@ -14,11 +14,11 @@ import type { Request, Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 import { JwtRefreshGuard } from '../../common/guards/jwt-refresh.guard';
+import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { LoginDto } from './dto/login.dto';
 
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })
@@ -58,7 +58,7 @@ export class AuthController {
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Rafraîchir le token d'accès' })
+  @ApiOperation({ summary: "Rafraichir le token d'acces" })
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rawToken = req.cookies['refresh_token'];
     const result = await this.authService.refreshTokens(rawToken);
@@ -97,7 +97,7 @@ export class AuthController {
   }
 
   @Get('me')
-  @ApiOperation({ summary: 'Récupérer le profil de l'utilisateur connecté' })
+  @ApiOperation({ summary: "Recuperer le profil de l'utilisateur connecte" })
   me(@CurrentUser() user: any) {
     return user;
   }

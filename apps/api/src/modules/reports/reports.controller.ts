@@ -11,11 +11,7 @@ export class ReportsController {
   constructor(private readonly service: ReportsService) {}
 
   @Get('activity')
-  getActivity(
-    @CurrentUser() user: any,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  getActivity(@CurrentUser() user: any, @Query('from') from?: string, @Query('to') to?: string) {
     return this.service.getActivityReport(user, from, to);
   }
 }

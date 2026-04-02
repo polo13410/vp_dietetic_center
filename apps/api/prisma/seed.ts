@@ -112,7 +112,7 @@ async function main() {
       emergencyContactPhone: '06 98 76 54 32',
       emergencyContactRelationship: 'Époux',
       privateNote:
-        'Patiente suivie depuis 2 ans. Bons progrès sur la relation à l'alimentation. Anxiété résiduelle le soir.',
+        "Patiente suivie depuis 2 ans. Bons progres sur la relation a l'alimentation. Anxiete residuelle le soir.",
       tags: {
         create: [
           { tag: { connect: { id: tags['TCA'].id } } },
@@ -219,9 +219,10 @@ async function main() {
     update: {},
     create: {
       patientId: patient1.id,
-      objectives: 'Réconciliation avec l'alimentation, réduction des crises de compulsion',
+      objectives: "Reconciliation avec l'alimentation, reduction des crises de compulsion",
       dietaryHabits: 'Saute des repas le matin. Dîner tardif. Grignote en soirée.',
-      foodRelationship: 'Relation conflictuelle depuis l'adolescence. Alimentation = récompense/punition.',
+      foodRelationship:
+        "Relation conflictuelle depuis l'adolescence. Alimentation = recompense/punition.",
       emotionalTriggers: 'Stress professionnel (chef de projet). Conflits familiaux. Ennui.',
       allergies: 'Aucune connue',
       intolerances: 'Légère intolérance au lactose',
@@ -305,7 +306,8 @@ async function main() {
       type: AppointmentType.IN_PERSON,
       status: AppointmentStatus.COMPLETED,
       reason: 'Séance initiale de bilan',
-      postNotes: 'Bonne première séance. Patiente motivée et honnête sur ses difficultés. Objectif prioritaire : régulariser le petit-déjeuner.',
+      postNotes:
+        'Bonne première séance. Patiente motivée et honnête sur ses difficultés. Objectif prioritaire : régulariser le petit-déjeuner.',
     },
   });
 
@@ -324,12 +326,13 @@ async function main() {
       content:
         'Première consultation. Marie consulte suite à des épisodes de compulsion alimentaire répétés depuis 6 mois, aggravés par un changement de poste professionnel stressant.',
       sessionObjectives:
-        '1. Comprendre le contexte et l'historique alimentaire\n2. Établir un bilan de la relation à la nourriture\n3. Identifier les déclencheurs principaux',
+        "1. Comprendre le contexte et l'historique alimentaire\n2. Etablir un bilan de la relation a la nourriture\n3. Identifier les declencheurs principaux",
       actionPlan:
         '- Tenir un journal alimentaire + émotionnel pendant 2 semaines\n- Réintroduire le petit-déjeuner (même minimal)\n- Pratiquer 5min de cohérence cardiaque avant les repas stressants',
       followUpItems:
-        '- Vérifier l'adhérence au journal au prochain RDV\n- Évaluer l'impact de la cohérence cardiaque',
-      observations: 'Patiente ouverte et perspicace. Bonne alliance thérapeutique établie dès le départ.',
+        "- Verifier l'adherence au journal au prochain RDV\n- Evaluer l'impact de la coherence cardiaque",
+      observations:
+        'Patiente ouverte et perspicace. Bonne alliance thérapeutique établie dès le départ.',
       finalizedAt: new Date(today.getTime() - 29 * 24 * 3600 * 1000),
     },
   });
@@ -354,7 +357,7 @@ async function main() {
       status: NoteStatus.FINALIZED,
       title: 'Bilan nutritionnel sportif — Thomas Leroy',
       content:
-        'Thomas est végétarien depuis 3 ans, pratique la musculation intensivement. Se plaint de stagnation musculaire malgré l'entraînement.',
+        "Thomas est vegetarien depuis 3 ans, pratique la musculation intensivement. Se plaint de stagnation musculaire malgre l'entrainement.",
       sessionObjectives:
         '1. Évaluer les apports protéiques actuels\n2. Identifier les lacunes nutritionnelles potentielles',
       actionPlan:
@@ -404,7 +407,7 @@ async function main() {
       },
       {
         title: 'Appeler pour confirmer le prochain RDV',
-        description: 'Claire Bernard n'a pas répondu au rappel email.',
+        description: "Claire Bernard n'a pas repondu au rappel email.",
         patientId: patient3.id,
         createdById: praticienne.id,
         assignedToId: assistante.id,
@@ -423,8 +426,8 @@ async function main() {
         dueAt: new Date(today.getTime() + 24 * 3600 * 1000),
       },
       {
-        title: 'Vérifier les résultats d'analyse sanguine',
-        description: 'Thomas a promis d'envoyer ses résultats avant la séance.',
+        title: "Verifier les resultats d'analyse sanguine",
+        description: "Thomas a promis d'envoyer ses resultats avant la seance.",
         patientId: patient2.id,
         createdById: praticienne.id,
         assignedToId: praticienne.id,

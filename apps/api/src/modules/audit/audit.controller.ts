@@ -15,12 +15,8 @@ export class AuditController {
 
   @Get()
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Journaux d'audit (ADMIN uniquement)' })
-  findAll(
-    @Query('page') page = 1,
-    @Query('limit') limit = 50,
-    @Query('entity') entity?: string,
-  ) {
+  @ApiOperation({ summary: "Journaux d'audit (ADMIN uniquement)" })
+  findAll(@Query('page') page = 1, @Query('limit') limit = 50, @Query('entity') entity?: string) {
     return this.service.findAll(+page, +limit, entity);
   }
 }

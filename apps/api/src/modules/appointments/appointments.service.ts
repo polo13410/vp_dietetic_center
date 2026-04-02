@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppointmentQueryDto } from './dto/appointment-query.dto';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
-import { AppointmentQueryDto } from './dto/appointment-query.dto';
 
 @Injectable()
 export class AppointmentsService {
@@ -81,11 +81,12 @@ export class AppointmentsService {
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
     this.checkAccess(appt, user);
 
-    const endAt = dto.startAt && dto.duration
-      ? new Date(new Date(dto.startAt).getTime() + dto.duration * 60 * 1000)
-      : dto.startAt
-      ? new Date(new Date(dto.startAt).getTime() + appt.duration * 60 * 1000)
-      : undefined;
+    const endAt =
+      dto.startAt && dto.duration
+        ? new Date(new Date(dto.startAt).getTime() + dto.duration * 60 * 1000)
+        : dto.startAt
+          ? new Date(new Date(dto.startAt).getTime() + appt.duration * 60 * 1000)
+          : undefined;
 
     return this.prisma.appointment.update({
       where: { id },

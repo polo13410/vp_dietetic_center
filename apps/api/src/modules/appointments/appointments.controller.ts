@@ -20,7 +20,7 @@ export class AppointmentsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Détail d'un rendez-vous' })
+  @ApiOperation({ summary: "Detail d'un rendez-vous" })
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.findOne(id, user);
   }

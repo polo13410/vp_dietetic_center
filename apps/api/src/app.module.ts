@@ -6,7 +6,6 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { AppController } from './app.controller';
 import { configuration } from './config/configuration';
-import { PrismaModule } from './prisma/prisma.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -18,6 +17,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { UsersModule } from './modules/users/users.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [

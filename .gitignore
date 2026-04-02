@@ -44,3 +44,6 @@ next-env.d.ts
 #aws
 .aws
 .aws-sam
+
+#turbo
+.turbo

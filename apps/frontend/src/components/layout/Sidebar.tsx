@@ -7,7 +7,6 @@ import {
   FileText,
   FolderOpen,
   LayoutDashboard,
-  Salad,
   Settings,
   Users,
 } from 'lucide-react';

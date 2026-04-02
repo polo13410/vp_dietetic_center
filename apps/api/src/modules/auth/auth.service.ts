@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
@@ -119,8 +119,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     if (!user) return; // Ne pas révéler si l'email existe
 
-    const token = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+    randomBytes(32).toString('hex');
 
     await this.prisma.user.update({
       where: { id: user.id },

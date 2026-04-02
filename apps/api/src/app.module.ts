@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
+import type { IncomingMessage } from 'http';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AppController } from './app.controller';
@@ -35,7 +36,7 @@ import { PrismaModule } from './prisma/prisma.module';
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
             : undefined,
-        autoLogging: { ignore: (req) => req.url === '/api/health' },
+        autoLogging: { ignore: (req: IncomingMessage) => req.url === '/api/health' },
         redact: ['req.headers.authorization', 'req.headers.cookie'],
       },
     }),

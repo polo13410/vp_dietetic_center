@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -39,11 +40,17 @@ export class NutritionalService {
     });
   }
 
-  async createEntry(patientId: string, data: Record<string, unknown>) {
+  async createEntry(patientId: string, data: { date: string | Date } & Record<string, unknown>) {
+    const entryDate = new Date(data.date);
+    const payload = {
+      ...data,
+      date: entryDate,
+    } as Omit<Prisma.NutritionalEntryUncheckedCreateInput, 'patientId'>;
+
     return this.prisma.nutritionalEntry.upsert({
-      where: { patientId_date: { patientId, date: new Date(data.date as string) } },
-      update: data,
-      create: { patientId, ...data },
+      where: { patientId_date: { patientId, date: entryDate } },
+      update: payload,
+      create: { patientId, ...payload },
     });
   }
 }

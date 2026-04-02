@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -18,7 +18,12 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(dto: CreateAuditLogDto) {
-    return this.prisma.auditLog.create({ data: dto });
+    return this.prisma.auditLog.create({
+      data: {
+        ...dto,
+        metadata: dto.metadata as Prisma.InputJsonValue | undefined,
+      },
+    });
   }
 
   async findAll(page = 1, limit = 50, entity?: string) {

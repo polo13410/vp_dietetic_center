@@ -6,6 +6,19 @@ import { LoadingSpinner } from '../../components/ui/loading-screen';
 import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 
+type TaskItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+  priority: string;
+  status: string;
+  patient?: {
+    firstName: string;
+    lastName: string;
+  } | null;
+};
+
 const PRIORITY_COLORS: Record<string, string> = {
   URGENT: 'text-red-500',
   HIGH: 'text-orange-500',
@@ -31,8 +44,9 @@ export default function TasksPage() {
 
   if (isLoading) return <LoadingSpinner />;
 
-  const pending = data?.filter((t: any) => t.status !== 'DONE' && t.status !== 'CANCELLED') ?? [];
-  const done = data?.filter((t: any) => t.status === 'DONE') ?? [];
+  const pending: TaskItem[] =
+    data?.filter((t: TaskItem) => t.status !== 'DONE' && t.status !== 'CANCELLED') ?? [];
+  const done: TaskItem[] = data?.filter((t: TaskItem) => t.status === 'DONE') ?? [];
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -53,14 +67,24 @@ export default function TasksPage() {
   );
 }
 
-function TaskSection({ title, tasks, done, onToggle }: any) {
+function TaskSection({
+  title,
+  tasks,
+  done,
+  onToggle,
+}: {
+  title: string;
+  tasks: TaskItem[];
+  done?: boolean;
+  onToggle?: (id: string) => void;
+}) {
   return (
     <div>
       <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
         {title} ({tasks.length})
       </h2>
       <div className="space-y-1.5">
-        {tasks.map((task: any) => (
+        {tasks.map((task) => (
           <div
             key={task.id}
             className={`flex items-start gap-3 bg-white rounded-lg border border-border p-3 ${done ? 'opacity-50' : ''}`}

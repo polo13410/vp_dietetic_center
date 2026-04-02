@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, CheckSquare, Edit, FileText } from 'lucide-react';
+import { ArrowLeft, Calendar, Edit, FileText } from 'lucide-react';
 
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';

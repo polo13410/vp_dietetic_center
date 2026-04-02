@@ -94,7 +94,7 @@ function UsersSection() {
   );
 }
 
-function AdminCard({ icon, title, description, href }: any) {
+function AdminCard({ icon, title, description }: any) {
   return (
     <div className="bg-white rounded-xl border border-border p-5 flex items-start gap-3 hover:border-primary/20 transition-colors cursor-pointer">
       <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">

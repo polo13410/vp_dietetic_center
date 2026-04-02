@@ -29,7 +29,7 @@ export class NutritionalController {
   }
 
   @Post('entries')
-  createEntry(@Body() body: Record<string, unknown>) {
+  createEntry(@Body() body: { patientId: string; date: string | Date } & Record<string, unknown>) {
     const { patientId, ...data } = body;
     return this.service.createEntry(patientId as string, data);
   }

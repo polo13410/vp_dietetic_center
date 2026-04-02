@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { type PersistOptions, persist } from 'zustand/middleware';
 
-import type { UserDto, UserRole } from '@vp/types';
+import type { UserRole } from '@vp/types';
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   email: string;
   firstName: string;
@@ -39,11 +39,11 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'vp-auth',
-      partialState: (state) => ({
+      partialState: (state: AuthState) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         // Don't persist the access token in localStorage — re-fetch via refresh cookie
       }),
-    } as any,
+    } as PersistOptions<AuthState>,
   ),
 );

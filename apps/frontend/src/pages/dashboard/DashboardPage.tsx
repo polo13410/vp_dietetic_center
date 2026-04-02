@@ -8,7 +8,7 @@ import type { AppointmentStatus, DashboardSummary } from '@vp/types';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useCurrentUser } from '../../hooks/useAuth';
 import api from '../../lib/api';
-import { formatDate, formatDateTime } from '../../lib/utils';
+import { formatDate } from '../../lib/utils';
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Prévu',

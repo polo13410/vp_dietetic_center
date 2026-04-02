@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 
 import { Bell, LogOut, Search } from 'lucide-react';
 
@@ -8,7 +7,6 @@ import { Button } from '../ui/button';
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState('');
-  const navigate = useNavigate();
   const { mutate: logout } = useLogout();
 
   const handleSearch = (e: React.FormEvent) => {

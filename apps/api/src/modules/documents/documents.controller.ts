@@ -37,7 +37,7 @@ export class DocumentsController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Uploader un document (stockage GCS)' })
-  upload(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: any) {
+  upload(@UploadedFile() file: Express.Multer.File, @CurrentUser() _user: any) {
     // TODO: Upload vers GCS puis appeler service.create()
     // Pour l'instant retourne un placeholder
     return { message: 'Upload endpoint — GCS integration à implémenter', file: file?.originalname };

@@ -38,7 +38,7 @@ export class DocumentsService {
   }
 
   async remove(id: string) {
-    const doc = await this.findOne(id);
+    await this.findOne(id);
     return this.prisma.document.update({
       where: { id },
       data: { deletedAt: new Date() },

@@ -36,8 +36,8 @@ cp apps/frontend/.env.example apps/frontend/.env
 # 3. Démarrer PostgreSQL + Mailpit
 docker compose up -d postgres mailpit
 
-# 4. Appliquer les migrations et seeder la base
-pnpm db:migrate
+# 4. Créer la migration initiale puis seeder la base
+pnpm db:migrate:init
 pnpm db:seed
 
 # 5. Démarrer en mode développement
@@ -70,9 +70,10 @@ pnpm test         # Lancer tous les tests
 pnpm lint         # Linter tout le code
 pnpm typecheck    # Vérifier les types TypeScript
 
-pnpm db:generate  # Générer le client Prisma
-pnpm db:migrate   # Appliquer les migrations
-pnpm db:seed      # Seeder la base de données
+pnpm db:generate      # Générer le client Prisma
+pnpm db:migrate:init  # Créer la migration initiale (premier lancement)
+pnpm db:migrate       # Appliquer les migrations suivantes
+pnpm db:seed          # Seeder la base de données
 pnpm db:studio    # Ouvrir Prisma Studio
 
 pnpm docker:up    # Démarrer l'environnement Docker complet

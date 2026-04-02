@@ -12,9 +12,10 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
 
-    "db:generate": "turbo run db:generate --filter=@vp/api",
-    "db:migrate": "turbo run db:migrate --filter=@vp/api",
-    "db:seed": "turbo run db:seed --filter=@vp/api",
+    "db:generate": "pnpm --filter @vp/api run db:generate",
+    "db:migrate": "pnpm --filter @vp/api run db:migrate",
+    "db:seed": "pnpm --filter @vp/api run db:seed",
+    "db:migrate:init": "pnpm --filter @vp/api run db:migrate -- --name init",
     "db:studio": "pnpm --filter @vp/api prisma studio",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",

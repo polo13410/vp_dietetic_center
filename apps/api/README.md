@@ -21,8 +21,8 @@ docker compose up -d postgres mailpit
 # Installer les dépendances
 pnpm install
 
-# Migrations + seed
-pnpm db:migrate
+# Migration initiale + seed
+pnpm db:migrate:init
 pnpm db:seed
 
 # Dev
@@ -37,7 +37,8 @@ pnpm build           # Build production
 pnpm test            # Tests unitaires
 pnpm test:e2e        # Tests e2e
 pnpm db:studio       # Prisma Studio
-pnpm db:migrate      # Appliquer migrations
+pnpm db:migrate:init # Créer la migration initiale
+pnpm db:migrate      # Appliquer les migrations suivantes
 pnpm db:seed         # Seeder
 ```
 

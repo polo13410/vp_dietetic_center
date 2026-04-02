@@ -1,10 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
+import type { PaginatedResponse, PatientListItemDto, PatientStatus } from '@vp/types';
+import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react';
-
-import type { PaginatedResponse, PatientListItemDto, PatientStatus } from '@vp/types';
 
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';

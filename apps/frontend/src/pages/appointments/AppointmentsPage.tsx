@@ -1,7 +1,6 @@
-import { Link, useSearchParams } from 'react-router';
-
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
 
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';

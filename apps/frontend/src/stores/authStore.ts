@@ -1,7 +1,6 @@
+import type { UserRole } from '@vp/types';
 import { create } from 'zustand';
 import { type PersistOptions, persist } from 'zustand/middleware';
-
-import type { UserRole } from '@vp/types';
 
 export interface AuthUser {
   id: string;

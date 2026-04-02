@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PatientStatus, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { PatientQueryDto } from './dto/patient-query.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';

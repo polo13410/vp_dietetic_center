@@ -1,8 +1,9 @@
+import type { IncomingMessage } from 'http';
+
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
-import type { IncomingMessage } from 'http';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AppController } from './app.controller';

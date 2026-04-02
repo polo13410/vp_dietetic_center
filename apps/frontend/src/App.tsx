@@ -1,7 +1,6 @@
-import { BrowserRouter } from 'react-router';
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { BrowserRouter } from 'react-router';
 
 import { Toaster } from './components/ui/toaster';
 import { AppRouter } from './router';

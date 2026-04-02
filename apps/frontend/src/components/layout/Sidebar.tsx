@@ -1,5 +1,3 @@
-import { NavLink } from 'react-router';
-
 import {
   BarChart2,
   Calendar,
@@ -10,6 +8,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
+import { NavLink } from 'react-router';
 
 import { useCurrentUser } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';

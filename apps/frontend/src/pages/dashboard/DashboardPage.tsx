@@ -1,9 +1,7 @@
-import { Link } from 'react-router';
-
 import { useQuery } from '@tanstack/react-query';
-import { Calendar, CheckSquare, Clock, FileText, Users } from 'lucide-react';
-
 import type { AppointmentStatus, DashboardSummary } from '@vp/types';
+import { Calendar, CheckSquare, Clock, FileText, Users } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useCurrentUser } from '../../hooks/useAuth';

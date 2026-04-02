@@ -7,12 +7,11 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix && prettier --write \"apps/api/src/**/*.ts\" \"apps/frontend/src/**/*.{ts,tsx,js,jsx,css}\" \"packages/types/src/**/*.ts\" \"**/*.{json,md,yaml,yml}\" --ignore-path .gitignore",
+    "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,css,json,md,yaml,yml}\" --ignore-path .gitignore",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,css,json,md,yaml,yml}\" --ignore-path .gitignore",
+
     "db:generate": "turbo run db:generate --filter=@vp/api",
     "db:migrate": "turbo run db:migrate --filter=@vp/api",
     "db:seed": "turbo run db:seed --filter=@vp/api",
@@ -24,32 +23,21 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
-    "prettier": "^3.5.3",
     "turbo": "^2.4.4"
   },
   "lint-staged": {
     "apps/api/src/**/*.ts": [
-      "eslint --fix --no-error-on-unmatched-pattern",
-      "prettier --write"
+      "eslint --fix --no-error-on-unmatched-pattern"
     ],
     "apps/frontend/src/**/*.{ts,tsx,js,jsx}": [
-      "eslint --fix --no-error-on-unmatched-pattern",
-      "prettier --write"
-    ],
-    "apps/frontend/src/**/*.css": [
-      "prettier --write"
+      "eslint --fix --no-error-on-unmatched-pattern"
     ],
     "packages/types/src/**/*.ts": [
-      "eslint --fix --no-error-on-unmatched-pattern",
-      "prettier --write"
-    ],
-    "**/*.{json,md,yaml,yml}": [
-      "prettier --write"
+      "eslint --fix --no-error-on-unmatched-pattern"
     ]
   },
   "commitlint": {

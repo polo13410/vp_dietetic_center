@@ -1,7 +1,6 @@
-import { useNavigate } from 'react-router';
-
 import { useQuery } from '@tanstack/react-query';
 import { Shield, Users } from 'lucide-react';
+import { useNavigate } from 'react-router';
 
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useIsRole } from '../../hooks/useAuth';

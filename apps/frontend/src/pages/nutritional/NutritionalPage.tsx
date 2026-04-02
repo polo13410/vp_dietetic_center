@@ -1,10 +1,19 @@
+import { Link, useParams } from 'react-router';
+
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
-import { Link, useParams } from 'react-router';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
-import api from '../../lib/api';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 
 export default function NutritionalPage() {
@@ -12,13 +21,19 @@ export default function NutritionalPage() {
 
   const { data: profile, isLoading: loadingProfile } = useQuery({
     queryKey: ['nutritional-profile', patientId],
-    queryFn: async () => { const { data } = await api.get(`/nutritional/profile/${patientId}`); return data; },
+    queryFn: async () => {
+      const { data } = await api.get(`/nutritional/profile/${patientId}`);
+      return data;
+    },
     enabled: !!patientId,
   });
 
   const { data: entries, isLoading: loadingEntries } = useQuery({
     queryKey: ['nutritional-entries', patientId],
-    queryFn: async () => { const { data } = await api.get(`/nutritional/entries?patientId=${patientId}`); return data; },
+    queryFn: async () => {
+      const { data } = await api.get(`/nutritional/entries?patientId=${patientId}`);
+      return data;
+    },
     enabled: !!patientId,
   });
 
@@ -63,8 +78,22 @@ export default function NutritionalPage() {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Line type="monotone" dataKey="humeur" stroke="#6366f1" strokeWidth={2} dot={false} name="Humeur" />
-              <Line type="monotone" dataKey="stress" stroke="#ef4444" strokeWidth={2} dot={false} name="Stress" />
+              <Line
+                type="monotone"
+                dataKey="humeur"
+                stroke="#6366f1"
+                strokeWidth={2}
+                dot={false}
+                name="Humeur"
+              />
+              <Line
+                type="monotone"
+                dataKey="stress"
+                stroke="#ef4444"
+                strokeWidth={2}
+                dot={false}
+                name="Stress"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

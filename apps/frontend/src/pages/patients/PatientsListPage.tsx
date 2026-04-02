@@ -1,13 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
-import api from '../../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { Plus, Search } from 'lucide-react';
+
+import type { PaginatedResponse, PatientListItemDto, PatientStatus } from '@vp/types';
+
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import api from '../../lib/api';
 import { calculateAge, formatDate } from '../../lib/utils';
-import type { PaginatedResponse, PatientListItemDto, PatientStatus } from '@vp/types';
 
 const STATUS_LABELS: Record<PatientStatus, string> = {
   ACTIVE: 'Actif',
@@ -41,7 +43,11 @@ export default function PatientsListPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearchParams((p) => { p.set('search', search); p.set('page', '1'); return p; });
+    setSearchParams((p) => {
+      p.set('search', search);
+      p.set('page', '1');
+      return p;
+    });
   };
 
   return (
@@ -51,7 +57,9 @@ export default function PatientsListPage() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Patients</h1>
           {data && (
-            <p className="text-sm text-muted-foreground">{data.meta.total} patient{data.meta.total > 1 ? 's' : ''}</p>
+            <p className="text-sm text-muted-foreground">
+              {data.meta.total} patient{data.meta.total > 1 ? 's' : ''}
+            </p>
           )}
         </div>
         <Button asChild>
@@ -77,7 +85,17 @@ export default function PatientsListPage() {
           {(['', 'ACTIVE', 'INACTIVE', 'ARCHIVED'] as const).map((s) => (
             <button
               key={s}
-              onClick={() => setSearchParams((p) => { s ? p.set('status', s) : p.delete('status'); p.set('page', '1'); return p; })}
+              onClick={() =>
+                setSearchParams((p) => {
+                  if (s) {
+                    p.set('status', s);
+                  } else {
+                    p.delete('status');
+                  }
+                  p.set('page', '1');
+                  return p;
+                })
+              }
               className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                 (status ?? '') === s
                   ? 'bg-primary text-white'
@@ -102,12 +120,24 @@ export default function PatientsListPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-slate-50/50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Nom</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Âge</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Contact</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Dernier RDV</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Statut</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Tags</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Nom
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Âge
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Contact
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Dernier RDV
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Statut
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Tags
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -131,7 +161,9 @@ export default function PatientsListPage() {
                     {patient.lastAppointmentAt ? formatDate(patient.lastAppointmentAt) : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[patient.status]}`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[patient.status]}`}
+                    >
                       {STATUS_LABELS[patient.status]}
                     </span>
                   </td>
@@ -166,7 +198,12 @@ export default function PatientsListPage() {
               variant="outline"
               size="sm"
               disabled={page <= 1}
-              onClick={() => setSearchParams((p) => { p.set('page', String(page - 1)); return p; })}
+              onClick={() =>
+                setSearchParams((p) => {
+                  p.set('page', String(page - 1));
+                  return p;
+                })
+              }
             >
               Précédent
             </Button>
@@ -174,7 +211,12 @@ export default function PatientsListPage() {
               variant="outline"
               size="sm"
               disabled={page >= data.meta.totalPages}
-              onClick={() => setSearchParams((p) => { p.set('page', String(page + 1)); return p; })}
+              onClick={() =>
+                setSearchParams((p) => {
+                  p.set('page', String(page + 1));
+                  return p;
+                })
+              }
             >
               Suivant
             </Button>

@@ -1,19 +1,24 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import api from '../../lib/api';
 import { Button } from '../../components/ui/button';
+import api from '../../lib/api';
 
 const schema = z.object({ email: z.string().email('Email invalide') });
 type Form = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<Form>({
     resolver: zodResolver(schema),
   });
 
@@ -60,7 +65,10 @@ export default function ForgotPasswordPage() {
         </Button>
       </form>
       <div className="mt-4 text-center">
-        <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
+        <Link
+          to="/login"
+          className="text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+        >
           <ArrowLeft className="w-3 h-3" /> Retour à la connexion
         </Link>
       </div>

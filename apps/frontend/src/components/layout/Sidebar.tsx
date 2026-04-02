@@ -1,17 +1,19 @@
 import { NavLink } from 'react-router';
+
 import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  FileText,
-  CheckSquare,
-  Salad,
-  FolderOpen,
   BarChart2,
+  Calendar,
+  CheckSquare,
+  FileText,
+  FolderOpen,
+  LayoutDashboard,
+  Salad,
   Settings,
+  Users,
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+
 import { useCurrentUser } from '../../hooks/useAuth';
+import { cn } from '../../lib/utils';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
@@ -94,7 +96,8 @@ export function Sidebar() {
         <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg">
           <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
             <span className="text-xs font-medium text-primary">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
+              {user?.firstName?.[0]}
+              {user?.lastName?.[0]}
             </span>
           </div>
           <div className="flex-1 min-w-0">

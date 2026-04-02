@@ -1,10 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import { RequireAuth } from './components/auth/RequireAuth';
 import { AppLayout } from './components/layout/AppLayout';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { LoadingScreen } from './components/ui/loading-screen';
-import { RequireAuth } from './components/auth/RequireAuth';
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));

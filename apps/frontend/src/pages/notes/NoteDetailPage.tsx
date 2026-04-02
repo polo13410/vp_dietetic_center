@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Lock } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 
-import api from '../../lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Lock } from 'lucide-react';
+
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import api from '../../lib/api';
 import { formatDateTime } from '../../lib/utils';
 
 export default function NoteDetailPage() {
@@ -13,7 +14,10 @@ export default function NoteDetailPage() {
 
   const { data: note, isLoading } = useQuery({
     queryKey: ['note', id],
-    queryFn: async () => { const { data } = await api.get(`/notes/${id}`); return data; },
+    queryFn: async () => {
+      const { data } = await api.get(`/notes/${id}`);
+      return data;
+    },
     enabled: !!id,
   });
 
@@ -28,7 +32,9 @@ export default function NoteDetailPage() {
   return (
     <div className="max-w-2xl space-y-5">
       <div className="flex items-center gap-3">
-        <Link to="/notes" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></Link>
+        <Link to="/notes" className="text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
         <h1 className="flex-1 text-xl font-semibold truncate">{note.title ?? 'Note sans titre'}</h1>
         {note.status === 'DRAFT' && (
           <Button size="sm" variant="outline" onClick={() => finalize()} disabled={isPending}>
@@ -38,7 +44,9 @@ export default function NoteDetailPage() {
       </div>
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className={`px-2 py-0.5 rounded-full font-medium ${note.status === 'FINALIZED' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+        <span
+          className={`px-2 py-0.5 rounded-full font-medium ${note.status === 'FINALIZED' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}
+        >
           {note.status === 'FINALIZED' ? 'Finalisé' : 'Brouillon'}
         </span>
         <span>{note.type}</span>
@@ -51,7 +59,9 @@ export default function NoteDetailPage() {
           <p className="text-xs font-medium text-muted-foreground mb-2">Contenu</p>
           <p className="text-sm whitespace-pre-line">{note.content}</p>
         </div>
-        {note.sessionObjectives && <Section title="Objectifs de séance" content={note.sessionObjectives} />}
+        {note.sessionObjectives && (
+          <Section title="Objectifs de séance" content={note.sessionObjectives} />
+        )}
         {note.actionPlan && <Section title="Plan d'action" content={note.actionPlan} />}
         {note.followUpItems && <Section title="Points de suivi" content={note.followUpItems} />}
         {note.observations && <Section title="Observations" content={note.observations} />}

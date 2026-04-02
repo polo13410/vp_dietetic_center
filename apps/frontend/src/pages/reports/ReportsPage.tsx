@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 
-import api from '../../lib/api';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import api from '../../lib/api';
 
 export default function ReportsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['reports'],
-    queryFn: async () => { const { data } = await api.get('/reports/activity'); return data; },
+    queryFn: async () => {
+      const { data } = await api.get('/reports/activity');
+      return data;
+    },
   });
 
   if (isLoading) return <LoadingSpinner />;

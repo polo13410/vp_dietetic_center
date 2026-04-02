@@ -1,13 +1,14 @@
+import { useForm } from 'react-hook-form';
+import { Link, useNavigate } from 'react-router';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { Link, useNavigate } from 'react-router';
 import { z } from 'zod';
 
-import api from '../../lib/api';
 import { Button } from '../../components/ui/button';
 import { toast } from '../../components/ui/toaster';
+import api from '../../lib/api';
 
 const schema = z.object({
   firstName: z.string().min(1, 'Prénom requis'),
@@ -26,7 +27,11 @@ export default function PatientNewPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<Form>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Form>({
     resolver: zodResolver(schema),
   });
 
@@ -67,7 +72,12 @@ export default function PatientNewPage() {
         <fieldset className="bg-white rounded-xl border border-border p-5 space-y-4">
           <legend className="text-sm font-medium px-1">Coordonnées</legend>
           <Field label="Email" error={errors.email?.message}>
-            <input type="email" {...register('email')} placeholder="patient@exemple.fr" className={inputClass} />
+            <input
+              type="email"
+              {...register('email')}
+              placeholder="patient@exemple.fr"
+              className={inputClass}
+            />
           </Field>
           <Field label="Téléphone">
             <input {...register('phone')} placeholder="06 12 34 56 78" className={inputClass} />
@@ -101,7 +111,15 @@ export default function PatientNewPage() {
 const inputClass =
   'w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50';
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="block text-sm font-medium text-foreground mb-1.5">{label}</label>

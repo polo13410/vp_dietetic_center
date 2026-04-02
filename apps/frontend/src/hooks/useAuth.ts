@@ -1,7 +1,9 @@
-import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
+import { useMutation } from '@tanstack/react-query';
+
 import type { AuthTokens, UserDto } from '@vp/types';
+
 import api from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 

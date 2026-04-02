@@ -33,7 +33,15 @@
     "turbo": "^2.4.4"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
+    "apps/api/src/**/*.ts": [
+      "eslint --fix --no-error-on-unmatched-pattern",
+      "prettier --write"
+    ],
+    "apps/frontend/src/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --no-error-on-unmatched-pattern",
+      "prettier --write"
+    ],
+    "packages/types/src/**/*.ts": [
       "eslint --fix --no-error-on-unmatched-pattern",
       "prettier --write"
     ],

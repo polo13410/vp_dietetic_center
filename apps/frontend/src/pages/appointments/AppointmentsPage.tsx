@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 
-import api from '../../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
+
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 
 export default function AppointmentsPage() {
@@ -39,11 +40,21 @@ export default function AppointmentsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-slate-50/50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Date</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Patient</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Type</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Durée</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Statut</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Date
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Patient
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Type
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Durée
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  Statut
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

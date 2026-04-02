@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Edit, Calendar, FileText, CheckSquare } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 
-import api from '../../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Calendar, CheckSquare, Edit, FileText } from 'lucide-react';
+
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import api from '../../lib/api';
 import { calculateAge, formatDate } from '../../lib/utils';
 
 export default function PatientDetailPage() {
@@ -74,7 +75,10 @@ export default function PatientDetailPage() {
         <InfoCard title="Coordonnées">
           <InfoRow label="Email" value={patient.email} />
           <InfoRow label="Téléphone" value={patient.phone} />
-          <InfoRow label="Adresse" value={[patient.address, patient.zipCode, patient.city].filter(Boolean).join(', ')} />
+          <InfoRow
+            label="Adresse"
+            value={[patient.address, patient.zipCode, patient.city].filter(Boolean).join(', ')}
+          />
         </InfoCard>
 
         <InfoCard title="Contact d'urgence">
@@ -95,12 +99,24 @@ export default function PatientDetailPage() {
       {/* Counters */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Rendez-vous', count: patient._count?.appointments, href: `/appointments?patientId=${id}` },
+          {
+            label: 'Rendez-vous',
+            count: patient._count?.appointments,
+            href: `/appointments?patientId=${id}`,
+          },
           { label: 'Notes', count: patient._count?.notes, href: `/notes?patientId=${id}` },
-          { label: 'Documents', count: patient._count?.documents, href: `/documents?patientId=${id}` },
+          {
+            label: 'Documents',
+            count: patient._count?.documents,
+            href: `/documents?patientId=${id}`,
+          },
           { label: 'Tâches', count: patient._count?.tasks, href: `/tasks?patientId=${id}` },
         ].map(({ label, count, href }) => (
-          <Link key={label} to={href} className="bg-white rounded-xl border border-border p-4 text-center hover:border-primary/20 transition-colors">
+          <Link
+            key={label}
+            to={href}
+            className="bg-white rounded-xl border border-border p-4 text-center hover:border-primary/20 transition-colors"
+          >
             <p className="text-xl font-semibold">{count ?? 0}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
           </Link>

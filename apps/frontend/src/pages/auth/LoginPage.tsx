@@ -1,11 +1,12 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import { useLogin } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/button';
+import { useLogin } from '../../hooks/useAuth';
 
 const loginSchema = z.object({
   email: z.string().email('Email invalide'),
@@ -28,9 +29,7 @@ export default function LoginPage() {
   return (
     <div>
       <h2 className="text-xl font-semibold text-foreground mb-1">Connexion</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Accédez à votre espace praticienne
-      </p>
+      <p className="text-sm text-muted-foreground mb-6">Accédez à votre espace praticienne</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -45,9 +44,7 @@ export default function LoginPage() {
             className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
             placeholder="praticienne@exemple.fr"
           />
-          {errors.email && (
-            <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
-          )}
+          {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
         </div>
 
         <div>
@@ -55,10 +52,7 @@ export default function LoginPage() {
             <label htmlFor="password" className="block text-sm font-medium text-foreground">
               Mot de passe
             </label>
-            <Link
-              to="/forgot-password"
-              className="text-xs text-primary hover:text-primary/80"
-            >
+            <Link to="/forgot-password" className="text-xs text-primary hover:text-primary/80">
               Mot de passe oublié ?
             </Link>
           </div>
@@ -77,9 +71,7 @@ export default function LoginPage() {
 
         {error && (
           <div className="p-3 bg-destructive/10 rounded-lg">
-            <p className="text-sm text-destructive">
-              Email ou mot de passe incorrect
-            </p>
+            <p className="text-sm text-destructive">Email ou mot de passe incorrect</p>
           </div>
         )}
 

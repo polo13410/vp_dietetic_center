@@ -1,12 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { Calendar, Users, CheckSquare, FileText, Clock } from 'lucide-react';
 import { Link } from 'react-router';
 
-import api from '../../lib/api';
-import { useCurrentUser } from '../../hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { Calendar, CheckSquare, Clock, FileText, Users } from 'lucide-react';
+
+import type { AppointmentStatus, DashboardSummary } from '@vp/types';
+
 import { LoadingSpinner } from '../../components/ui/loading-screen';
-import { formatDateTime, formatDate } from '../../lib/utils';
-import type { DashboardSummary, AppointmentStatus } from '@vp/types';
+import { useCurrentUser } from '../../hooks/useAuth';
+import api from '../../lib/api';
+import { formatDate, formatDateTime } from '../../lib/utils';
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Prévu',
@@ -44,11 +46,14 @@ export default function DashboardPage() {
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-foreground">
-          Bonjour, {user?.firstName} 👋
-        </h1>
+        <h1 className="text-xl font-semibold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-sm text-muted-foreground">
-          {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          {today.toLocaleDateString('fr-FR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
         </p>
       </div>
 
@@ -147,8 +152,8 @@ export default function DashboardPage() {
                       task.priority === 'URGENT' || task.priority === 'HIGH'
                         ? 'bg-red-500'
                         : task.priority === 'MEDIUM'
-                        ? 'bg-amber-500'
-                        : 'bg-slate-300'
+                          ? 'bg-amber-500'
+                          : 'bg-slate-300'
                     }`}
                   />
                   <div className="flex-1 min-w-0">

@@ -19,9 +19,9 @@ services:
       timeout: 5s
       retries: 5
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: vp_mailhog
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: vp_mailpit
     restart: unless-stopped
     ports:
       - '1025:1025' # SMTP
@@ -48,7 +48,7 @@ services:
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       CORS_ORIGINS: http://localhost:5173
-      SMTP_HOST: mailhog
+      SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: noreply@vp-dietetic.local
       GCS_BUCKET_NAME: vp-dietetic-dev-documents

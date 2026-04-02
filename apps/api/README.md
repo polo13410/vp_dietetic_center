@@ -15,8 +15,8 @@ Backend NestJS pour l'application de gestion psycho-nutritionnelle.
 # Variables d'environnement
 cp .env.example .env
 
-# Démarrer PostgreSQL
-docker compose up -d postgres
+# Démarrer PostgreSQL + Mailpit
+docker compose up -d postgres mailpit
 
 # Installer les dépendances
 pnpm install

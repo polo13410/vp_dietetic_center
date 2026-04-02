@@ -1,0 +1,7 @@
+project_id        = "vp-dietetic-dev"
+region            = "europe-west1"
+github_repository = "your-org/vp_dietetic_center"
+frontend_url      = "https://vp-dietetic-dev-frontend-xxxx.run.app"
+db_password       = "change-me-secure-password"
+jwt_secret        = "change-me-min-32-chars-jwt-secret"
+jwt_refresh_secret = "change-me-min-32-chars-refresh-secret"

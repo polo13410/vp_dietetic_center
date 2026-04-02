@@ -33,8 +33,12 @@
     "turbo": "^2.4.4"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json,md,yaml,yml}": [
-      "prettier --write --ignore-unknown --no-error-on-unmatched-pattern"
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix --no-error-on-unmatched-pattern",
+      "prettier --write"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
     ]
   },
   "commitlint": {

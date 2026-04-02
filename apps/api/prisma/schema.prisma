@@ -1,0 +1,396 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  PRATICIENNE
+  ASSISTANTE
+}
+
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  IN_PERSON
+  VIDEO
+  PHONE
+}
+
+enum NoteStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum NoteType {
+  FREE
+  STRUCTURED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum DocumentType {
+  ANALYSIS
+  PRESCRIPTION
+  REPORT
+  CONSENT
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  FINALIZE
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @map("id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         UserRole @default(ASSISTANTE)
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  loginAttempts Int     @default(0) @map("login_attempts")
+  lockedUntil  DateTime? @map("locked_until")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  preferences   UserPreferences?
+  refreshTokens RefreshToken[]
+  patients      Patient[]        @relation("PractitionerPatients")
+  appointments  Appointment[]    @relation("PractitionerAppointments")
+  notes         ClinicalNote[]   @relation("AuthorNotes")
+  documents     Document[]       @relation("UploaderDocuments")
+  tasks         Task[]           @relation("AssignedTasks")
+  auditLogs     AuditLog[]
+
+  @@map("user")
+}
+
+model UserPreferences {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  language         String   @default("fr")
+  timezone         String   @default("Europe/Paris")
+  defaultView      String   @default("day") @map("default_view")
+  emailNotifications Boolean @default(true) @map("email_notifications")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_token")
+}
+
+// ─── Patient ──────────────────────────────────────────────────────────────────
+
+model Patient {
+  id             String        @id @default(uuid())
+  practitionerId String        @map("practitioner_id")
+  firstName      String        @map("first_name")
+  lastName       String        @map("last_name")
+  dateOfBirth    DateTime?     @map("date_of_birth") @db.Date
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  zipCode        String?       @map("zip_code")
+  status         PatientStatus @default(ACTIVE)
+  privateNote    String?       @map("private_note") @db.Text
+
+  // Emergency contact (stored as JSON)
+  emergencyContactName         String? @map("emergency_contact_name")
+  emergencyContactPhone        String? @map("emergency_contact_phone")
+  emergencyContactRelationship String? @map("emergency_contact_relationship")
+
+  // Metadata
+  referralSource String?  @map("referral_source")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  practitioner     User                @relation("PractitionerPatients", fields: [practitionerId], references: [id])
+  tags             PatientTag[]
+  appointments     Appointment[]
+  notes            ClinicalNote[]
+  nutritionalProfile NutritionalProfile?
+  nutritionalEntries NutritionalEntry[]
+  documents        Document[]
+  tasks            Task[]
+  consents         Consent[]
+
+  @@map("patient")
+}
+
+model Tag {
+  id       String       @id @default(uuid())
+  name     String       @unique
+  color    String       @default("#6366f1")
+  patients PatientTag[]
+
+  @@map("tag")
+}
+
+model PatientTag {
+  patientId String @map("patient_id")
+  tagId     String @map("tag_id")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([patientId, tagId])
+  @@map("patient_tag")
+}
+
+model Consent {
+  id          String   @id @default(uuid())
+  patientId   String   @map("patient_id")
+  type        String   // "data_processing", "health_data", "communication"
+  version     String   @default("1.0")
+  givenAt     DateTime @map("given_at")
+  revokedAt   DateTime? @map("revoked_at")
+  evidence    String?  @db.Text // Texte signé ou référence document
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("consent")
+}
+
+// ─── Appointment ─────────────────────────────────────────────────────────────
+
+model Appointment {
+  id             String            @id @default(uuid())
+  patientId      String            @map("patient_id")
+  practitionerId String            @map("practitioner_id")
+  startAt        DateTime          @map("start_at")
+  endAt          DateTime          @map("end_at")
+  duration       Int               // minutes
+  type           AppointmentType   @default(IN_PERSON)
+  status         AppointmentStatus @default(SCHEDULED)
+  reason         String?           @db.Text
+  preNotes       String?           @map("pre_notes") @db.Text
+  postNotes      String?           @map("post_notes") @db.Text
+  cancelReason   String?           @map("cancel_reason")
+  reminderSentAt DateTime?         @map("reminder_sent_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  patient      Patient        @relation(fields: [patientId], references: [id])
+  practitioner User           @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
+  notes        ClinicalNote[]
+  tasks        Task[]
+
+  @@index([patientId])
+  @@index([practitionerId])
+  @@index([startAt])
+  @@map("appointment")
+}
+
+// ─── Clinical Notes ───────────────────────────────────────────────────────────
+
+model ClinicalNote {
+  id            String     @id @default(uuid())
+  patientId     String     @map("patient_id")
+  appointmentId String?    @map("appointment_id")
+  authorId      String     @map("author_id")
+  type          NoteType   @default(FREE)
+  status        NoteStatus @default(DRAFT)
+  title         String?
+  content       String     @db.Text
+  // Structured note fields
+  sessionObjectives String? @map("session_objectives") @db.Text
+  actionPlan        String? @map("action_plan") @db.Text
+  followUpItems     String? @map("follow_up_items") @db.Text
+  observations      String? @db.Text
+  finalizedAt   DateTime?  @map("finalized_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  author      User         @relation("AuthorNotes", fields: [authorId], references: [id])
+
+  @@index([patientId])
+  @@index([appointmentId])
+  @@map("clinical_note")
+}
+
+// ─── Nutritional ─────────────────────────────────────────────────────────────
+
+model NutritionalProfile {
+  id                String   @id @default(uuid())
+  patientId         String   @unique @map("patient_id")
+  objectives        String?  @db.Text
+  dietaryHabits     String?  @map("dietary_habits") @db.Text
+  foodRelationship  String?  @map("food_relationship") @db.Text
+  emotionalTriggers String?  @map("emotional_triggers") @db.Text
+  allergies         String?  @db.Text
+  intolerances      String?  @db.Text
+  supplements       String?  @db.Text
+  medications       String?  @db.Text
+  activityLevel     String?  @map("activity_level")
+  sleepPattern      String?  @map("sleep_pattern") @db.Text
+  stressLevel       String?  @map("stress_level")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("nutritional_profile")
+}
+
+model NutritionalEntry {
+  id                  String   @id @default(uuid())
+  patientId           String   @map("patient_id")
+  date                DateTime @db.Date
+  weight              Decimal? @db.Decimal(5, 2)
+  bmi                 Decimal? @db.Decimal(4, 2)
+  mood                Int?     // 1-10
+  energyLevel         Int?     @map("energy_level") // 1-10
+  stressLevel         Int?     @map("stress_level") // 1-10
+  sleepHours          Decimal? @map("sleep_hours") @db.Decimal(4, 1)
+  sleepQuality        Int?     @map("sleep_quality") // 1-10
+  physicalActivity    String?  @map("physical_activity")
+  waterIntake         Decimal? @map("water_intake") @db.Decimal(4, 2) // liters
+  mealNotes           String?  @map("meal_notes") @db.Text
+  behaviorNotes       String?  @map("behavior_notes") @db.Text
+  practitionerComment String?  @map("practitioner_comment") @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, date])
+  @@index([patientId])
+  @@map("nutritional_entry")
+}
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+model Document {
+  id           String       @id @default(uuid())
+  patientId    String       @map("patient_id")
+  uploadedById String       @map("uploaded_by_id")
+  name         String
+  originalName String       @map("original_name")
+  type         DocumentType @default(OTHER)
+  mimeType     String       @map("mime_type")
+  sizeBytes    Int          @map("size_bytes")
+  gcsPath      String       @map("gcs_path") // Path dans Cloud Storage
+  description  String?      @db.Text
+  deletedAt    DateTime?    @map("deleted_at") // Soft delete
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  patient    Patient @relation(fields: [patientId], references: [id])
+  uploadedBy User    @relation("UploaderDocuments", fields: [uploadedById], references: [id])
+
+  @@index([patientId])
+  @@map("document")
+}
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+
+model Task {
+  id            String       @id @default(uuid())
+  title         String
+  description   String?      @db.Text
+  patientId     String?      @map("patient_id")
+  appointmentId String?      @map("appointment_id")
+  assignedToId  String?      @map("assigned_to_id")
+  createdById   String       @map("created_by_id")
+  status        TaskStatus   @default(PENDING)
+  priority      TaskPriority @default(MEDIUM)
+  dueAt         DateTime?    @map("due_at")
+  completedAt   DateTime?    @map("completed_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  patient     Patient?     @relation(fields: [patientId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  assignedTo  User?        @relation("AssignedTasks", fields: [assignedToId], references: [id])
+
+  @@index([patientId])
+  @@index([assignedToId])
+  @@index([dueAt])
+  @@map("task")
+}
+
+// ─── Audit ────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  userId    String      @map("user_id")
+  action    AuditAction
+  entity    String      // "patient", "appointment", "note", etc.
+  entityId  String?     @map("entity_id")
+  metadata  Json?       // Données supplémentaires (avant/après pour UPDATE)
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
+}

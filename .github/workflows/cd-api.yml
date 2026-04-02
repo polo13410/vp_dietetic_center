@@ -1,0 +1,100 @@
+name: CD — API
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/types/**'
+      - '.github/workflows/cd-api.yml'
+
+concurrency:
+  group: cd-api-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGION: europe-west1
+  REPOSITORY: vp-dietetic
+
+jobs:
+  deploy:
+    name: Build & Deploy API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      id-token: write  # For Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "env=prod" >> $GITHUB_OUTPUT
+            echo "project=${{ secrets.GCP_PROJECT_ID_PROD }}" >> $GITHUB_OUTPUT
+            echo "sa=${{ secrets.GCP_SERVICE_ACCOUNT_PROD }}" >> $GITHUB_OUTPUT
+            echo "wip=${{ secrets.GCP_WIF_PROVIDER_PROD }}" >> $GITHUB_OUTPUT
+          else
+            echo "env=dev" >> $GITHUB_OUTPUT
+            echo "project=${{ secrets.GCP_PROJECT_ID_DEV }}" >> $GITHUB_OUTPUT
+            echo "sa=${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}" >> $GITHUB_OUTPUT
+            echo "wip=${{ secrets.GCP_WIF_PROVIDER_DEV }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ steps.env.outputs.wip }}
+          service_account: ${{ steps.env.outputs.sa }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push API image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ steps.env.outputs.project }}/${{ env.REPOSITORY }}/api:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ steps.env.outputs.project }}/${{ env.REPOSITORY }}/api:latest"
+
+          docker build \
+            --target production \
+            --tag "$IMAGE" \
+            --tag "$IMAGE_LATEST" \
+            --cache-from "$IMAGE_LATEST" \
+            apps/api/
+
+          docker push "$IMAGE"
+          docker push "$IMAGE_LATEST"
+
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+        id: build
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "vp-dietetic-${{ steps.env.outputs.env }}-api" \
+            --image "${{ steps.build.outputs.image }}" \
+            --region "${{ env.REGION }}" \
+            --project "${{ steps.env.outputs.project }}" \
+            --no-traffic
+
+      - name: Run DB migrations
+        run: |
+          # Utilise Cloud Run Jobs ou un Cloud SQL Proxy pour les migrations
+          echo "TODO: Exécuter prisma migrate deploy via Cloud Run Job"
+
+      - name: Shift 100% traffic
+        run: |
+          gcloud run services update-traffic "vp-dietetic-${{ steps.env.outputs.env }}-api" \
+            --region "${{ env.REGION }}" \
+            --project "${{ steps.env.outputs.project }}" \
+            --to-latest
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "API deployed: ${{ steps.env.outputs.env }} — ${{ job.status }}"

@@ -44,7 +44,14 @@
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
-    ]
+    ],
+    "rules": {
+      "body-max-line-length": [
+        2,
+        "always",
+        200
+      ]
+    }
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {

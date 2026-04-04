@@ -63,6 +63,11 @@ export class CreatePatientDto {
   @Type(() => EmergencyContactDto)
   emergencyContact?: EmergencyContactDto;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  privateNote?: string;
+
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()

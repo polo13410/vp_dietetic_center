@@ -20,6 +20,12 @@ export class PatientsController {
     return this.patientsService.findAll(user, query);
   }
 
+  @Get('tags')
+  @ApiOperation({ summary: 'Lister tous les tags disponibles' })
+  findAllTags() {
+    return this.patientsService.findAllTags();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Fiche patient complète' })
   findOne(@Param('id') id: string, @CurrentUser() user: any) {

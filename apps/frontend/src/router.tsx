@@ -13,9 +13,11 @@ const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PatientsListPage = lazy(() => import('./pages/patients/PatientsListPage'));
 const PatientDetailPage = lazy(() => import('./pages/patients/PatientDetailPage'));
 const PatientNewPage = lazy(() => import('./pages/patients/PatientNewPage'));
+const PatientEditPage = lazy(() => import('./pages/patients/PatientEditPage'));
 const AppointmentsPage = lazy(() => import('./pages/appointments/AppointmentsPage'));
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/AppointmentDetailPage'));
 const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
+const NoteNewPage = lazy(() => import('./pages/notes/NoteNewPage'));
 const NoteDetailPage = lazy(() => import('./pages/notes/NoteDetailPage'));
 const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const NutritionalPage = lazy(() => import('./pages/nutritional/NutritionalPage'));
@@ -53,6 +55,7 @@ export function AppRouter() {
           <Route path="/patients" element={<PatientsListPage />} />
           <Route path="/patients/new" element={<PatientNewPage />} />
           <Route path="/patients/:id" element={<PatientDetailPage />} />
+          <Route path="/patients/:id/edit" element={<PatientEditPage />} />
 
           {/* Rendez-vous */}
           <Route path="/appointments" element={<AppointmentsPage />} />
@@ -63,6 +66,7 @@ export function AppRouter() {
 
           {/* Notes */}
           <Route path="/notes" element={<NotesPage />} />
+          <Route path="/notes/new" element={<NoteNewPage />} />
           <Route path="/notes/:id" element={<NoteDetailPage />} />
 
           {/* Tâches */}

@@ -168,6 +168,10 @@ export class PatientsService {
     });
   }
 
+  async findAllTags() {
+    return this.prisma.tag.findMany({ orderBy: { name: 'asc' } });
+  }
+
   async getTimeline(id: string, user: User) {
     const patient = await this.findOneRaw(id);
     this.checkAccess(patient, user);

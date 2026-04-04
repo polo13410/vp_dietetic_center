@@ -1,7 +1,16 @@
 import { Module } from '@nestjs/common';
+import { MulterModule } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
+import { StorageService } from './storage.service';
 
-@Module({ controllers: [DocumentsController], providers: [DocumentsService] })
+@Module({
+  imports: [
+    MulterModule.register({ storage: memoryStorage() }),
+  ],
+  controllers: [DocumentsController],
+  providers: [DocumentsService, StorageService],
+})
 export class DocumentsModule {}

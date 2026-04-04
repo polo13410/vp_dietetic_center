@@ -103,6 +103,7 @@ model User {
   documents     Document[]       @relation("UploaderDocuments")
   tasks         Task[]           @relation("AssignedTasks")
   auditLogs     AuditLog[]
+  notifications Notification[]
 
   @@map("user")
 }
@@ -372,6 +373,36 @@ model Task {
   @@index([assignedToId])
   @@index([dueAt])
   @@map("task")
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+enum NotificationType {
+  APPOINTMENT_CREATED
+  APPOINTMENT_CANCELLED
+  TASK_CREATED
+  TASK_DUE
+  NOTE_FINALIZED
+  PATIENT_CREATED
+  SYSTEM
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String           @map("user_id")
+  type       NotificationType
+  title      String
+  message    String
+  entityType String?          @map("entity_type") // "appointment", "task", "note", "patient"
+  entityId   String?          @map("entity_id")
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notification")
 }
 
 // ─── Audit ────────────────────────────────────────────────────────────────────

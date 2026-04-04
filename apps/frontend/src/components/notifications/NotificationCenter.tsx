@@ -1,78 +1,91 @@
-import { Bell, BellDot } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, BellDot, Check } from 'lucide-react';
+import { useNavigate } from 'react-router';
 
-import { useNotificationStore, type Notification } from '../../stores/notificationStore';
-import { Badge } from '../ui/badge';
+import api from '../../lib/api';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
-import { toast } from '../ui/toaster';
 
-function NotificationItem({ notification }: { notification: Notification }) {
-  const { markAsRead, removeNotification } = useNotificationStore();
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  read: boolean;
+  createdAt: string;
+}
 
-  const handleClick = () => {
-    if (!notification.read) {
-      markAsRead(notification.id);
-    }
-    toast({
-      title: notification.title,
-      description: notification.description,
-      variant: notification.type === 'error' ? 'destructive' : 'default',
-    });
-  };
+function getEntityLink(entityType?: string | null, entityId?: string | null): string | null {
+  if (!entityType || !entityId) return null;
+  switch (entityType) {
+    case 'appointment': return `/appointments/${entityId}`;
+    case 'note': return `/notes/${entityId}`;
+    case 'patient': return `/patients/${entityId}`;
+    case 'task': return '/tasks';
+    default: return null;
+  }
+}
 
-  const getNotificationStyles = (type: Notification['type']) => {
-    switch (type) {
-      case 'success':
-        return 'border-l-4 border-green-500';
-      case 'error':
-        return 'border-l-4 border-destructive';
-      case 'warning':
-        return 'border-l-4 border-yellow-500';
-      case 'info':
-        return 'border-l-4 border-blue-500';
-      default:
-        return 'border-l-4 border-primary';
-    }
-  };
-
-  return (
-    <div
-      className={`p-3 hover:bg-accent rounded-md cursor-pointer ${
-        notification.read ? 'opacity-70' : ''
-      } ${getNotificationStyles(notification.type)}`}
-      onClick={handleClick}
-    >
-      <div className="flex justify-between items-start">
-        <div className="font-medium text-sm">{notification.title}</div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5"
-          onClick={(e) => {
-            e.stopPropagation();
-            removeNotification(notification.id);
-          }}
-        >
-          <span className="sr-only">Supprimer la notification</span>
-          &times;
-        </Button>
-      </div>
-      {notification.description && (
-        <p className="text-sm text-muted-foreground line-clamp-2">{notification.description}</p>
-      )}
-      {!notification.read && (
-        <div className="mt-1 text-xs flex justify-end">
-          <Badge variant="outline" className="bg-primary/10">
-            Nouveau
-          </Badge>
-        </div>
-      )}
-    </div>
-  );
+function formatTimeAgo(date: string): string {
+  const diff = Date.now() - new Date(date).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'A l\'instant';
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `Il y a ${days}j`;
 }
 
 export function NotificationCenter() {
-  const { notifications, unreadCount, clearAllNotifications } = useNotificationStore();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const { data } = await api.get('/notifications');
+      return data as Notification[];
+    },
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: countData } = useQuery({
+    queryKey: ['notifications', 'count'],
+    queryFn: async () => {
+      const { data } = await api.get('/notifications/count');
+      return data as { count: number };
+    },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: string) => api.patch(`/notifications/${id}/read`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => api.post('/notifications/read-all'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const unreadCount = countData?.count ?? 0;
+
+  const handleClick = (notif: Notification) => {
+    if (!notif.read) {
+      markAsReadMutation.mutate(notif.id);
+    }
+    const link = getEntityLink(notif.entityType, notif.entityId);
+    if (link) navigate(link);
+  };
 
   return (
     <div className="relative group">
@@ -92,22 +105,39 @@ export function NotificationCenter() {
       <div className="absolute right-0 top-full mt-1 w-80 bg-popover border rounded-md shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
         <div className="px-4 py-3 font-medium flex justify-between items-center border-b">
           <span className="text-sm">Notifications</span>
-          {notifications.length > 0 && (
+          {unreadCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
               className="text-xs"
-              onClick={clearAllNotifications}
+              onClick={() => markAllAsReadMutation.mutate()}
             >
-              Tout effacer
+              <Check className="w-3 h-3 mr-1" /> Tout lire
             </Button>
           )}
         </div>
         <ScrollArea className="max-h-[400px]">
           {notifications.length > 0 ? (
-            <div className="p-2 space-y-2">
-              {notifications.map((notification) => (
-                <NotificationItem key={notification.id} notification={notification} />
+            <div className="p-2 space-y-1">
+              {notifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  className={`p-3 rounded-md cursor-pointer hover:bg-accent transition-colors ${
+                    !notif.read ? 'bg-primary/5' : 'opacity-70'
+                  }`}
+                  onClick={() => handleClick(notif)}
+                >
+                  <div className="flex items-start gap-2">
+                    {!notif.read && (
+                      <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{notif.title}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{notif.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{formatTimeAgo(notif.createdAt)}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (

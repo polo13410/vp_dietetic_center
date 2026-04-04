@@ -4,16 +4,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NoteStatus, User, UserRole } from '@prisma/client';
+import { NoteStatus, NotificationType, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 
 @Injectable()
 export class NotesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findAll(user: User, patientId?: string, appointmentId?: string, status?: NoteStatus) {
     const where: Record<string, unknown> = {
@@ -71,10 +75,21 @@ export class NotesService {
     if (note.status === NoteStatus.FINALIZED) {
       throw new BadRequestException('Note déjà finalisée');
     }
-    return this.prisma.clinicalNote.update({
+    const updated = await this.prisma.clinicalNote.update({
       where: { id },
       data: { status: NoteStatus.FINALIZED, finalizedAt: new Date() },
     });
+
+    this.notifications.create(
+      user.id,
+      NotificationType.NOTE_FINALIZED,
+      'Note finalisee',
+      `La note "${note.title || 'Sans titre'}" a ete finalisee`,
+      'note',
+      id,
+    ).catch(() => {});
+
+    return updated;
   }
 
   async remove(id: string, user: User) {

@@ -1,7 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, User, UserRole } from '@prisma/client';
+import { AppointmentStatus, NotificationType, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import { AppointmentQueryDto } from './dto/appointment-query.dto';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -9,7 +10,10 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findAll(user: User, query: AppointmentQueryDto) {
     const { page = 1, limit = 20, patientId, status, from, to } = query;
@@ -60,7 +64,7 @@ export class AppointmentsService {
 
   async create(dto: CreateAppointmentDto, user: User) {
     const endAt = new Date(new Date(dto.startAt).getTime() + dto.duration * 60 * 1000);
-    return this.prisma.appointment.create({
+    const appt = await this.prisma.appointment.create({
       data: {
         patientId: dto.patientId,
         practitionerId: user.id,
@@ -75,6 +79,17 @@ export class AppointmentsService {
         patient: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+
+    this.notifications.create(
+      user.id,
+      NotificationType.APPOINTMENT_CREATED,
+      'Rendez-vous cree',
+      `RDV avec ${appt.patient.lastName} ${appt.patient.firstName} le ${new Date(dto.startAt).toLocaleDateString('fr-FR')}`,
+      'appointment',
+      appt.id,
+    ).catch(() => {});
+
+    return appt;
   }
 
   async update(id: string, dto: UpdateAppointmentDto, user: User) {

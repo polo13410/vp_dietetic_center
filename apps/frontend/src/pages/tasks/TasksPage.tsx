@@ -29,13 +29,6 @@ type TaskItem = {
   patient?: { id: string; firstName: string; lastName: string } | null;
 };
 
-const PRIORITY_COLORS: Record<string, string> = {
-  URGENT: 'text-red-500',
-  HIGH: 'text-orange-500',
-  MEDIUM: 'text-amber-500',
-  LOW: 'text-muted-foreground',
-};
-
 const STATUS_FILTERS = [
   { value: '', label: 'Tous' },
   { value: 'PENDING', label: 'En attente' },

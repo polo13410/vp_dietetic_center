@@ -16,6 +16,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { NotesModule } from './modules/notes/notes.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { NutritionalModule } from './modules/nutritional/nutritional.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -68,6 +69,7 @@ import { PrismaModule } from './prisma/prisma.module';
     TasksModule,
     SearchModule,
     ReportsModule,
+    NotificationsModule,
     AuditModule,
   ],
   controllers: [AppController],

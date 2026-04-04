@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, Edit, FileText, FolderOpen, Heart } from 'lucide-react';
+import { ArrowLeft, Calendar, Download, Edit, FileText, FolderOpen, Heart } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 
+import { PatientTimeline } from '../../components/patients/PatientTimeline';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import api from '../../lib/api';
+import { exportPatientPdf } from '../../lib/pdf-export';
 import { calculateAge, formatDate, formatDateTime } from '../../lib/utils';
 
 export default function PatientDetailPage() {
@@ -70,6 +72,9 @@ export default function PatientDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => exportPatientPdf(patient, appointments, notes)}>
+            <Download className="w-4 h-4" /> PDF
+          </Button>
           <Button size="sm" asChild>
             <Link to={`/patients/${id}/edit`}>
               <Edit className="w-4 h-4" /> Modifier
@@ -106,6 +111,7 @@ export default function PatientDetailPage() {
           <TabsTrigger value="documents">
             Documents ({patient._count?.documents ?? 0})
           </TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
         {/* ── Overview Tab ─────────────────────────── */}
@@ -272,6 +278,11 @@ export default function PatientDetailPage() {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Timeline Tab ─────────────────────── */}
+        <TabsContent value="timeline">
+          <PatientTimeline patientId={id!} />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -289,7 +300,7 @@ function InfoCard({ title, children }: { title: string; children: React.ReactNod
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2">
-      <span className="text-xs text-muted-foreground w-24 flex-shrink-0">{label}</span>
+      <span className="text-xs text-muted-foreground w-24 shrink-0">{label}</span>
       <span className="text-xs text-foreground">{value ?? '—'}</span>
     </div>
   );

@@ -33,7 +33,7 @@ export default function ReportsPage() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-white rounded-xl border border-border p-5">
+    <div className="bg-card rounded-xl border border-border p-5">
       <p className="text-2xl font-semibold text-foreground">{value}</p>
       <p className="text-sm text-muted-foreground mt-1">{label}</p>
     </div>

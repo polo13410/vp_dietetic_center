@@ -44,7 +44,7 @@ export default function NoteDetailPage() {
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span
-          className={`px-2 py-0.5 rounded-full font-medium ${note.status === 'FINALIZED' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}
+          className={`px-2 py-0.5 rounded-full font-medium ${note.status === 'FINALIZED' ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}
         >
           {note.status === 'FINALIZED' ? 'Finalisé' : 'Brouillon'}
         </span>
@@ -53,7 +53,7 @@ export default function NoteDetailPage() {
         {note.finalizedAt && <span>Finalisé le {formatDateTime(note.finalizedAt)}</span>}
       </div>
 
-      <div className="bg-white rounded-xl border border-border p-5 space-y-4">
+      <div className="bg-card rounded-xl border border-border p-5 space-y-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Contenu</p>
           <p className="text-sm whitespace-pre-line">{note.content}</p>

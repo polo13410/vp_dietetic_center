@@ -89,9 +89,9 @@ export default function PatientDetailPage() {
 
       {/* Private note */}
       {patient.privateNote && (
-        <div className="bg-amber-50 border border-amber-200/50 rounded-xl p-4">
-          <p className="text-xs font-medium text-amber-700 mb-1.5">Note privée praticienne</p>
-          <p className="text-sm text-amber-900 whitespace-pre-line">{patient.privateNote}</p>
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1.5">Note privée praticienne</p>
+          <p className="text-sm text-foreground whitespace-pre-line">{patient.privateNote}</p>
         </div>
       )}
 
@@ -114,7 +114,7 @@ export default function PatientDetailPage() {
           <Link
             key={label}
             to={href}
-            className="bg-white rounded-xl border border-border p-4 text-center hover:border-primary/20 transition-colors"
+            className="bg-card rounded-xl border border-border p-4 text-center hover:border-primary/20 transition-colors"
           >
             <p className="text-xl font-semibold">{count ?? 0}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
@@ -127,7 +127,7 @@ export default function PatientDetailPage() {
 
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-border p-4">
+    <div className="bg-card rounded-xl border border-border p-4">
       <h3 className="text-sm font-medium text-foreground mb-3">{title}</h3>
       <div className="space-y-2">{children}</div>
     </div>

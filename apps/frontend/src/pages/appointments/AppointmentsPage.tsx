@@ -30,7 +30,7 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         {isLoading ? (
           <LoadingSpinner />
         ) : !data?.data.length ? (
@@ -38,7 +38,7 @@ export default function AppointmentsPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-slate-50/50">
+              <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
                   Date
                 </th>
@@ -58,7 +58,7 @@ export default function AppointmentsPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {data.data.map((appt: any) => (
-                <tr key={appt.id} className="hover:bg-slate-50/50">
+                <tr key={appt.id} className="hover:bg-muted/50">
                   <td className="px-4 py-3">{formatDate(appt.startAt, 'dd/MM/yyyy HH:mm')}</td>
                   <td className="px-4 py-3 font-medium">
                     <Link to={`/patients/${appt.patientId}`} className="hover:text-primary">
@@ -68,7 +68,7 @@ export default function AppointmentsPage() {
                   <td className="px-4 py-3 text-muted-foreground">{appt.type}</td>
                   <td className="px-4 py-3 text-muted-foreground">{appt.duration}min</td>
                   <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400">
                       {appt.status}
                     </span>
                   </td>

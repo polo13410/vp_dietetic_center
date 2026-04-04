@@ -17,11 +17,11 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
 };
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
-  SCHEDULED: 'bg-blue-50 text-blue-700',
-  CONFIRMED: 'bg-green-50 text-green-700',
-  COMPLETED: 'bg-slate-50 text-slate-600',
-  CANCELLED: 'bg-red-50 text-red-600',
-  NO_SHOW: 'bg-orange-50 text-orange-600',
+  SCHEDULED: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  CONFIRMED: 'bg-green-500/15 text-green-600 dark:text-green-400',
+  COMPLETED: 'bg-muted text-muted-foreground',
+  CANCELLED: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  NO_SHOW: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
 };
 
 export default function DashboardPage() {
@@ -85,7 +85,7 @@ export default function DashboardPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Today's appointments */}
-        <section className="bg-white rounded-xl border border-border p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground">Rendez-vous du jour</h2>
             <Link to="/appointments" className="text-xs text-primary hover:underline">
@@ -102,7 +102,7 @@ export default function DashboardPage() {
                 <Link
                   key={appt.id}
                   to={`/appointments/${appt.id}`}
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted transition-colors group"
                 >
                   <div className="w-1.5 h-8 rounded-full bg-primary/40 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -130,7 +130,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Pending tasks */}
-        <section className="bg-white rounded-xl border border-border p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground">Tâches à faire</h2>
             <Link to="/tasks" className="text-xs text-primary hover:underline">
@@ -186,10 +186,10 @@ function KpiCard({
   return (
     <Link
       to={href}
-      className="bg-white rounded-xl border border-border p-4 hover:border-primary/20 transition-colors"
+      className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-colors"
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
           {icon}
         </div>
       </div>

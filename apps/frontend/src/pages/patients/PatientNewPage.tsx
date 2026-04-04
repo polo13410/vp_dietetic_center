@@ -53,7 +53,7 @@ export default function PatientNewPage() {
       </div>
 
       <form onSubmit={handleSubmit((d) => mutate(d))} className="space-y-6">
-        <fieldset className="bg-white rounded-xl border border-border p-5 space-y-4">
+        <fieldset className="bg-card rounded-xl border border-border p-5 space-y-4">
           <legend className="text-sm font-medium px-1">Identité</legend>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Prénom *" error={errors.firstName?.message}>
@@ -68,7 +68,7 @@ export default function PatientNewPage() {
           </Field>
         </fieldset>
 
-        <fieldset className="bg-white rounded-xl border border-border p-5 space-y-4">
+        <fieldset className="bg-card rounded-xl border border-border p-5 space-y-4">
           <legend className="text-sm font-medium px-1">Coordonnées</legend>
           <Field label="Email" error={errors.email?.message}>
             <input

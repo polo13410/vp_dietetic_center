@@ -87,7 +87,7 @@ function TaskSection({
         {tasks.map((task) => (
           <div
             key={task.id}
-            className={`flex items-start gap-3 bg-white rounded-lg border border-border p-3 ${done ? 'opacity-50' : ''}`}
+            className={`flex items-start gap-3 bg-card rounded-lg border border-border p-3 ${done ? 'opacity-50' : ''}`}
           >
             <button onClick={() => onToggle?.(task.id)} className="mt-0.5 flex-shrink-0">
               {done ? (

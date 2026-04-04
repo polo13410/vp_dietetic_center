@@ -67,7 +67,7 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'shrink-0 bg-white dark:bg-slate-900 border-r border-border flex flex-col transition-all duration-300',
+        'shrink-0 bg-card border-r border-border flex flex-col transition-all duration-300',
         collapsed ? 'w-16' : 'w-64',
       )}
     >

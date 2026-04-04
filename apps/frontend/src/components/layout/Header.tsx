@@ -22,7 +22,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-border flex items-center px-6 gap-4 shrink-0">
+    <header className="h-16 bg-card border-b border-border flex items-center px-6 gap-4 shrink-0">
       {/* Search */}
       <form onSubmit={handleSearch} className="flex-1 max-w-md">
         <div className="relative">
@@ -32,7 +32,7 @@ export function Header() {
             placeholder="Rechercher un patient, RDV, note... (Ctrl+K)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
+            className="w-full pl-9 pr-4 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
           />
         </div>
       </form>

@@ -57,7 +57,7 @@ export default function NutritionalPage() {
 
       {/* Profile */}
       {profile && (
-        <div className="bg-white rounded-xl border border-border p-5 grid md:grid-cols-2 gap-4">
+        <div className="bg-card rounded-xl border border-border p-5 grid md:grid-cols-2 gap-4">
           <ProfileItem label="Objectifs" value={profile.objectives} />
           <ProfileItem label="Relation à l'alimentation" value={profile.foodRelationship} />
           <ProfileItem label="Habitudes alimentaires" value={profile.dietaryHabits} />
@@ -69,11 +69,11 @@ export default function NutritionalPage() {
 
       {/* Charts */}
       {chartData.length > 0 && (
-        <div className="bg-white rounded-xl border border-border p-5">
+        <div className="bg-card rounded-xl border border-border p-5">
           <h2 className="text-sm font-medium mb-4">Évolution — 14 derniers jours</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
               <Tooltip />

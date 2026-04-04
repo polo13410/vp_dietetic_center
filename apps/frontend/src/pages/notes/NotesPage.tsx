@@ -40,7 +40,7 @@ export default function NotesPage() {
             <Link
               key={note.id}
               to={`/notes/${note.id}`}
-              className="flex items-start gap-3 bg-white rounded-xl border border-border p-4 hover:border-primary/20 transition-colors"
+              className="flex items-start gap-3 bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-colors"
             >
               <div
                 className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${note.status === 'FINALIZED' ? 'bg-green-500' : 'bg-amber-400'}`}

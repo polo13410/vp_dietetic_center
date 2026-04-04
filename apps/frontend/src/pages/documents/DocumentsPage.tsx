@@ -28,7 +28,7 @@ export default function DocumentsPage() {
       ) : !data?.length ? (
         <p className="text-center text-muted-foreground py-12 text-sm">Aucun document</p>
       ) : (
-        <div className="bg-white rounded-xl border border-border divide-y divide-border">
+        <div className="bg-card rounded-xl border border-border divide-y divide-border">
           {data.map((doc: any) => (
             <div key={doc.id} className="flex items-center gap-3 px-4 py-3">
               <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />

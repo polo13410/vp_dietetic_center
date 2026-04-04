@@ -2,7 +2,7 @@ import { Outlet } from 'react-router';
 
 export function AuthLayout() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 mb-4">
@@ -13,7 +13,7 @@ export function AuthLayout() {
           <h1 className="text-2xl font-semibold text-foreground">VP Dietetic Center</h1>
           <p className="text-sm text-muted-foreground mt-1">Espace praticienne</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-border p-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
           <Outlet />
         </div>
       </div>

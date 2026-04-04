@@ -28,7 +28,7 @@ export default function AppointmentDetailPage() {
         </Link>
         <h1 className="text-xl font-semibold">Rendez-vous — {formatDateTime(appt.startAt)}</h1>
       </div>
-      <div className="bg-white rounded-xl border border-border p-5 space-y-3">
+      <div className="bg-card rounded-xl border border-border p-5 space-y-3">
         <p className="text-sm">
           <span className="text-muted-foreground w-32 inline-block">Patient</span>
           <Link to={`/patients/${appt.patientId}`} className="text-primary hover:underline">

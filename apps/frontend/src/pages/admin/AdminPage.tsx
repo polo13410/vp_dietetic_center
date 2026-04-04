@@ -51,13 +51,13 @@ function UsersSection() {
   if (isLoading) return <LoadingSpinner />;
 
   return (
-    <div className="bg-white rounded-xl border border-border overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="px-5 py-4 border-b border-border">
         <h2 className="text-sm font-semibold">Utilisateurs</h2>
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border bg-slate-50/50">
+          <tr className="border-b border-border bg-muted/50">
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Nom</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Email</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Rôle</th>
@@ -68,7 +68,7 @@ function UsersSection() {
         </thead>
         <tbody className="divide-y divide-border">
           {data?.map((user: any) => (
-            <tr key={user.id} className="hover:bg-slate-50/50">
+            <tr key={user.id} className="hover:bg-muted/50">
               <td className="px-4 py-3 font-medium">
                 {user.firstName} {user.lastName}
               </td>
@@ -80,7 +80,7 @@ function UsersSection() {
               </td>
               <td className="px-4 py-3">
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${user.isActive ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}
+                  className={`text-xs px-2 py-0.5 rounded-full ${user.isActive ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}
                 >
                   {user.isActive ? 'Actif' : 'Inactif'}
                 </span>
@@ -95,8 +95,8 @@ function UsersSection() {
 
 function AdminCard({ icon, title, description }: any) {
   return (
-    <div className="bg-white rounded-xl border border-border p-5 flex items-start gap-3 hover:border-primary/20 transition-colors cursor-pointer">
-      <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
+    <div className="bg-card rounded-xl border border-border p-5 flex items-start gap-3 hover:border-primary/20 transition-colors cursor-pointer">
+      <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div>

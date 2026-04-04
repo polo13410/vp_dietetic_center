@@ -15,9 +15,9 @@ const STATUS_LABELS: Record<PatientStatus, string> = {
   ARCHIVED: 'Archivé',
 };
 const STATUS_COLORS: Record<PatientStatus, string> = {
-  ACTIVE: 'bg-green-50 text-green-700',
-  INACTIVE: 'bg-slate-50 text-slate-600',
-  ARCHIVED: 'bg-orange-50 text-orange-600',
+  ACTIVE: 'bg-green-500/15 text-green-600 dark:text-green-400',
+  INACTIVE: 'bg-muted text-muted-foreground',
+  ARCHIVED: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
 };
 
 export default function PatientsListPage() {
@@ -68,7 +68,7 @@ export default function PatientsListPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-border p-4 flex items-center gap-4">
+      <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-4">
         <form onSubmit={handleSearch} className="flex-1 relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -96,8 +96,8 @@ export default function PatientsListPage() {
               }
               className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                 (status ?? '') === s
-                  ? 'bg-primary text-white'
-                  : 'bg-slate-50 text-muted-foreground hover:bg-slate-100'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               {s ? STATUS_LABELS[s] : 'Tous'}
@@ -107,7 +107,7 @@ export default function PatientsListPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         {isLoading ? (
           <LoadingSpinner />
         ) : !data?.data.length ? (
@@ -117,7 +117,7 @@ export default function PatientsListPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-slate-50/50">
+              <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
                   Nom
                 </th>
@@ -140,7 +140,7 @@ export default function PatientsListPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {data.data.map((patient) => (
-                <tr key={patient.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={patient.id} className="hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-3">
                     <Link
                       to={`/patients/${patient.id}`}

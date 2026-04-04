@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import api from '../../lib/api';
-import { exportPatientPdf } from '../../lib/pdf-export';
 import { calculateAge, formatDate, formatDateTime } from '../../lib/utils';
 
 export default function PatientDetailPage() {
@@ -72,7 +71,10 @@ export default function PatientDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => exportPatientPdf(patient, appointments, notes)}>
+          <Button size="sm" variant="outline" onClick={async () => {
+            const { exportPatientPdf } = await import('../../lib/pdf-export');
+            exportPatientPdf(patient, appointments, notes);
+          }}>
             <Download className="w-4 h-4" /> PDF
           </Button>
           <Button size="sm" asChild>

@@ -37,11 +37,16 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Run tests
-        run: pnpm test
+      - name: Run tests with coverage
+        run: |
+          pnpm --filter api test:coverage
+          pnpm --filter @vp/frontend test:coverage
 
       - name: Build
         run: pnpm build
+
+      - name: Generate Prisma client for API build
+        run: pnpm --filter api exec prisma generate
 
       - name: Upload test coverage
         uses: actions/upload-artifact@v4

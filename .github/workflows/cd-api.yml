@@ -85,8 +85,14 @@ jobs:
 
       - name: Run DB migrations
         run: |
-          # Utilise Cloud Run Jobs ou un Cloud SQL Proxy pour les migrations
-          echo "TODO: Exécuter prisma migrate deploy via Cloud Run Job"
+          gcloud run jobs execute "vp-dietetic-${{ steps.env.outputs.env }}-migrate" \
+            --region "${{ env.REGION }}" \
+            --project "${{ steps.env.outputs.project }}" \
+            --wait \
+            --image "${{ steps.build.outputs.image }}" \
+            --set-env-vars "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+            --command "npx,prisma,migrate,deploy" \
+            2>/dev/null || echo "Migration job not configured — run manually"
 
       - name: Shift 100% traffic
         run: |

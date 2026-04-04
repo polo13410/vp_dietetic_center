@@ -21,6 +21,10 @@ const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const NutritionalPage = lazy(() => import('./pages/nutritional/NutritionalPage'));
 const DocumentsPage = lazy(() => import('./pages/documents/DocumentsPage'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
+const AnalyticsPage = lazy(() => import('./pages/analytics/AnalyticsPage'));
+const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
@@ -54,6 +58,9 @@ export function AppRouter() {
           <Route path="/appointments" element={<AppointmentsPage />} />
           <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
 
+          {/* Calendrier */}
+          <Route path="/calendar" element={<CalendarPage />} />
+
           {/* Notes */}
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/notes/:id" element={<NoteDetailPage />} />
@@ -67,8 +74,13 @@ export function AppRouter() {
           {/* Documents */}
           <Route path="/documents" element={<DocumentsPage />} />
 
-          {/* Reporting */}
+          {/* Reporting & Analytics */}
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+
+          {/* Profil & Paramètres */}
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
 
           {/* Administration */}
           <Route path="/admin" element={<AdminPage />} />

@@ -1,12 +1,18 @@
-import { Bell, LogOut, Search } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { LogOut, Search, Settings, User } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
-import { useLogout } from '../../hooks/useAuth';
+import { useCurrentUser, useLogout } from '../../hooks/useAuth';
+import { NotificationCenter } from '../notifications/NotificationCenter';
 import { Button } from '../ui/button';
+import { ThemeToggle } from '../ui/theme-toggle';
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const { mutate: logout } = useLogout();
+  const user = useCurrentUser();
+  const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,7 +22,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-border flex items-center px-6 gap-4 flex-shrink-0">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-border flex items-center px-6 gap-4 shrink-0">
       {/* Search */}
       <form onSubmit={handleSearch} className="flex-1 max-w-md">
         <div className="relative">
@@ -26,19 +32,58 @@ export function Header() {
             placeholder="Rechercher un patient, RDV, note... (Ctrl+K)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
+            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
           />
         </div>
       </form>
 
       <div className="flex items-center gap-1.5 ml-auto">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-4 h-4" />
-        </Button>
+        <ThemeToggle />
+        <NotificationCenter />
 
-        <Button variant="ghost" size="icon" onClick={() => logout()} title="Déconnexion">
-          <LogOut className="w-4 h-4" />
-        </Button>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <User className="w-4 h-4" />
+            </Button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              className="w-56 bg-popover border rounded-md shadow-md p-1 z-50"
+            >
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
+              </div>
+              <DropdownMenu.Separator className="h-px bg-border my-1" />
+              <DropdownMenu.Item
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-sm cursor-pointer hover:bg-accent outline-none"
+                onSelect={() => navigate('/profile')}
+              >
+                <User className="w-4 h-4" />
+                Profil
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-sm cursor-pointer hover:bg-accent outline-none"
+                onSelect={() => navigate('/settings')}
+              >
+                <Settings className="w-4 h-4" />
+                Paramètres
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator className="h-px bg-border my-1" />
+              <DropdownMenu.Item
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-sm cursor-pointer hover:bg-accent outline-none"
+                onSelect={() => logout()}
+              >
+                <LogOut className="w-4 h-4" />
+                Déconnexion
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
     </header>
   );

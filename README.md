@@ -4,7 +4,7 @@ Application métier pour psycho-nutritionniste — gestion patients, rendez-vous
 
 ## Architecture
 
-- **Frontend** : React 19 + Vite + TypeScript + TanStack Query + React Hook Form
+- **Frontend** : React 19 + Vite + TypeScript + TanStack Query + React Hook Form + Recharts
 - **Backend** : NestJS + Node.js 24 + TypeScript + Prisma
 - **Base de données** : PostgreSQL 15
 - **Déploiement** : Google Cloud (Cloud Run + Cloud SQL + Cloud Storage)

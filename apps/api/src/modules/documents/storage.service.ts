@@ -10,7 +10,7 @@ export class StorageService {
   private readonly uploadDir: string;
 
   constructor(private readonly config: ConfigService) {
-    this.uploadDir = this.config.get<string>('UPLOAD_DIR') || path.join(process.cwd(), 'uploads');
+    this.uploadDir = this.config.get<string>('UPLOAD_DIR') || path.join('/tmp', 'uploads');
     if (!fs.existsSync(this.uploadDir)) {
       fs.mkdirSync(this.uploadDir, { recursive: true });
     }

@@ -2,13 +2,13 @@ name: Terraform Plan
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [staging, prod, main]
     paths:
       - 'infra/terraform/**'
 
 jobs:
   plan:
-    name: Terraform Plan — ${{ matrix.env }}
+    name: Terraform Plan
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -16,10 +16,6 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-
-    strategy:
-      matrix:
-        env: [dev, prod]
 
     steps:
       - uses: actions/checkout@v4
@@ -31,28 +27,24 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_DEV }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Terraform Init
-        working-directory: infra/terraform/envs/${{ matrix.env }}
+        working-directory: infra/terraform
         run: terraform init
 
       - name: Terraform Validate
-        working-directory: infra/terraform/envs/${{ matrix.env }}
+        working-directory: infra/terraform
         run: terraform validate
 
       - name: Terraform Plan
         id: plan
-        working-directory: infra/terraform/envs/${{ matrix.env }}
+        working-directory: infra/terraform
         run: |
-          terraform plan -no-color -out=tfplan \
-            -var="project_id=${{ secrets.GCP_PROJECT_ID_DEV }}" \
-            -var="github_repository=${{ github.repository }}" \
-            -var="frontend_url=https://placeholder.run.app" \
-            -var="db_password=placeholder" \
-            -var="jwt_secret=placeholder-min-32-chars-xxxxxxxx" \
-            -var="jwt_refresh_secret=placeholder-min-32-chars-xxxxxxxx"
+          terraform plan -no-color \
+            -var="db_password_staging=placeholder" \
+            -var="db_password_prod=placeholder"
         continue-on-error: true
 
       - name: Comment PR with plan
@@ -60,7 +52,7 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           script: |
-            const output = `#### Terraform Plan — \`${{ matrix.env }}\` ${{ steps.plan.outcome == 'success' && '✅' || '❌' }}
+            const output = `#### Terraform Plan ${{ steps.plan.outcome == 'success' && '✅' || '❌' }}
             <details><summary>Show Plan</summary>
 
             \`\`\`terraform

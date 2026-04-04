@@ -1,76 +1,83 @@
 # Terraform — VP Dietetic Center
 
-Infrastructure Google Cloud Platform gérée avec Terraform.
+Infrastructure Google Cloud Platform geree avec Terraform.
 
-## Architecture déployée
+## Architecture
+
+Single GCP project (`vp-dietetic-center`) hosting both staging and production:
 
 ```
-├── Artifact Registry (images Docker)
-├── Cloud Run API (NestJS)
-├── Cloud Run Frontend (Nginx + React)
-├── Cloud SQL (PostgreSQL 15)
-├── Cloud Storage (documents patients)
-├── Secret Manager (secrets applicatifs)
-├── Service Accounts (principe moindre privilège)
-├── IAM (permissions)
-└── Monitoring / Alerting
+vp-dietetic-center (GCP Project)
+├── Artifact Registry (shared, Docker images)
+├── Cloud SQL PostgreSQL 15 (shared instance)
+│   ├── vp_staging (database)
+│   └── vp_prod (database)
+├── Cloud Run
+│   ├── staging-api (NestJS)
+│   ├── staging-frontend (Nginx)
+│   ├── prod-api (NestJS)
+│   └── prod-frontend (Nginx)
+├── Cloud Storage
+│   ├── staging-documents (bucket)
+│   └── prod-documents (bucket)
+├── Secret Manager (JWT secrets, DB passwords only)
+└── Service Accounts (per-service, least privilege)
 ```
 
-## Prérequis
+## Cost Optimization
+
+- **Shared PostgreSQL** — single db-f1-micro instance with 2 databases
+- **Shared Artifact Registry** — one repo for all images
+- **Min instances = 0** — no idle costs (cold starts ~2-3s)
+- **Minimal secrets** — only real secrets in Secret Manager (4 total)
+- **No VPC connector** — saves ~$7/month
+
+## Prerequisites
 
 - Terraform >= 1.7
-- gcloud CLI configuré
-- Bucket GCS pour le state Terraform créé manuellement
+- gcloud CLI configured (`gcloud config configurations activate dietetic-center`)
+- State bucket: `gs://vp-dietetic-tfstate` (already created)
 
-## Structure
-
-```
-infra/terraform/
-├── modules/
-│   ├── project-services/     # APIs GCP activées
-│   ├── artifact-registry/    # Registry images Docker
-│   ├── cloud-run/            # Service Cloud Run générique
-│   ├── cloud-sql/            # Instance PostgreSQL
-│   ├── storage/              # Buckets GCS
-│   ├── secret-manager/       # Secrets
-│   ├── service-accounts/     # Comptes de service
-│   ├── iam/                  # Permissions IAM
-│   └── monitoring/           # Alertes de base
-└── envs/
-    ├── dev/                  # Environnement dev
-    ├── staging/              # Environnement staging
-    └── prod/                 # Environnement production
-```
-
-## Premier déploiement
+## Usage
 
 ```bash
-# 1. Créer le bucket pour le state (une seule fois)
-gcloud storage buckets create gs://vp-dietetic-tfstate \
-  --location=europe-west1 \
-  --uniform-bucket-level-access
+cd infra/terraform
 
-# 2. Initialiser Terraform
-cd infra/terraform/envs/dev
+# Init
 terraform init
 
-# 3. Planifier
-terraform plan -var-file="dev.tfvars"
+# Plan
+terraform plan \
+  -var="db_password_staging=xxx" \
+  -var="db_password_prod=xxx"
 
-# 4. Appliquer
-terraform apply -var-file="dev.tfvars"
+# Apply
+terraform apply \
+  -var="db_password_staging=xxx" \
+  -var="db_password_prod=xxx"
 ```
 
-## Variables requises
+## CI/CD
 
-Copier `*.tfvars.example` en `*.tfvars` et remplir les valeurs.
+- `terraform plan` runs on PRs to staging/prod/main
+- `terraform apply` runs on push to staging/prod branches
+- Production requires manual approval in GitHub
 
-**Ne jamais committer les fichiers `.tfvars` !**
+## Branches & Environments
 
-## Déploiement via CI/CD
+| Branch | GitHub Env | Cloud Run Services | Database |
+|--------|-----------|-------------------|----------|
+| staging | staging | staging-api, staging-frontend | vp_staging |
+| prod | production | prod-api, prod-frontend | vp_prod |
 
-Les workflows GitHub Actions gèrent automatiquement :
+## Secrets (GitHub Actions)
 
-- `terraform plan` sur chaque PR (commentaire automatique)
-- `terraform apply` sur merge vers `develop` (env dev/staging)
-- `terraform apply` sur merge vers `main` avec approbation manuelle (prod)
+**Repository secrets (shared):**
+- `GCP_PROJECT_ID`
+- `GCP_SERVICE_ACCOUNT`
+- `GCP_WIF_PROVIDER`
+
+**Environment secrets (per-env):**
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `DB_PASSWORD`

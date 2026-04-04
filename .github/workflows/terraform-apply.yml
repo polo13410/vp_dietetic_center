@@ -2,13 +2,13 @@ name: Terraform Apply
 
 on:
   push:
-    branches: [develop, main]
+    branches: [staging, prod, main]
     paths:
       - 'infra/terraform/**'
 
 jobs:
   apply:
-    name: Terraform Apply — ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    name: Terraform Apply
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -16,26 +16,11 @@ jobs:
       contents: read
       id-token: write
 
-    # Protection production : approbation manuelle requise
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    # Production approval required when pushing to prod
+    environment: ${{ github.ref_name == 'prod' && 'production' || 'staging' }}
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Determine environment
-        id: env
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "env=prod" >> $GITHUB_OUTPUT
-            echo "project=${{ secrets.GCP_PROJECT_ID_PROD }}" >> $GITHUB_OUTPUT
-            echo "sa=${{ secrets.GCP_SERVICE_ACCOUNT_PROD }}" >> $GITHUB_OUTPUT
-            echo "wip=${{ secrets.GCP_WIF_PROVIDER_PROD }}" >> $GITHUB_OUTPUT
-          else
-            echo "env=dev" >> $GITHUB_OUTPUT
-            echo "project=${{ secrets.GCP_PROJECT_ID_DEV }}" >> $GITHUB_OUTPUT
-            echo "sa=${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}" >> $GITHUB_OUTPUT
-            echo "wip=${{ secrets.GCP_WIF_PROVIDER_DEV }}" >> $GITHUB_OUTPUT
-          fi
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -44,20 +29,16 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ steps.env.outputs.wip }}
-          service_account: ${{ steps.env.outputs.sa }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Terraform Init
-        working-directory: infra/terraform/envs/${{ steps.env.outputs.env }}
+        working-directory: infra/terraform
         run: terraform init
 
       - name: Terraform Apply
-        working-directory: infra/terraform/envs/${{ steps.env.outputs.env }}
+        working-directory: infra/terraform
         run: |
           terraform apply -auto-approve \
-            -var="project_id=${{ steps.env.outputs.project }}" \
-            -var="github_repository=${{ github.repository }}" \
-            -var="frontend_url=${{ secrets.FRONTEND_URL }}" \
-            -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
-            -var="jwt_refresh_secret=${{ secrets.JWT_REFRESH_SECRET }}"
+            -var="db_password_staging=${{ secrets.DB_PASSWORD }}" \
+            -var="db_password_prod=${{ secrets.DB_PASSWORD }}"

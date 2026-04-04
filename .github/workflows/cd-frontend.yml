@@ -2,25 +2,28 @@ name: CD — Frontend
 
 on:
   push:
-    branches: [develop, main]
+    branches: [staging, prod]
     paths:
       - 'apps/frontend/**'
       - 'packages/types/**'
       - '.github/workflows/cd-frontend.yml'
 
 concurrency:
-  group: cd-frontend-${{ github.ref }}
+  group: cd-frontend-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
   REGION: europe-west1
-  REPOSITORY: vp-dietetic
+  PROJECT_ID: vp-dietetic-center
+  REGISTRY: europe-west1-docker.pkg.dev/vp-dietetic-center/vp-dietetic
 
 jobs:
   deploy:
-    name: Build & Deploy Frontend
+    name: Build & Deploy Frontend (${{ github.ref_name }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    environment: ${{ github.ref_name == 'prod' && 'production' || 'staging' }}
 
     permissions:
       contents: read
@@ -29,28 +32,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Determine environment
+      - name: Set environment
         id: env
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "env=prod" >> $GITHUB_OUTPUT
-            echo "project=${{ secrets.GCP_PROJECT_ID_PROD }}" >> $GITHUB_OUTPUT
-            echo "sa=${{ secrets.GCP_SERVICE_ACCOUNT_PROD }}" >> $GITHUB_OUTPUT
-            echo "wip=${{ secrets.GCP_WIF_PROVIDER_PROD }}" >> $GITHUB_OUTPUT
-            echo "api_url=${{ secrets.API_URL_PROD }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref_name }}" == "prod" ]]; then
+            echo "service=prod-frontend" >> $GITHUB_OUTPUT
+            echo "api_service=prod-api" >> $GITHUB_OUTPUT
+            echo "tag=prod" >> $GITHUB_OUTPUT
           else
-            echo "env=dev" >> $GITHUB_OUTPUT
-            echo "project=${{ secrets.GCP_PROJECT_ID_DEV }}" >> $GITHUB_OUTPUT
-            echo "sa=${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}" >> $GITHUB_OUTPUT
-            echo "wip=${{ secrets.GCP_WIF_PROVIDER_DEV }}" >> $GITHUB_OUTPUT
-            echo "api_url=${{ secrets.API_URL_DEV }}" >> $GITHUB_OUTPUT
+            echo "service=staging-frontend" >> $GITHUB_OUTPUT
+            echo "api_service=staging-api" >> $GITHUB_OUTPUT
+            echo "tag=staging" >> $GITHUB_OUTPUT
           fi
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ steps.env.outputs.wip }}
-          service_account: ${{ steps.env.outputs.sa }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
@@ -58,29 +57,40 @@ jobs:
       - name: Configure Docker
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      - name: Get API URL
+        id: api
+        run: |
+          URL=$(gcloud run services describe "${{ steps.env.outputs.api_service }}" \
+            --region="${{ env.REGION }}" --format="value(status.url)" 2>/dev/null || echo "")
+          echo "url=${URL}/api/v1" >> $GITHUB_OUTPUT
+
       - name: Build and push Frontend image
         id: build
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ steps.env.outputs.project }}/${{ env.REPOSITORY }}/frontend:${{ github.sha }}"
-          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ steps.env.outputs.project }}/${{ env.REPOSITORY }}/frontend:latest"
+          IMAGE="${{ env.REGISTRY }}/frontend:${{ github.sha }}"
+          IMAGE_ENV="${{ env.REGISTRY }}/frontend:${{ steps.env.outputs.tag }}"
 
           docker build \
             --target production \
-            --build-arg VITE_API_URL="${{ steps.env.outputs.api_url }}" \
+            --build-arg VITE_API_URL="${{ steps.api.outputs.url }}" \
             --build-arg VITE_APP_NAME="VP Dietetic Center" \
             --tag "$IMAGE" \
-            --tag "$IMAGE_LATEST" \
+            --tag "$IMAGE_ENV" \
             --file apps/frontend/Dockerfile \
             .
 
           docker push "$IMAGE"
-          docker push "$IMAGE_LATEST"
+          docker push "$IMAGE_ENV"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy "vp-dietetic-${{ steps.env.outputs.env }}-frontend" \
+          gcloud run services update "${{ steps.env.outputs.service }}" \
             --image "${{ steps.build.outputs.image }}" \
-            --region "${{ env.REGION }}" \
-            --project "${{ steps.env.outputs.project }}" \
-            --to-latest
+            --region "${{ env.REGION }}"
+
+      - name: Verify deployment
+        run: |
+          URL=$(gcloud run services describe "${{ steps.env.outputs.service }}" \
+            --region "${{ env.REGION }}" --format="value(status.url)")
+          echo "Deployed to: ${URL}"

@@ -6,7 +6,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   LineChart,
-  Menu,
+
   Settings,
   User,
   Users,
@@ -73,17 +73,21 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
     >
       {/* Logo + Toggle */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-        {!collapsed && (
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white text-xs font-bold">VP</span>
+        {collapsed ? (
+          <button onClick={toggleCollapsed} className="p-1 rounded-md hover:bg-muted mx-auto" title="Alt+S">
+            <img src="/logo_small.png" alt="VP Dietetic Center" className="w-7 h-7" />
+          </button>
+        ) : (
+          <>
+            <div className="flex items-center gap-2.5">
+              <img src="/logo_small.png" alt="VP Dietetic Center" className="w-7 h-7" />
+              <span className="font-semibold text-sm text-foreground">Dietetic Center</span>
             </div>
-            <span className="font-semibold text-sm text-foreground">Dietetic Center</span>
-          </div>
+            <button onClick={toggleCollapsed} className="p-2 rounded-md hover:bg-muted" title="Alt+S">
+              <X className="w-5 h-5" />
+            </button>
+          </>
         )}
-        <button onClick={toggleCollapsed} className="p-2 rounded-md hover:bg-muted" title="Alt+S">
-          {collapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
-        </button>
       </div>
 
       {/* Navigation */}

@@ -98,7 +98,7 @@ jobs:
       - name: Terraform Init
         if: steps.changes.outputs.has_changes == 'true'
         working-directory: infra/terraform
-        run: terraform init
+        run: terraform init -backend-config="prefix=infra/staging"
 
       - name: Terraform Validate
         if: steps.changes.outputs.has_changes == 'true'
@@ -111,8 +111,8 @@ jobs:
         working-directory: infra/terraform
         run: |
           terraform plan -no-color \
-            -var="db_password_staging=placeholder" \
-            -var="db_password_prod=placeholder"
+            -var="env=staging" \
+            -var="db_password=placeholder"
         continue-on-error: true
 
       - name: Comment PR with plan

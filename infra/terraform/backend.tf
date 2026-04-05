@@ -10,7 +10,6 @@ terraform {
 
   backend "gcs" {
     bucket = "vp-dietetic-tfstate"
-    prefix = "infra"
   }
 }
 

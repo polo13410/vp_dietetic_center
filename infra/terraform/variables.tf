@@ -1,3 +1,13 @@
+variable "env" {
+  description = "Environment: staging or prod"
+  type        = string
+
+  validation {
+    condition     = contains(["staging", "prod"], var.env)
+    error_message = "env must be staging or prod."
+  }
+}
+
 variable "project_id" {
   type    = string
   default = "vp-dietetic-center"
@@ -13,19 +23,12 @@ variable "github_repository" {
   default = "polo13410/vp_dietetic_center"
 }
 
-# ─── Database ─────────────────────────────────────────────────
-
 variable "db_tier" {
   type    = string
   default = "db-f1-micro"
 }
 
-variable "db_password_staging" {
-  type      = string
-  sensitive = true
-}
-
-variable "db_password_prod" {
+variable "db_password" {
   type      = string
   sensitive = true
 }

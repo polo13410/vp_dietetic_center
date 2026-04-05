@@ -248,11 +248,11 @@ jobs:
 
       - name: Terraform Init
         working-directory: infra/terraform
-        run: terraform init
+        run: terraform init -backend-config="prefix=infra/${{ env.TARGET_ENV }}"
 
       - name: Terraform Apply
         working-directory: infra/terraform
         run: |
           terraform apply -auto-approve \
-            -var="db_password_staging=${{ secrets.DB_PASSWORD }}" \
-            -var="db_password_prod=${{ secrets.DB_PASSWORD }}"
+            -var="env=${{ env.TARGET_ENV }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}"

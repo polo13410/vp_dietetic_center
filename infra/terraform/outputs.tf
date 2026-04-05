@@ -1,35 +1,25 @@
-# ─── Database ─────────────────────────────────────────────────
+# ─── Database (staging only) ──────────────────────────────────
 
 output "db_instance_name" {
-  value = google_sql_database_instance.main.name
+  value = local.is_staging ? google_sql_database_instance.main[0].name : null
 }
 
 output "db_connection_name" {
-  value = google_sql_database_instance.main.connection_name
+  value = local.is_staging ? google_sql_database_instance.main[0].connection_name : null
 }
 
 output "db_public_ip" {
-  value = google_sql_database_instance.main.public_ip_address
+  value = local.is_staging ? google_sql_database_instance.main[0].public_ip_address : null
 }
 
-# ─── Staging URLs ─────────────────────────────────────────────
+# ─── Cloud Run URLs ──────────────────────────────────────────
 
-output "staging_api_url" {
-  value = google_cloud_run_v2_service.staging_api.uri
+output "api_url" {
+  value = google_cloud_run_v2_service.api.uri
 }
 
-output "staging_frontend_url" {
-  value = google_cloud_run_v2_service.staging_frontend.uri
-}
-
-# ─── Production URLs ─────────────────────────────────────────
-
-output "prod_api_url" {
-  value = google_cloud_run_v2_service.prod_api.uri
-}
-
-output "prod_frontend_url" {
-  value = google_cloud_run_v2_service.prod_frontend.uri
+output "frontend_url" {
+  value = google_cloud_run_v2_service.frontend.uri
 }
 
 # ─── Artifact Registry ───────────────────────────────────────

@@ -3,11 +3,21 @@ name: CD
 on:
   push:
     branches: [staging, prod]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
 
 env:
   REGION: europe-west1
   PROJECT_ID: vp-dietetic-center
   REGISTRY: europe-west1-docker.pkg.dev/vp-dietetic-center/vp-dietetic
+  TARGET_ENV: ${{ inputs.environment || github.ref_name }}
 
 jobs:
   changes:
@@ -26,23 +36,29 @@ jobs:
       - name: Detect changed paths
         id: filter
         run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD)
-          echo "api=$(echo "$CHANGED" | grep -q -E '^(apps/api/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "frontend=$(echo "$CHANGED" | grep -q -E '^(apps/frontend/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "terraform=$(echo "$CHANGED" | grep -q '^infra/terraform/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "api=true" >> $GITHUB_OUTPUT
+            echo "frontend=true" >> $GITHUB_OUTPUT
+            echo "terraform=false" >> $GITHUB_OUTPUT
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD)
+            echo "api=$(echo "$CHANGED" | grep -q -E '^(apps/api/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "frontend=$(echo "$CHANGED" | grep -q -E '^(apps/frontend/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "terraform=$(echo "$CHANGED" | grep -q '^infra/terraform/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          fi
 
   deploy-api:
-    name: Build & Deploy API (${{ github.ref_name }})
+    name: Build & Deploy API (${{ inputs.environment || github.ref_name }})
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     concurrency:
-      group: cd-api-${{ github.ref_name }}
+      group: cd-api-${{ inputs.environment || github.ref_name }}
       cancel-in-progress: false
 
-    environment: ${{ github.ref_name == 'prod' && 'production' || 'staging' }}
+    environment: ${{ (inputs.environment || github.ref_name) == 'prod' && 'production' || 'staging' }}
 
     permissions:
       contents: read
@@ -54,7 +70,7 @@ jobs:
       - name: Set environment variables
         id: env
         run: |
-          if [[ "${{ github.ref_name }}" == "prod" ]]; then
+          if [[ "${{ env.TARGET_ENV }}" == "prod" ]]; then
             echo "service=prod-api" >> $GITHUB_OUTPUT
             echo "tag=prod" >> $GITHUB_OUTPUT
           else
@@ -115,7 +131,7 @@ jobs:
           curl -sf "${URL}/api/health" || echo "Health check pending..."
 
   deploy-frontend:
-    name: Build & Deploy Frontend (${{ github.ref_name }})
+    name: Build & Deploy Frontend (${{ inputs.environment || github.ref_name }})
     needs: [changes, deploy-api]
     if: >-
       always() &&
@@ -125,10 +141,10 @@ jobs:
     timeout-minutes: 20
 
     concurrency:
-      group: cd-frontend-${{ github.ref_name }}
+      group: cd-frontend-${{ inputs.environment || github.ref_name }}
       cancel-in-progress: false
 
-    environment: ${{ github.ref_name == 'prod' && 'production' || 'staging' }}
+    environment: ${{ (inputs.environment || github.ref_name) == 'prod' && 'production' || 'staging' }}
 
     permissions:
       contents: read
@@ -140,7 +156,7 @@ jobs:
       - name: Set environment
         id: env
         run: |
-          if [[ "${{ github.ref_name }}" == "prod" ]]; then
+          if [[ "${{ env.TARGET_ENV }}" == "prod" ]]; then
             echo "service=prod-frontend" >> $GITHUB_OUTPUT
             echo "api_service=prod-api" >> $GITHUB_OUTPUT
             echo "tag=prod" >> $GITHUB_OUTPUT
@@ -208,10 +224,10 @@ jobs:
     timeout-minutes: 30
 
     concurrency:
-      group: cd-terraform-${{ github.ref_name }}
+      group: cd-terraform-${{ inputs.environment || github.ref_name }}
       cancel-in-progress: false
 
-    environment: ${{ github.ref_name == 'prod' && 'production' || 'staging' }}
+    environment: ${{ (inputs.environment || github.ref_name) == 'prod' && 'production' || 'staging' }}
 
     permissions:
       contents: read

@@ -35,9 +35,9 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // CORS
-  const corsOrigins = config.get<string>('CORS_ORIGINS', 'http://localhost:5173').split(',');
+  const rawOrigins = config.get<string>('CORS_ORIGINS', 'http://localhost:5173');
   app.enableCors({
-    origin: corsOrigins,
+    origin: rawOrigins === '*' ? true : rawOrigins.split(','),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

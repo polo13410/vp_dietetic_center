@@ -87,6 +87,8 @@ model User {
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
   role         UserRole @default(ASSISTANTE)
+  googleId     String?  @unique @map("google_id")
+  avatarUrl    String?  @map("avatar_url")
   isActive     Boolean  @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
   loginAttempts Int     @default(0) @map("login_attempts")

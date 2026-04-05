@@ -27,6 +27,22 @@ export function useLogin() {
   });
 }
 
+export function useGoogleLogin() {
+  const { setAuth } = useAuthStore();
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: async (idToken: string) => {
+      const { data } = await api.post<LoginResponse>('/auth/google', { idToken });
+      return data;
+    },
+    onSuccess: (data) => {
+      setAuth(data.user as any, data.accessToken);
+      navigate('/dashboard');
+    },
+  });
+}
+
 export function useLogout() {
   const { logout } = useAuthStore();
 

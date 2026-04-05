@@ -14,6 +14,10 @@ export const configuration = () => ({
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   },
 
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+  },
+
   cors: {
     origins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
   },

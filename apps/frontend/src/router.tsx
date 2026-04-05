@@ -28,6 +28,7 @@ const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
+const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export function AppRouter() {
@@ -88,7 +89,7 @@ export function AppRouter() {
 
           {/* Administration */}
           <Route path="/admin" element={<AdminPage />} />
-          <Route path="/admin/*" element={<AdminPage />} />
+          <Route path="/admin/users" element={<UsersPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

@@ -1,10 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
 import { Shield, Users } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
-import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useIsRole } from '../../hooks/useAuth';
-import api from '../../lib/api';
 
 export default function AdminPage() {
   const isAdmin = useIsRole('ADMIN');
@@ -33,69 +30,26 @@ export default function AdminPage() {
           href="/admin/audit"
         />
       </div>
-
-      <UsersSection />
     </div>
   );
 }
 
-function UsersSection() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const { data } = await api.get('/users');
-      return data;
-    },
-  });
-
-  if (isLoading) return <LoadingSpinner />;
-
+function AdminCard({
+  icon,
+  title,
+  description,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  href: string;
+}) {
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <div className="px-5 py-4 border-b border-border">
-        <h2 className="text-sm font-semibold">Utilisateurs</h2>
-      </div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/50">
-            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Nom</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Email</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Rôle</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-              Statut
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {data?.map((user: any) => (
-            <tr key={user.id} className="hover:bg-muted/50">
-              <td className="px-4 py-3 font-medium">
-                {user.firstName} {user.lastName}
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
-              <td className="px-4 py-3">
-                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                  {user.role}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${user.isActive ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}
-                >
-                  {user.isActive ? 'Actif' : 'Inactif'}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AdminCard({ icon, title, description }: any) {
-  return (
-    <div className="bg-card rounded-xl border border-border p-5 flex items-start gap-3 hover:border-primary/20 transition-colors cursor-pointer">
+    <Link
+      to={href}
+      className="bg-card rounded-xl border border-border p-5 flex items-start gap-3 hover:border-primary/20 transition-colors"
+    >
       <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
         {icon}
       </div>
@@ -103,6 +57,6 @@ function AdminCard({ icon, title, description }: any) {
         <p className="text-sm font-medium">{title}</p>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-    </div>
+    </Link>
   );
 }

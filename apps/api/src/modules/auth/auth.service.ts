@@ -5,18 +5,24 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
+  private readonly googleClient: OAuth2Client;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    const googleClientId = this.config.get<string>('google.clientId');
+    this.googleClient = new OAuth2Client(googleClientId);
+  }
 
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.usersService.findByEmail(email);
@@ -114,6 +120,48 @@ export class AuthService {
       where: { tokenHash },
       data: { revokedAt: new Date() },
     });
+  }
+
+  async validateGoogleToken(idToken: string, ipAddress?: string, userAgent?: string) {
+    const googleClientId = this.config.get<string>('google.clientId');
+
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken,
+      audience: googleClientId,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload?.email || !payload.email_verified) {
+      throw new UnauthorizedException('Token Google invalide ou email non vérifié');
+    }
+
+    const user = await this.usersService.findByEmail(payload.email);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException(
+        'Aucun compte associé à cet email. Contactez votre administrateur.',
+      );
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException(
+        'Compte temporairement bloqué. Réessayez dans quelques minutes.',
+      );
+    }
+
+    // Link Google ID on first Google sign-in
+    if (!user.googleId) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { googleId: payload.sub, avatarUrl: payload.picture ?? null },
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { loginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
+    });
+
+    return this.login(user, ipAddress, userAgent);
   }
 
   async requestPasswordReset(email: string) {

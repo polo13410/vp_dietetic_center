@@ -19,6 +19,7 @@ import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 
 @ApiTags('auth')
@@ -87,6 +88,39 @@ export class AuthController {
       await this.authService.logout(rawToken);
     }
     res.clearCookie('refresh_token', { path: '/api/v1/auth/refresh' });
+  }
+
+  @Public()
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Connexion via Google' })
+  async googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+
+    const result = await this.authService.validateGoogleToken(
+      dto.idToken,
+      ipAddress,
+      userAgent,
+    );
+
+    res.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/api/v1/auth/refresh',
+    });
+
+    return {
+      accessToken: result.accessToken,
+      expiresIn: result.expiresIn,
+      user: result.user,
+    };
   }
 
   @Public()

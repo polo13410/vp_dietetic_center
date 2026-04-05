@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { GoogleLogin } from '@react-oauth/google';
 import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { z } from 'zod';
 
 import { Button } from '../../components/ui/button';
-import { useLogin } from '../../hooks/useAuth';
+import { useGoogleLogin, useLogin } from '../../hooks/useAuth';
 
 const loginSchema = z.object({
   email: z.string().email('Email invalide'),
@@ -16,6 +17,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const { mutate: login, isPending, error } = useLogin();
+  const { mutate: googleLogin, error: googleError } = useGoogleLogin();
 
   const {
     register,
@@ -85,6 +87,35 @@ export default function LoginPage() {
           )}
         </Button>
       </form>
+
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-input" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-card px-2 text-muted-foreground">ou</span>
+        </div>
+      </div>
+
+      <div className="flex justify-center">
+        <GoogleLogin
+          onSuccess={(credentialResponse) => {
+            if (credentialResponse.credential) {
+              googleLogin(credentialResponse.credential);
+            }
+          }}
+          onError={() => {}}
+          text="signin_with"
+        />
+      </div>
+
+      {googleError && (
+        <div className="p-3 bg-destructive/10 rounded-lg mt-4">
+          <p className="text-sm text-destructive">
+            Impossible de se connecter avec Google. Vérifiez que votre compte est autorisé.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

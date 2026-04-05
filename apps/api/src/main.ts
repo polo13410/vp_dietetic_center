@@ -23,9 +23,11 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: [`'self'`],
-          styleSrc: [`'self'`, `'unsafe-inline'`],
-          imgSrc: [`'self'`, 'data:', 'blob:'],
-          scriptSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`, 'https://accounts.google.com'],
+          imgSrc: [`'self'`, 'data:', 'blob:', 'https://*.googleusercontent.com'],
+          scriptSrc: [`'self'`, 'https://accounts.google.com', 'https://apis.google.com'],
+          frameSrc: ['https://accounts.google.com'],
+          connectSrc: [`'self'`, 'https://accounts.google.com'],
         },
       },
     }),

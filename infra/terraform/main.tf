@@ -215,6 +215,15 @@ resource "google_cloud_run_v2_service" "api" {
           }
         }
       }
+      env {
+        name = "GOOGLE_CLIENT_ID"
+        value_source {
+          secret_key_ref {
+            secret  = "google-oauth-client-id"
+            version = "latest"
+          }
+        }
+      }
     }
   }
 

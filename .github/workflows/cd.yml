@@ -39,7 +39,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "api=true" >> $GITHUB_OUTPUT
             echo "frontend=true" >> $GITHUB_OUTPUT
-            echo "terraform=false" >> $GITHUB_OUTPUT
+            echo "terraform=true" >> $GITHUB_OUTPUT
           else
             CHANGED=$(git diff --name-only HEAD~1 HEAD)
             echo "api=$(echo "$CHANGED" | grep -q -E '^(apps/api/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT

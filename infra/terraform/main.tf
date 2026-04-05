@@ -239,6 +239,51 @@ resource "google_cloud_run_v2_service_iam_member" "staging_api_public" {
   member   = "allUsers"
 }
 
+resource "google_cloud_run_v2_job" "staging_api_migrate" {
+  project  = var.project_id
+  name     = "staging-api-migrate"
+  location = var.region
+
+  template {
+    task_count = 1
+
+    template {
+      service_account = "vp-staging-api@${var.project_id}.iam.gserviceaccount.com"
+      max_retries     = 0
+      timeout         = "300s"
+
+      containers {
+        image   = "${var.region}-docker.pkg.dev/${var.project_id}/vp-dietetic/api:latest"
+        command = ["npx"]
+        args    = ["prisma", "migrate", "deploy"]
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = "staging-db-url"
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [google_sql_database.staging, module.project_services]
+
+  lifecycle {
+    ignore_changes = [template[0].template[0].containers[0].image]
+  }
+}
+
 resource "google_cloud_run_v2_service" "staging_frontend" {
   project  = var.project_id
   name     = "staging-frontend"
@@ -388,6 +433,51 @@ resource "google_cloud_run_v2_service_iam_member" "prod_api_public" {
   name     = google_cloud_run_v2_service.prod_api.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_job" "prod_api_migrate" {
+  project  = var.project_id
+  name     = "prod-api-migrate"
+  location = var.region
+
+  template {
+    task_count = 1
+
+    template {
+      service_account = "vp-prod-api@${var.project_id}.iam.gserviceaccount.com"
+      max_retries     = 0
+      timeout         = "300s"
+
+      containers {
+        image   = "${var.region}-docker.pkg.dev/${var.project_id}/vp-dietetic/api:latest"
+        command = ["npx"]
+        args    = ["prisma", "migrate", "deploy"]
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = "prod-db-url"
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [google_sql_database.prod, module.project_services]
+
+  lifecycle {
+    ignore_changes = [template[0].template[0].containers[0].image]
+  }
 }
 
 resource "google_cloud_run_v2_service" "prod_frontend" {

@@ -99,9 +99,13 @@ jobs:
 
       - name: Run DB migrations
         run: |
+          gcloud run jobs update "${{ steps.env.outputs.service }}-migrate" \
+            --image "${{ steps.build.outputs.image }}" \
+            --region "${{ env.REGION }}"
+
           gcloud run jobs execute "${{ steps.env.outputs.service }}-migrate" \
             --region "${{ env.REGION }}" \
-            --wait 2>/dev/null || echo "Migration job not configured — skipping"
+            --wait
 
       - name: Verify deployment
         run: |

@@ -5,10 +5,7 @@ import {
   FileText,
   FolderOpen,
   LayoutDashboard,
-  LineChart,
-
   Settings,
-  User,
   Users,
   X,
 } from 'lucide-react';
@@ -27,9 +24,7 @@ const navItems = [
   { to: '/notes', icon: FileText, label: 'Notes cliniques' },
   { to: '/tasks', icon: CheckSquare, label: 'Tâches' },
   { to: '/documents', icon: FolderOpen, label: 'Documents' },
-  { to: '/analytics', icon: LineChart, label: 'Analytiques' },
-  { to: '/reports', icon: BarChart2, label: 'Reporting' },
-  { to: '/profile', icon: User, label: 'Profil' },
+  { to: '/analytics', icon: BarChart2, label: 'Analytiques & Reporting' },
   { to: '/settings', icon: Settings, label: 'Paramètres' },
 ];
 

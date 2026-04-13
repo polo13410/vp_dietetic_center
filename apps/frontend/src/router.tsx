@@ -22,10 +22,8 @@ const NoteDetailPage = lazy(() => import('./pages/notes/NoteDetailPage'));
 const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const NutritionalPage = lazy(() => import('./pages/nutritional/NutritionalPage'));
 const DocumentsPage = lazy(() => import('./pages/documents/DocumentsPage'));
-const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const AnalyticsPage = lazy(() => import('./pages/analytics/AnalyticsPage'));
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
-const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
@@ -79,13 +77,13 @@ export function AppRouter() {
           {/* Documents */}
           <Route path="/documents" element={<DocumentsPage />} />
 
-          {/* Reporting & Analytics */}
-          <Route path="/reports" element={<ReportsPage />} />
+          {/* Analytiques & Reporting */}
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/reports" element={<Navigate to="/analytics" replace />} />
 
-          {/* Profil & Paramètres */}
-          <Route path="/profile" element={<ProfilePage />} />
+          {/* Paramètres */}
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<Navigate to="/settings" replace />} />
 
           {/* Administration */}
           <Route path="/admin" element={<AdminPage />} />

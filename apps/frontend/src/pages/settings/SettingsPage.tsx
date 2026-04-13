@@ -1,6 +1,7 @@
 import { Bell, ChevronDown, Info, Lock, Settings as SettingsIcon, User } from 'lucide-react';
 import { useState } from 'react';
 
+
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible';
@@ -17,8 +18,10 @@ import { Switch } from '../../components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Textarea } from '../../components/ui/textarea';
 import { toast } from '../../components/ui/toaster';
+import { useCurrentUser } from '../../hooks/useAuth';
 
 export default function SettingsPage() {
+  const user = useCurrentUser();
   const [isEmailNotificationsEnabled, setIsEmailNotificationsEnabled] = useState(true);
   const [isAppNotificationsEnabled, setIsAppNotificationsEnabled] = useState(true);
   const [isWeekendRemindersOpen, setIsWeekendRemindersOpen] = useState(false);
@@ -76,6 +79,24 @@ export default function SettingsPage() {
 
         {/* Profile Settings */}
         <TabsContent value="profile" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Photo de profil</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center gap-6">
+              <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                <span className="text-2xl font-bold text-primary">
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+                <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <Button variant="outline" size="sm" className="mt-2">Changer la photo</Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Informations personnelles</CardTitle>

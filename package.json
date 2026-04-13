@@ -11,7 +11,6 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-
     "db:generate": "pnpm --filter @vp/api run db:generate",
     "db:migrate": "pnpm --filter @vp/api run db:migrate",
     "db:seed": "pnpm --filter @vp/api run db:seed",
@@ -28,7 +27,8 @@
     "@commitlint/config-conventional": "^19.8.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
-    "turbo": "^2.4.4"
+    "turbo": "^2.4.4",
+    "eslint": "^9.39.4"
   },
   "lint-staged": {
     "apps/api/src/**/*.ts": [
@@ -53,7 +53,7 @@
       ]
     }
   },
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"

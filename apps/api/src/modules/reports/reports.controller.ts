@@ -25,4 +25,19 @@ export class ReportsController {
   getPatientGrowth(@CurrentUser() user: any, @Query('from') from?: string, @Query('to') to?: string) {
     return this.service.getPatientGrowth(user, from, to);
   }
+
+  @Get('patients-stats')
+  getPatientsStats(@CurrentUser() user: any) {
+    return this.service.getPatientsStats(user);
+  }
+
+  @Get('appointments-overview')
+  getAppointmentsOverview(@CurrentUser() user: any, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.service.getAppointmentsOverview(user, from, to);
+  }
+
+  @Get('nutrition-trends')
+  getNutritionTrends(@CurrentUser() user: any, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.service.getNutritionTrends(user, from, to);
+  }
 }

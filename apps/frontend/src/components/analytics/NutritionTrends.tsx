@@ -1,8 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -13,62 +12,62 @@ import {
   YAxis,
 } from 'recharts';
 
+import api from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-
-const monthlyCalorieData = [
-  { month: 'Jan', average: 2100 },
-  { month: 'Fév', average: 2050 },
-  { month: 'Mar', average: 1950 },
-  { month: 'Avr', average: 1900 },
-  { month: 'Mai', average: 1850 },
-  { month: 'Juin', average: 1800 },
-  { month: 'Juil', average: 1750 },
-];
-
-const macronutrientData = [
-  { name: 'Sem 1', protein: 75, carbs: 220, fat: 65 },
-  { name: 'Sem 2', protein: 80, carbs: 210, fat: 60 },
-  { name: 'Sem 3', protein: 85, carbs: 200, fat: 55 },
-  { name: 'Sem 4', protein: 90, carbs: 190, fat: 50 },
-  { name: 'Sem 5', protein: 95, carbs: 180, fat: 45 },
-  { name: 'Sem 6', protein: 100, carbs: 170, fat: 40 },
-];
-
-const dietPreferenceData = [
-  { name: 'Standard', value: 45 },
-  { name: 'Végétarien', value: 20 },
-  { name: 'Végan', value: 15 },
-  { name: 'Keto', value: 10 },
-  { name: 'Paléo', value: 5 },
-  { name: 'Sans gluten', value: 5 },
-];
+import { LoadingSpinner } from '../ui/loading-screen';
 
 export default function NutritionTrends() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['reports', 'nutrition-trends'],
+    queryFn: async () => {
+      const { data } = await api.get('/reports/nutrition-trends');
+      return data as Array<{
+        month: string;
+        avgWeight: number | null;
+        avgBmi: number | null;
+        avgEnergy: number | null;
+        avgWater: number | null;
+      }>;
+    },
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+        Aucune donnée nutritionnelle enregistrée pour l'instant.
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card className="md:col-span-2">
         <CardHeader>
-          <CardTitle className="text-lg">Apport calorique journalier moyen</CardTitle>
+          <CardTitle className="text-lg">Poids moyen des patients (kg)</CardTitle>
         </CardHeader>
         <CardContent className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={monthlyCalorieData}>
+            <AreaChart data={data}>
               <defs>
-                <linearGradient id="colorCalories" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
                   <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="month" />
-              <YAxis domain={[1500, 2200]} />
+              <YAxis />
               <CartesianGrid strokeDasharray="3 3" />
-              <Tooltip formatter={(value) => [`${value} calories`, 'Moyenne journalière']} />
+              <Tooltip formatter={(value) => [`${value} kg`, 'Poids moyen']} />
               <Area
                 type="monotone"
-                dataKey="average"
+                dataKey="avgWeight"
+                name="Poids moyen"
                 stroke="#8884d8"
                 fillOpacity={1}
-                fill="url(#colorCalories)"
+                fill="url(#colorWeight)"
+                connectNulls
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -77,25 +76,35 @@ export default function NutritionTrends() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Répartition des macronutriments</CardTitle>
+          <CardTitle className="text-lg">IMC & Niveau d'énergie</CardTitle>
         </CardHeader>
         <CardContent className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={macronutrientData}>
+            <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
+              <XAxis dataKey="month" />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 10]} />
               <Tooltip />
               <Legend />
               <Line
+                yAxisId="left"
                 type="monotone"
-                dataKey="protein"
-                name="Protéines"
-                stroke="#8884d8"
-                activeDot={{ r: 8 }}
+                dataKey="avgBmi"
+                name="IMC moyen"
+                stroke="#82ca9d"
+                activeDot={{ r: 6 }}
+                connectNulls
               />
-              <Line type="monotone" dataKey="carbs" name="Glucides" stroke="#82ca9d" />
-              <Line type="monotone" dataKey="fat" name="Lipides" stroke="#ffc658" />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="avgEnergy"
+                name="Énergie (0-10)"
+                stroke="#ffc658"
+                activeDot={{ r: 6 }}
+                connectNulls
+              />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -103,16 +112,31 @@ export default function NutritionTrends() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Préférences alimentaires</CardTitle>
+          <CardTitle className="text-lg">Hydratation moyenne (L/j)</CardTitle>
         </CardHeader>
         <CardContent className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dietPreferenceData}>
-              <XAxis dataKey="name" />
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="colorWater" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#00C49F" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#00C49F" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(value) => [`${value}%`, 'Pourcentage']} />
-              <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <CartesianGrid strokeDasharray="3 3" />
+              <Tooltip formatter={(value) => [`${value} L`, 'Hydratation moyenne']} />
+              <Area
+                type="monotone"
+                dataKey="avgWater"
+                name="Eau (L)"
+                stroke="#00C49F"
+                fillOpacity={1}
+                fill="url(#colorWater)"
+                connectNulls
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>

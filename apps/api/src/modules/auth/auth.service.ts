@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'crypto';
 
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
@@ -8,6 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly mailService: MailService,
   ) {
     const googleClientId = this.config.get<string>('google.clientId');
     this.googleClient = new OAuth2Client(googleClientId);
@@ -164,21 +166,49 @@ export class AuthService {
     return this.login(user, ipAddress, userAgent);
   }
 
-  async requestPasswordReset(email: string) {
+  async requestPasswordReset(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
     if (!user) return; // Ne pas révéler si l'email existe
 
-    randomBytes(32).toString('hex');
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        // Stored in metadata – simplified here; use a dedicated table in production
+        passwordResetToken: token,
+        passwordResetExpiresAt: expiresAt,
       },
     });
 
-    // TODO: Send email with reset link containing token
-    // await this.mailService.sendPasswordReset(user.email, token);
+    await this.mailService.sendPasswordReset(user.email, token, user.firstName);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetToken: token },
+    });
+
+    if (
+      !user ||
+      !user.passwordResetExpiresAt ||
+      user.passwordResetExpiresAt < new Date()
+    ) {
+      throw new BadRequestException('Lien de réinitialisation invalide ou expiré.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        loginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
   }
 
   private parseExpiry(expiry: string): number {

@@ -93,6 +93,8 @@ model User {
   lastLoginAt  DateTime? @map("last_login_at")
   loginAttempts Int     @default(0) @map("login_attempts")
   lockedUntil  DateTime? @map("locked_until")
+  passwordResetToken String?   @unique @map("password_reset_token")
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

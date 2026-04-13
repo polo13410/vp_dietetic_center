@@ -6,6 +6,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:tui": "turbo run dev --ui tui",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
@@ -53,8 +54,5 @@
       ]
     }
   },
-  "packageManager": "pnpm@10.33.0",
-  "engines": {
-    "node": ">=20.0.0"
-  }
+  "packageManager": "pnpm@10.33.0"
 }

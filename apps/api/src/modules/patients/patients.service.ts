@@ -78,7 +78,7 @@ export class PatientsService {
     return {
       data: data.map((p) => ({
         ...p,
-        tags: p.tags.map((pt) => pt.tag),
+        tags: p.tags.map((pt: any) => pt.tag),
         lastAppointmentAt: p.appointments[0]?.startAt ?? null,
       })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -108,7 +108,7 @@ export class PatientsService {
 
     return {
       ...patient,
-      tags: patient.tags.map((pt) => pt.tag),
+      tags: patient.tags.map((pt: any) => pt.tag),
     };
   }
 

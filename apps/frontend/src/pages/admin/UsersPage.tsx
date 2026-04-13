@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 
 import { UserFormDialog } from '../../components/admin/UserFormDialog';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -90,7 +91,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -100,7 +101,7 @@ export default function UsersPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Utilisateurs</h1>
+            <h1 className="text-2xl font-bold">Utilisateurs</h1>
             {users && (
               <p className="text-sm text-muted-foreground">
                 {users.length} compte{users.length > 1 ? 's' : ''}
@@ -114,7 +115,7 @@ export default function UsersPage() {
       </div>
 
       {/* Search */}
-      <div className="bg-card rounded-xl border border-border p-4">
+      <Card><CardContent className="p-4">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -125,10 +126,10 @@ export default function UsersPage() {
             className="w-full pl-9 pr-4 py-2 text-sm border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
-      </div>
+      </CardContent></Card>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <Card className="overflow-hidden">
         {isLoading ? (
           <LoadingSpinner />
         ) : !filtered?.length ? (
@@ -209,7 +210,7 @@ export default function UsersPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
 
       {/* Create / Edit dialog */}
       <UserFormDialog

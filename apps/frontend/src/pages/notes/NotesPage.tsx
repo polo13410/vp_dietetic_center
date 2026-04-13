@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
@@ -48,9 +49,9 @@ export default function NotesPage() {
   const notes = (data ?? []).filter((note: any) => !typeFilter || note.type === typeFilter);
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Notes cliniques</h1>
+        <h1 className="text-2xl font-bold">Notes cliniques</h1>
         <Button size="sm" asChild>
           <Link to={patientId ? `/notes/new?patientId=${patientId}` : '/notes/new'}>
             <Plus className="w-4 h-4" /> Nouvelle note
@@ -59,7 +60,7 @@ export default function NotesPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap gap-3 items-center">
+      <Card><CardContent className="p-4 flex flex-wrap gap-3 items-center">
         <div className="flex gap-1.5">
           {STATUS_FILTERS.map((s) => (
             <Button
@@ -85,7 +86,7 @@ export default function NotesPage() {
             </Button>
           ))}
         </div>
-      </div>
+      </CardContent></Card>
 
       {/* List */}
       <div className="space-y-2">

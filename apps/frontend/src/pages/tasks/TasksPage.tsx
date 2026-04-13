@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { TaskFormDialog } from '../../components/tasks/TaskFormDialog';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,16 +103,16 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Taches</h1>
+        <h1 className="text-2xl font-bold">Tâches</h1>
         <Button size="sm" onClick={() => { setEditTask(null); setDialogOpen(true); }}>
           <Plus className="w-4 h-4" /> Nouvelle tache
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap gap-3 items-center">
+      <Card><CardContent className="p-4 flex flex-wrap gap-3 items-center">
         <div className="flex gap-1.5">
           {STATUS_FILTERS.map((s) => (
             <Button
@@ -137,7 +138,7 @@ export default function TasksPage() {
             </Button>
           ))}
         </div>
-      </div>
+      </CardContent></Card>
 
       {isLoading ? (
         <LoadingSpinner />

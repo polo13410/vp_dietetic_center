@@ -7,6 +7,7 @@ import { DocumentUploadDialog } from '../../components/documents/DocumentUploadD
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,9 +71,9 @@ export default function DocumentsPage() {
   const documents = data ?? [];
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Documents</h1>
+        <h1 className="text-2xl font-bold">Documents</h1>
         <Button size="sm" onClick={() => setUploadOpen(true)}>
           <Upload className="w-4 h-4" /> Uploader
         </Button>
@@ -89,7 +90,7 @@ export default function DocumentsPage() {
           </Button>
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border divide-y divide-border">
+        <Card className="divide-y divide-border">
           {documents.map((doc: any) => (
             <div key={doc.id} className="flex items-center gap-3 px-4 py-3">
               <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -124,7 +125,7 @@ export default function DocumentsPage() {
               </DropdownMenu>
             </div>
           ))}
-        </div>
+        </Card>
       )}
 
       <DocumentUploadDialog

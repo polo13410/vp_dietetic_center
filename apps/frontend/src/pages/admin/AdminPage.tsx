@@ -13,8 +13,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      <h1 className="text-xl font-semibold">Administration</h1>
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold">Administration</h1>
 
       <div className="grid grid-cols-2 gap-4">
         <AdminCard

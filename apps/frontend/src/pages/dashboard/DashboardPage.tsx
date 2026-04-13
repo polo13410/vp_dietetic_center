@@ -3,6 +3,7 @@ import type { AppointmentStatus, DashboardSummary } from '@vp/types';
 import { Calendar, CheckSquare, Clock, FileText, Users } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { Card } from '../../components/ui/card';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useCurrentUser } from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -41,10 +42,10 @@ export default function DashboardPage() {
   const today = new Date();
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-2xl font-bold">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-sm text-muted-foreground">
           {today.toLocaleDateString('fr-FR', {
             weekday: 'long',
@@ -85,7 +86,7 @@ export default function DashboardPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Today's appointments */}
-        <section className="bg-card rounded-xl border border-border p-5">
+        <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground">Rendez-vous du jour</h2>
             <Link to="/appointments" className="text-xs text-primary hover:underline">
@@ -127,10 +128,10 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </section>
+        </Card>
 
         {/* Pending tasks */}
-        <section className="bg-card rounded-xl border border-border p-5">
+        <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground">Tâches à faire</h2>
             <Link to="/tasks" className="text-xs text-primary hover:underline">
@@ -166,7 +167,7 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   );

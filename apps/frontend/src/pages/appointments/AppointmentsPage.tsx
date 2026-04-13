@@ -6,6 +6,7 @@ import { Link, useSearchParams } from 'react-router';
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,16 +74,16 @@ export default function AppointmentsPage() {
   const meta = data?.meta ?? { total: 0, page: 1, totalPages: 1 };
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Rendez-vous</h1>
+        <h1 className="text-2xl font-bold">Rendez-vous</h1>
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="w-4 h-4" /> Nouveau rendez-vous
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap gap-3 items-center">
+      <Card><CardContent className="p-4 flex flex-wrap gap-3 items-center">
         {/* Status filters */}
         <div className="flex gap-1.5">
           {STATUSES.map((s) => (
@@ -113,10 +114,10 @@ export default function AppointmentsPage() {
             className="px-2 py-1.5 text-sm border border-input rounded-lg bg-background"
           />
         </div>
-      </div>
+      </CardContent></Card>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <Card className="overflow-hidden">
         {isLoading ? (
           <LoadingSpinner />
         ) : appointments.length === 0 ? (
@@ -191,7 +192,7 @@ export default function AppointmentsPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
 
       {/* Pagination */}
       {meta.totalPages > 1 && (

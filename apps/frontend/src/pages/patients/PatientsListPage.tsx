@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import api from '../../lib/api';
 import { calculateAge, formatDate } from '../../lib/utils';
@@ -49,11 +50,11 @@ export default function PatientsListPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Patients</h1>
+          <h1 className="text-2xl font-bold">Patients</h1>
           {data && (
             <p className="text-sm text-muted-foreground">
               {data.meta.total} patient{data.meta.total > 1 ? 's' : ''}
@@ -68,7 +69,8 @@ export default function PatientsListPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-4">
+      <Card>
+      <CardContent className="p-4 flex items-center gap-4">
         <form onSubmit={handleSearch} className="flex-1 relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -104,10 +106,11 @@ export default function PatientsListPage() {
             </button>
           ))}
         </div>
-      </div>
+      </CardContent>
+      </Card>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <Card className="overflow-hidden">
         {isLoading ? (
           <LoadingSpinner />
         ) : !data?.data.length ? (
@@ -183,7 +186,7 @@ export default function PatientsListPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
 
       {/* Pagination */}
       {data && data.meta.totalPages > 1 && (

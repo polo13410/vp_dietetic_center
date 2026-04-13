@@ -203,7 +203,6 @@ export class ReportsService {
   }
 
   async getNutritionTrends(user: User, from?: string, to?: string) {
-    const practFilter = user.role !== UserRole.ADMIN ? { practitionerId: user.id } : {};
     const dateFilter =
       from || to
         ? {

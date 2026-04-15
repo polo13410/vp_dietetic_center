@@ -49,7 +49,7 @@ L'application sera disponible sur :
 - Frontend : http://localhost:5173
 - API : http://localhost:3000
 - Swagger : http://localhost:3000/api/docs
-- Mailpit : http://localhost:8025
+- Mailpit : http://localhost:8026
 
 ### Comptes de démonstration
 

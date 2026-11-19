@@ -1,8 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createMockUser, mockNotifications, mockPrisma } from '../../test/setup';
+import { createMockUser, mockAccess, mockNotifications, mockPrisma } from '../../test/setup';
 
 import { AppointmentsService } from './appointments.service';
 
@@ -12,7 +12,7 @@ describe('AppointmentsService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new AppointmentsService(mockPrisma as any, mockNotifications as any);
+    service = new AppointmentsService(mockPrisma as any, mockNotifications as any, mockAccess as any);
   });
 
   describe('findAll', () => {
@@ -45,6 +45,18 @@ describe('AppointmentsService', () => {
   });
 
   describe('create', () => {
+    it("refuses to book for another practitioner's patient", async () => {
+      mockAccess.assertPatient.mockRejectedValueOnce(new ForbiddenException());
+      await expect(
+        service.create(
+          { patientId: 'p1', startAt: '2026-12-01T10:00:00.000Z', duration: 60, type: 'IN_PERSON' as any },
+          user as any,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1');
+      expect(mockPrisma.appointment.create).not.toHaveBeenCalled();
+    });
+
     it('computes endAt from startAt + duration', async () => {
       const patient = { id: 'p1', firstName: 'Marie', lastName: 'Dupont' };
       mockPrisma.appointment.create.mockResolvedValue({ id: 'a1', patient });

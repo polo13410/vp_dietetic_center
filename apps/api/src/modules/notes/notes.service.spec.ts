@@ -1,8 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { NoteStatus, NoteType } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createMockUser, mockNotifications, mockPrisma } from '../../test/setup';
+import { createMockUser, mockAccess, mockNotifications, mockPrisma } from '../../test/setup';
 
 import { NotesService } from './notes.service';
 
@@ -12,10 +12,27 @@ describe('NotesService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new NotesService(mockPrisma as any, mockNotifications as any);
+    service = new NotesService(mockPrisma as any, mockNotifications as any, mockAccess as any);
   });
 
   describe('create', () => {
+    it("refuses to write a note on another practitioner's patient", async () => {
+      mockAccess.assertPatient.mockRejectedValueOnce(new ForbiddenException());
+      await expect(
+        service.create({ patientId: 'p1', type: NoteType.FREE, content: 'x' }, user as any),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.clinicalNote.create).not.toHaveBeenCalled();
+    });
+
+    it('checks the appointment belongs to the patient', async () => {
+      mockPrisma.clinicalNote.create.mockResolvedValue({ id: 'n1' });
+      await service.create(
+        { patientId: 'p1', appointmentId: 'a1', type: NoteType.FREE, content: 'x' },
+        user as any,
+      );
+      expect(mockAccess.assertAppointment).toHaveBeenCalledWith(user, 'a1', 'p1');
+    });
+
     it('creates a draft note', async () => {
       mockPrisma.clinicalNote.create.mockResolvedValue({ id: 'n1', status: NoteStatus.DRAFT });
 

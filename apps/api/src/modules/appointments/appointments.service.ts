@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus, NotificationType, User, UserRole } from '@prisma/client';
 
+import { PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -13,6 +14,7 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly access: PatientAccessService,
   ) {}
 
   async findAll(user: User, query: AppointmentQueryDto) {
@@ -63,6 +65,7 @@ export class AppointmentsService {
   }
 
   async create(dto: CreateAppointmentDto, user: User) {
+    await this.access.assertPatient(user, dto.patientId);
     const endAt = new Date(new Date(dto.startAt).getTime() + dto.duration * 60 * 1000);
     const appt = await this.prisma.appointment.create({
       data: {
@@ -96,6 +99,9 @@ export class AppointmentsService {
     const appt = await this.prisma.appointment.findUnique({ where: { id } });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
     this.checkAccess(appt, user);
+    if (dto.patientId && dto.patientId !== appt.patientId) {
+      await this.access.assertPatient(user, dto.patientId);
+    }
 
     const endAt =
       dto.startAt && dto.duration

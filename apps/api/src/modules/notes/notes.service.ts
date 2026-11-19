@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { NoteStatus, NotificationType, User, UserRole } from '@prisma/client';
 
+import { PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -17,6 +18,7 @@ export class NotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly access: PatientAccessService,
   ) {}
 
   async findAll(user: User, patientId?: string, appointmentId?: string, status?: NoteStatus) {
@@ -53,6 +55,10 @@ export class NotesService {
   }
 
   async create(dto: CreateNoteDto, user: User) {
+    await this.access.assertPatient(user, dto.patientId);
+    if (dto.appointmentId) {
+      await this.access.assertAppointment(user, dto.appointmentId, dto.patientId);
+    }
     return this.prisma.clinicalNote.create({
       data: {
         ...dto,

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -15,12 +16,13 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { DocumentType } from '@prisma/client';
+import { DocumentType, User } from '@prisma/client';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 import { DocumentsService } from './documents.service';
+import { UploadDocumentBodyDto } from './dto/upload-document.dto';
 import { StorageService } from './storage.service';
 
 @ApiTags('documents')
@@ -34,27 +36,35 @@ export class DocumentsController {
 
   @Get()
   @ApiOperation({ summary: 'Lister les documents' })
-  findAll(@Query('patientId') patientId?: string) {
-    return this.service.findAll(patientId);
+  findAll(
+    @CurrentUser() user: User,
+    @Query('patientId') patientId?: string,
+  ) {
+    return this.service.findAll(user, patientId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.service.findOne(id, user);
   }
 
   @Get(':id/download')
   @ApiOperation({ summary: 'Telecharger un document' })
-  async download(@Param('id') id: string, @Res() res: Response) {
-    const doc = await this.service.findOne(id);
+  async download(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Res() res: Response,
+  ) {
+    const doc = await this.service.findOne(id, user);
+    let filePath: string;
     try {
-      const filePath = await this.storage.getFilePath(doc.gcsPath);
-      res.setHeader('Content-Type', doc.mimeType);
-      res.setHeader('Content-Disposition', `attachment; filename="${doc.originalName}"`);
-      res.sendFile(filePath);
+      filePath = await this.storage.getFilePath(doc.gcsPath);
     } catch {
       throw new NotFoundException('Fichier introuvable sur le stockage');
     }
+    res.setHeader('Content-Type', doc.mimeType);
+    res.attachment(doc.originalName);
+    res.sendFile(filePath);
   }
 
   @Post('upload')
@@ -71,40 +81,30 @@ export class DocumentsController {
         type: { type: 'string', enum: Object.values(DocumentType) },
         description: { type: 'string' },
       },
-      required: ['file', 'patientId', 'name', 'type'],
+      required: ['file', 'patientId'],
     },
   })
   async upload(
     @UploadedFile() file: Express.Multer.File,
-    @Query('patientId') queryPatientId: string,
-    @Query('name') queryName: string,
-    @Query('type') queryType: string,
-    @Query('description') queryDescription: string,
-    @CurrentUser() user: any,
+    @Body() body: UploadDocumentBodyDto,
+    @CurrentUser() user: User,
   ) {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
 
-    // Accept params from query or body (form-data fields come as body in multer)
-    const body = (user as any)?._body ?? {};
-    const patientId = queryPatientId || body.patientId;
-    const name = queryName || body.name || file.originalname;
-    const type = queryType || body.type || 'OTHER';
-    const description = queryDescription || body.description;
+    await this.service.assertCanUpload(user, body.patientId);
 
-    if (!patientId) throw new BadRequestException('patientId requis');
-
-    const uploaded = await this.storage.upload(file, patientId);
+    const uploaded = await this.storage.upload(file, body.patientId);
 
     return this.service.create(
       {
-        patientId,
-        name,
+        patientId: body.patientId,
+        name: body.name || file.originalname,
         originalName: file.originalname,
-        type: type as DocumentType,
+        type: body.type ?? DocumentType.OTHER,
         mimeType: uploaded.mimeType,
         sizeBytes: uploaded.sizeBytes,
         gcsPath: uploaded.storagePath,
-        description,
+        description: body.description,
       },
       user,
     );
@@ -112,7 +112,7 @@ export class DocumentsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  async remove(@Param('id') id: string, @CurrentUser() user: User) {
+    await this.service.remove(id, user);
   }
 }

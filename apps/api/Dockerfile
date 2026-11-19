@@ -1,6 +1,6 @@
 # ─── Base ─────────────────────────────────────────────────────────────────────
 FROM node:24-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ RUN pnpm build
 
 # ─── Production ───────────────────────────────────────────────────────────────
 FROM node:24-alpine AS production
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
 ENV NODE_ENV=production

@@ -42,7 +42,7 @@ import { PrismaModule } from './prisma/prisma.module';
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
             : undefined,
-        autoLogging: { ignore: (req: IncomingMessage) => req.url === '/api/health' },
+        autoLogging: { ignore: (req: IncomingMessage) => req.url === '/api/v1/health' },
         redact: ['req.headers.authorization', 'req.headers.cookie'],
       },
     }),

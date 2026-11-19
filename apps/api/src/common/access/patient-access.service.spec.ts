@@ -31,8 +31,20 @@ describe('PatientAccessService', () => {
     it('can read every patient record', async () => {
       expect(service.patientScope(assistant as any, 'record')).toEqual({});
       mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: 'other' });
+      await expect(service.assertPatient(assistant as any, 'p1', 'record')).resolves.toEqual({
+        practitionerId: 'other',
+      });
+    });
+
+    it('manages appointments of every practitioner', async () => {
+      expect(service.appointmentScope(assistant as any)).toEqual({});
+      expect(service.canManageAppointment(assistant as any, 'other')).toBe(true);
+      mockPrisma.appointment.findUnique.mockResolvedValue({
+        practitionerId: 'other',
+        patientId: 'p1',
+      });
       await expect(
-        service.assertPatient(assistant as any, 'p1', 'record'),
+        service.assertAppointment(assistant as any, 'a1', 'p1'),
       ).resolves.toBeUndefined();
     });
 
@@ -49,7 +61,9 @@ describe('PatientAccessService', () => {
   describe('assertPatient', () => {
     it('passes for the owning practitioner', async () => {
       mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: user.id });
-      await expect(service.assertPatient(user as any, 'p1')).resolves.toBeUndefined();
+      await expect(service.assertPatient(user as any, 'p1')).resolves.toEqual({
+        practitionerId: user.id,
+      });
       expect(mockPrisma.patient.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'p1', deletedAt: null } }),
       );
@@ -62,12 +76,21 @@ describe('PatientAccessService', () => {
 
     it('lets admins access any patient', async () => {
       mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: 'other' });
-      await expect(service.assertPatient(admin as any, 'p1')).resolves.toBeUndefined();
+      await expect(service.assertPatient(admin as any, 'p1')).resolves.toEqual({
+        practitionerId: 'other',
+      });
     });
 
     it('throws NotFound for missing or deleted patients', async () => {
       mockPrisma.patient.findUnique.mockResolvedValue(null);
       await expect(service.assertPatient(user as any, 'p1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('appointmentScope', () => {
+    it("restricts practitioners to their own appointments", () => {
+      expect(service.appointmentScope(user as any)).toEqual({ practitionerId: user.id });
+      expect(service.canManageAppointment(user as any, 'other')).toBe(false);
     });
   });
 

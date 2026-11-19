@@ -25,8 +25,16 @@ export const mockAccess = {
   patientScope: vi.fn((user: { id: string; role: string }) =>
     user.role === 'ADMIN' ? {} : { practitionerId: user.id },
   ),
+  canAccess: vi.fn((user: { id: string; role: string }, practitionerId: string, level = 'full') =>
+    user.role === 'ADMIN' ||
+    (user.role === 'ASSISTANTE' ? level === 'record' : practitionerId === user.id),
+  ),
   assertOwner: vi.fn(),
-  assertPatient: vi.fn().mockResolvedValue(undefined),
+  assertPatient: vi.fn().mockResolvedValue({ practitionerId: 'user-1' }),
+  appointmentScope: vi.fn((user: { id: string; role: string }) =>
+    user.role === 'ADMIN' || user.role === 'ASSISTANTE' ? {} : { practitionerId: user.id },
+  ),
+  assertCanManageAppointment: vi.fn(),
   assertAppointment: vi.fn().mockResolvedValue(undefined),
 };
 

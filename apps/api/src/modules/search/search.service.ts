@@ -15,7 +15,7 @@ export class SearchService {
     if (!query || query.trim().length < 2) return { patients: [], appointments: [], notes: [] };
 
     const q = query.trim();
-    const practFilter = user.role !== UserRole.ADMIN ? { practitionerId: user.id } : {};
+    const apptScope = this.access.appointmentScope(user);
 
     const [patients, appointments, notes] = await Promise.all([
       this.prisma.patient.findMany({
@@ -33,13 +33,14 @@ export class SearchService {
       }),
       this.prisma.appointment.findMany({
         where: {
-          ...practFilter,
+          ...apptScope,
           OR: [
             { reason: { contains: q, mode: 'insensitive' } },
             { patient: { firstName: { contains: q, mode: 'insensitive' } } },
             { patient: { lastName: { contains: q, mode: 'insensitive' } } },
           ],
         },
+        omit: { postNotes: true },
         include: { patient: { select: { firstName: true, lastName: true } } },
         take: 5,
         orderBy: { startAt: 'desc' },
@@ -73,7 +74,7 @@ export class SearchService {
     const endOfDay = new Date(startOfDay.getTime() + 24 * 3600 * 1000);
     const endOfWeek = new Date(startOfDay.getTime() + 7 * 24 * 3600 * 1000);
 
-    const practFilter = user.role !== UserRole.ADMIN ? { practitionerId: user.id } : {};
+    const apptScope = this.access.appointmentScope(user);
 
     const [
       todayAppointments,
@@ -84,16 +85,18 @@ export class SearchService {
       weekAppts,
     ] = await Promise.all([
       this.prisma.appointment.findMany({
-        where: { ...practFilter, startAt: { gte: startOfDay, lt: endOfDay } },
+        where: { ...apptScope, startAt: { gte: startOfDay, lt: endOfDay } },
+        omit: { postNotes: true },
         include: { patient: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { startAt: 'asc' },
       }),
       this.prisma.appointment.findMany({
         where: {
-          ...practFilter,
+          ...apptScope,
           startAt: { gte: endOfDay, lt: endOfWeek },
           status: { in: ['SCHEDULED', 'CONFIRMED'] },
         },
+        omit: { postNotes: true },
         include: { patient: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { startAt: 'asc' },
         take: 5,
@@ -119,7 +122,7 @@ export class SearchService {
         where: { ...this.access.patientScope(user, 'record'), status: 'ACTIVE', deletedAt: null },
       }),
       this.prisma.appointment.findMany({
-        where: { ...practFilter, startAt: { gte: startOfDay, lt: endOfWeek } },
+        where: { ...apptScope, startAt: { gte: startOfDay, lt: endOfWeek } },
         select: { status: true },
       }),
     ]);

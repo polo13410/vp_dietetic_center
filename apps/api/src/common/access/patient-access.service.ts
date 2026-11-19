@@ -16,7 +16,8 @@ export type PatientAccessLevel = 'record' | 'full';
  * Single source of truth for "who may touch which patient's data".
  * - ADMIN: everything.
  * - PRATICIENNE: everything on their own patients.
- * - ASSISTANTE: read-only `record` access to all patients, never `full`.
+ * - ASSISTANTE: read-only `record` access to all patients, never `full`; manages the
+ *   appointments of every practitioner (scheduling only, not post-session notes).
  */
 @Injectable()
 export class PatientAccessService {
@@ -43,18 +44,40 @@ export class PatientAccessService {
     }
   }
 
-  /** Ensures the patient exists, is not deleted, and is accessible by the user at `level`. */
+  /**
+   * Ensures the patient exists, is not deleted, and is accessible by the user at `level`.
+   * Returns the patient's practitioner.
+   */
   async assertPatient(
     user: AccessUser,
     patientId: string,
     level: PatientAccessLevel = 'full',
-  ): Promise<void> {
+  ): Promise<{ practitionerId: string }> {
     const patient = await this.prisma.patient.findUnique({
       where: { id: patientId, deletedAt: null },
       select: { practitionerId: true },
     });
     if (!patient) throw new NotFoundException('Patient introuvable');
     this.assertOwner(user, patient.practitionerId, level);
+    return patient;
+  }
+
+  /** Prisma filter restricting appointments to those the user may manage. */
+  appointmentScope(user: AccessUser): Prisma.AppointmentWhereInput {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.ASSISTANTE) return {};
+    return { practitionerId: user.id };
+  }
+
+  /** Whether the user may view and manage (schedule, edit, cancel) an appointment. */
+  canManageAppointment(user: AccessUser, practitionerId: string): boolean {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.ASSISTANTE) return true;
+    return practitionerId === user.id;
+  }
+
+  assertCanManageAppointment(user: AccessUser, practitionerId: string): void {
+    if (!this.canManageAppointment(user, practitionerId)) {
+      throw new ForbiddenException('Accès non autorisé à ce rendez-vous');
+    }
   }
 
   /**
@@ -71,9 +94,7 @@ export class PatientAccessService {
       select: { practitionerId: true, patientId: true },
     });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
-    if (user.role !== UserRole.ADMIN && appt.practitionerId !== user.id) {
-      throw new ForbiddenException('Accès non autorisé à ce rendez-vous');
-    }
+    this.assertCanManageAppointment(user, appt.practitionerId);
     if (patientId && appt.patientId !== patientId) {
       throw new ForbiddenException("Ce rendez-vous n'appartient pas à ce patient");
     }

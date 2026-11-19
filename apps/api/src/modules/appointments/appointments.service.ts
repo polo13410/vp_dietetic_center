@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, NotificationType, User, UserRole } from '@prisma/client';
+import { AppointmentStatus, NotificationType, User } from '@prisma/client';
 
-import { PatientAccessService } from '../../common/access/patient-access.service';
+import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -22,7 +22,7 @@ export class AppointmentsService {
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {
-      ...(user.role !== UserRole.ADMIN ? { practitionerId: user.id } : {}),
+      ...this.access.appointmentScope(user),
       ...(patientId ? { patientId } : {}),
       ...(status ? { status } : {}),
       ...(from || to
@@ -41,6 +41,7 @@ export class AppointmentsService {
         where,
         include: {
           patient: { select: { id: true, firstName: true, lastName: true } },
+          practitioner: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: { startAt: 'asc' },
         skip,
@@ -48,7 +49,10 @@ export class AppointmentsService {
       }),
     ]);
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data: data.map((appt) => this.redact(appt, user)),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string, user: User) {
@@ -56,21 +60,23 @@ export class AppointmentsService {
       where: { id },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },
+        practitioner: { select: { id: true, firstName: true, lastName: true } },
         notes: { select: { id: true, title: true, status: true, type: true } },
       },
     });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
-    this.checkAccess(appt, user);
-    return appt;
+    this.access.assertCanManageAppointment(user, appt.practitionerId);
+    return this.redact(appt, user);
   }
 
   async create(dto: CreateAppointmentDto, user: User) {
-    await this.access.assertPatient(user, dto.patientId);
+    // The appointment belongs to the patient's practitioner, even when an assistant books it
+    const { practitionerId } = await this.access.assertPatient(user, dto.patientId, 'record');
     const endAt = new Date(new Date(dto.startAt).getTime() + dto.duration * 60 * 1000);
     const appt = await this.prisma.appointment.create({
       data: {
         patientId: dto.patientId,
-        practitionerId: user.id,
+        practitionerId,
         startAt: new Date(dto.startAt),
         endAt,
         duration: dto.duration,
@@ -84,7 +90,7 @@ export class AppointmentsService {
     });
 
     this.notifications.create(
-      user.id,
+      practitionerId,
       NotificationType.APPOINTMENT_CREATED,
       'Rendez-vous cree',
       `RDV avec ${appt.patient.lastName} ${appt.patient.firstName} le ${new Date(dto.startAt).toLocaleDateString('fr-FR')}`,
@@ -98,9 +104,14 @@ export class AppointmentsService {
   async update(id: string, dto: UpdateAppointmentDto, user: User) {
     const appt = await this.prisma.appointment.findUnique({ where: { id } });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
-    this.checkAccess(appt, user);
+    this.access.assertCanManageAppointment(user, appt.practitionerId);
+    if (dto.postNotes !== undefined && !this.access.canAccess(user, appt.practitionerId, 'full')) {
+      throw new ForbiddenException('Les notes post-consultation sont réservées à la praticienne');
+    }
+    // Moving the appointment to another patient also moves it to that patient's practitioner
+    let practitionerId: string | undefined;
     if (dto.patientId && dto.patientId !== appt.patientId) {
-      await this.access.assertPatient(user, dto.patientId);
+      ({ practitionerId } = await this.access.assertPatient(user, dto.patientId, 'record'));
     }
 
     const endAt =
@@ -114,6 +125,7 @@ export class AppointmentsService {
       where: { id },
       data: {
         ...dto,
+        ...(practitionerId ? { practitionerId } : {}),
         startAt: dto.startAt ? new Date(dto.startAt) : undefined,
         endAt,
       },
@@ -123,15 +135,19 @@ export class AppointmentsService {
   async remove(id: string, user: User) {
     const appt = await this.prisma.appointment.findUnique({ where: { id } });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
-    this.checkAccess(appt, user);
+    this.access.assertCanManageAppointment(user, appt.practitionerId);
     return this.prisma.appointment.update({
       where: { id },
       data: { status: AppointmentStatus.CANCELLED },
     });
   }
 
-  private checkAccess(appt: { practitionerId: string }, user: User) {
-    if (user.role === UserRole.ADMIN) return;
-    if (appt.practitionerId !== user.id) throw new ForbiddenException();
+  /** Drops post-session notes and linked clinical notes for scheduling-only users (assistants). */
+  private redact<T extends { practitionerId: string }>(appt: T, user: AccessUser) {
+    if (this.access.canAccess(user, appt.practitionerId, 'full')) return appt;
+    const visible: Record<string, unknown> = { ...appt };
+    delete visible.postNotes;
+    delete visible.notes;
+    return visible as Omit<T, 'postNotes' | 'notes'>;
   }
 }

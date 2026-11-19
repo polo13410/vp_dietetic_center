@@ -53,7 +53,7 @@ describe('AppointmentsService', () => {
           user as any,
         ),
       ).rejects.toThrow(ForbiddenException);
-      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1');
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1', 'record');
       expect(mockPrisma.appointment.create).not.toHaveBeenCalled();
     });
 
@@ -84,6 +84,85 @@ describe('AppointmentsService', () => {
       );
 
       expect(mockNotifications.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('assistant', () => {
+    const assistant = createMockUser({ id: 'assist-1', role: 'ASSISTANTE' });
+
+    it("books for the patient's practitioner and notifies them", async () => {
+      mockAccess.assertPatient.mockResolvedValueOnce({ practitionerId: 'pract-1' });
+      mockPrisma.appointment.create.mockResolvedValue({
+        id: 'a1',
+        patient: { id: 'p1', firstName: 'M', lastName: 'D' },
+      });
+
+      await service.create(
+        { patientId: 'p1', startAt: '2026-12-01T10:00:00Z', duration: 30, type: 'IN_PERSON' as any },
+        assistant as any,
+      );
+
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(assistant, 'p1', 'record');
+      expect(mockPrisma.appointment.create.mock.calls[0][0].data.practitionerId).toBe('pract-1');
+      expect(mockNotifications.create.mock.calls[0][0]).toBe('pract-1');
+    });
+
+    it('lists every appointment without post-session notes', async () => {
+      mockPrisma.appointment.count.mockResolvedValue(1);
+      mockPrisma.appointment.findMany.mockResolvedValue([
+        { id: 'a1', practitionerId: 'pract-1', postNotes: 'clinical' },
+      ]);
+
+      const result = await service.findAll(assistant as any, {});
+
+      expect(mockPrisma.appointment.findMany.mock.calls[0][0].where.practitionerId).toBeUndefined();
+      expect(result.data[0]).not.toHaveProperty('postNotes');
+    });
+
+    it('sees an appointment without post-session or clinical notes', async () => {
+      mockPrisma.appointment.findUnique.mockResolvedValue({
+        id: 'a1',
+        practitionerId: 'pract-1',
+        postNotes: 'clinical',
+        notes: [{ id: 'n1' }],
+      });
+
+      const result = await service.findOne('a1', assistant as any);
+
+      expect(result).not.toHaveProperty('postNotes');
+      expect(result).not.toHaveProperty('notes');
+    });
+
+    it('can reschedule but not write post-session notes', async () => {
+      mockPrisma.appointment.findUnique.mockResolvedValue({
+        id: 'a1',
+        practitionerId: 'pract-1',
+        patientId: 'p1',
+        duration: 30,
+      });
+      mockPrisma.appointment.update.mockResolvedValue({});
+
+      await service.update('a1', { startAt: '2026-12-02T10:00:00Z' }, assistant as any);
+      expect(mockPrisma.appointment.update).toHaveBeenCalled();
+
+      await expect(
+        service.update('a1', { postNotes: 'x' }, assistant as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("moves the appointment to the new patient's practitioner", async () => {
+      mockPrisma.appointment.findUnique.mockResolvedValue({
+        id: 'a1',
+        practitionerId: 'pract-1',
+        patientId: 'p1',
+        duration: 30,
+      });
+      mockAccess.assertPatient.mockResolvedValueOnce({ practitionerId: 'pract-2' });
+      mockPrisma.appointment.update.mockResolvedValue({});
+
+      await service.update('a1', { patientId: 'p2' }, assistant as any);
+
+      expect(mockPrisma.appointment.update.mock.calls[0][0].data.practitionerId).toBe('pract-2');
     });
   });
 

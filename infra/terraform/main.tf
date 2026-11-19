@@ -8,7 +8,8 @@ locals {
 
   cfg = {
     staging = {
-      node_env               = "staging"
+      # Staging runs exactly like prod: secure cookies, no Swagger, JSON logs
+      node_env               = "production"
       max_api_instances      = 1
       max_frontend_instances = 1
       bucket_force_destroy   = true
@@ -177,8 +178,9 @@ resource "google_cloud_run_v2_service" "api" {
         value = local.cfg.node_env
       }
       env {
+        # Only this environment's frontend may call the API with credentials
         name  = "CORS_ORIGINS"
-        value = "*"
+        value = google_cloud_run_v2_service.frontend.uri
       }
       env {
         name  = "GCS_BUCKET_NAME"

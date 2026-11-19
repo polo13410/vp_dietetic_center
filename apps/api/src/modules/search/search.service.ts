@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { User, UserRole } from '@prisma/client';
 
+import { PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: PatientAccessService,
+  ) {}
 
   async search(query: string, user: User) {
     if (!query || query.trim().length < 2) return { patients: [], appointments: [], notes: [] };
@@ -16,7 +20,7 @@ export class SearchService {
     const [patients, appointments, notes] = await Promise.all([
       this.prisma.patient.findMany({
         where: {
-          ...practFilter,
+          ...this.access.patientScope(user, 'record'),
           deletedAt: null,
           OR: [
             { firstName: { contains: q, mode: 'insensitive' } },
@@ -111,7 +115,9 @@ export class SearchService {
         select: { id: true, title: true, patientId: true, updatedAt: true },
         take: 5,
       }),
-      this.prisma.patient.count({ where: { ...practFilter, status: 'ACTIVE', deletedAt: null } }),
+      this.prisma.patient.count({
+        where: { ...this.access.patientScope(user, 'record'), status: 'ACTIVE', deletedAt: null },
+      }),
       this.prisma.appointment.findMany({
         where: { ...practFilter, startAt: { gte: startOfDay, lt: endOfWeek } },
         select: { status: true },

@@ -60,7 +60,7 @@ describe('TasksService', () => {
         { title: 'New task', patientId: 'p1', appointmentId: 'a1' },
         user as any,
       );
-      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1');
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1', 'record');
       expect(mockAccess.assertAppointment).toHaveBeenCalledWith(user, 'a1', 'p1');
     });
 

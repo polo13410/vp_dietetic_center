@@ -25,6 +25,27 @@ describe('PatientAccessService', () => {
     });
   });
 
+  describe('assistants', () => {
+    const assistant = createMockUser({ id: 'assist-1', role: 'ASSISTANTE' });
+
+    it('can read every patient record', async () => {
+      expect(service.patientScope(assistant as any, 'record')).toEqual({});
+      mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: 'other' });
+      await expect(
+        service.assertPatient(assistant as any, 'p1', 'record'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('never gets full (clinical / write) access', async () => {
+      expect(service.patientScope(assistant as any)).toEqual({ id: { in: [] } });
+      expect(service.canAccess(assistant as any, assistant.id, 'full')).toBe(false);
+      mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: 'other' });
+      await expect(service.assertPatient(assistant as any, 'p1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
   describe('assertPatient', () => {
     it('passes for the owning practitioner', async () => {
       mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: user.id });

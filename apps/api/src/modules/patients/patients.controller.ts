@@ -1,7 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { PatientQueryDto } from './dto/patient-query.dto';
@@ -39,18 +41,21 @@ export class PatientsController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.PRATICIENNE)
   @ApiOperation({ summary: 'Créer un patient' })
   create(@Body() dto: CreatePatientDto, @CurrentUser() user: any) {
     return this.patientsService.create(dto, user);
   }
 
   @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.PRATICIENNE)
   @ApiOperation({ summary: 'Mettre à jour un patient' })
   update(@Param('id') id: string, @Body() dto: UpdatePatientDto, @CurrentUser() user: any) {
     return this.patientsService.update(id, dto, user);
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.PRATICIENNE)
   @ApiOperation({ summary: 'Archiver un patient (soft delete)' })
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.patientsService.remove(id, user);

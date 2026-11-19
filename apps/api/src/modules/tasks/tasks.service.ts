@@ -51,7 +51,7 @@ export class TasksService {
   async update(id: string, dto: UpdateTaskDto, user: AccessUser) {
     const task = await this.findAccessible(id, user);
     // Only re-check links the update actually changes
-    if (dto.patientId) await this.access.assertPatient(user, dto.patientId);
+    if (dto.patientId) await this.access.assertPatient(user, dto.patientId, 'record');
     if (dto.appointmentId) {
       await this.access.assertAppointment(
         user,
@@ -90,7 +90,7 @@ export class TasksService {
     user: AccessUser,
     { patientId, appointmentId }: { patientId?: string; appointmentId?: string },
   ) {
-    if (patientId) await this.access.assertPatient(user, patientId);
+    if (patientId) await this.access.assertPatient(user, patientId, 'record');
     if (appointmentId) await this.access.assertAppointment(user, appointmentId, patientId);
   }
 }

@@ -6,34 +6,55 @@ import { PrismaService } from '../../prisma/prisma.service';
 export type AccessUser = Pick<User, 'id' | 'role'>;
 
 /**
+ * - `record`: read the administrative patient record (identity, contact, tags, appointments
+ *   history in the timeline) or reference the patient from a task.
+ * - `full`: clinical data (notes, nutrition, documents, private note) and any modification.
+ */
+export type PatientAccessLevel = 'record' | 'full';
+
+/**
  * Single source of truth for "who may touch which patient's data".
- * Rule today: ADMIN sees everything, everyone else only their own patients.
+ * - ADMIN: everything.
+ * - PRATICIENNE: everything on their own patients.
+ * - ASSISTANTE: read-only `record` access to all patients, never `full`.
  */
 @Injectable()
 export class PatientAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Prisma filter restricting patients to those the user may access. */
-  patientScope(user: AccessUser): Prisma.PatientWhereInput {
-    return user.role === UserRole.ADMIN ? {} : { practitionerId: user.id };
+  /** Prisma filter restricting patients to those the user may access at `level`. */
+  patientScope(user: AccessUser, level: PatientAccessLevel = 'full'): Prisma.PatientWhereInput {
+    if (user.role === UserRole.ADMIN) return {};
+    if (user.role === UserRole.ASSISTANTE) return level === 'record' ? {} : { id: { in: [] } };
+    return { practitionerId: user.id };
   }
 
-  /** Throws ForbiddenException if the user may not access a patient owned by `practitionerId`. */
-  assertOwner(user: AccessUser, practitionerId: string): void {
-    if (user.role === UserRole.ADMIN) return;
-    if (practitionerId !== user.id) {
+  /** Whether the user may access a patient owned by `practitionerId` at `level`. */
+  canAccess(user: AccessUser, practitionerId: string, level: PatientAccessLevel = 'full'): boolean {
+    if (user.role === UserRole.ADMIN) return true;
+    if (user.role === UserRole.ASSISTANTE) return level === 'record';
+    return practitionerId === user.id;
+  }
+
+  /** Throws ForbiddenException unless the user may access a patient owned by `practitionerId`. */
+  assertOwner(user: AccessUser, practitionerId: string, level: PatientAccessLevel = 'full'): void {
+    if (!this.canAccess(user, practitionerId, level)) {
       throw new ForbiddenException('Accès non autorisé à ce patient');
     }
   }
 
-  /** Ensures the patient exists, is not deleted, and is accessible by the user. */
-  async assertPatient(user: AccessUser, patientId: string): Promise<void> {
+  /** Ensures the patient exists, is not deleted, and is accessible by the user at `level`. */
+  async assertPatient(
+    user: AccessUser,
+    patientId: string,
+    level: PatientAccessLevel = 'full',
+  ): Promise<void> {
     const patient = await this.prisma.patient.findUnique({
       where: { id: patientId, deletedAt: null },
       select: { practitionerId: true },
     });
     if (!patient) throw new NotFoundException('Patient introuvable');
-    this.assertOwner(user, patient.practitionerId);
+    this.assertOwner(user, patient.practitionerId, level);
   }
 
   /**
@@ -50,7 +71,9 @@ export class PatientAccessService {
       select: { practitionerId: true, patientId: true },
     });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
-    this.assertOwner(user, appt.practitionerId);
+    if (user.role !== UserRole.ADMIN && appt.practitionerId !== user.id) {
+      throw new ForbiddenException('Accès non autorisé à ce rendez-vous');
+    }
     if (patientId && appt.patientId !== patientId) {
       throw new ForbiddenException("Ce rendez-vous n'appartient pas à ce patient");
     }

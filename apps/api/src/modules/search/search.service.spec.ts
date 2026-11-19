@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PatientAccessService } from '../../common/access/patient-access.service';
 import { createMockUser, mockPrisma } from '../../test/setup';
 
 import { SearchService } from './search.service';
@@ -10,7 +11,7 @@ describe('SearchService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new SearchService(mockPrisma as any);
+    service = new SearchService(mockPrisma as any, new PatientAccessService(mockPrisma as any));
   });
 
   describe('globalSearch', () => {

@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { PatientStatus, User, UserRole } from '@prisma/client';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PatientStatus, User } from '@prisma/client';
 
+import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -9,6 +10,7 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 
 const PATIENT_SELECT = {
   id: true,
+  practitionerId: true,
   firstName: true,
   lastName: true,
   dateOfBirth: true,
@@ -34,7 +36,10 @@ const PATIENT_SELECT = {
 
 @Injectable()
 export class PatientsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: PatientAccessService,
+  ) {}
 
   async findAll(user: User, query: PatientQueryDto) {
     const { page = 1, limit = 20, search, status, tagId } = query;
@@ -42,7 +47,7 @@ export class PatientsService {
 
     const where: Record<string, unknown> = {
       deletedAt: null,
-      ...(user.role !== UserRole.ADMIN ? { practitionerId: user.id } : {}),
+      ...this.access.patientScope(user, 'record'),
       ...(status ? { status } : {}),
       ...(tagId ? { tags: { some: { tagId } } } : {}),
       ...(search
@@ -76,11 +81,16 @@ export class PatientsService {
     ]);
 
     return {
-      data: data.map((p) => ({
-        ...p,
-        tags: p.tags.map((pt: any) => pt.tag),
-        lastAppointmentAt: p.appointments[0]?.startAt ?? null,
-      })),
+      data: data.map((p) =>
+        this.redact(
+          {
+            ...p,
+            tags: p.tags.map((pt: any) => pt.tag),
+            lastAppointmentAt: p.appointments[0]?.startAt ?? null,
+          },
+          user,
+        ),
+      ),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -104,12 +114,9 @@ export class PatientsService {
     });
 
     if (!patient) throw new NotFoundException('Patient introuvable');
-    this.checkAccess(patient as any, user);
+    this.access.assertOwner(user, patient.practitionerId, 'record');
 
-    return {
-      ...patient,
-      tags: patient.tags.map((pt: any) => pt.tag),
-    };
+    return this.redact({ ...patient, tags: patient.tags.map((pt: any) => pt.tag) }, user);
   }
 
   async create(dto: CreatePatientDto, user: User) {
@@ -133,7 +140,7 @@ export class PatientsService {
 
   async update(id: string, dto: UpdatePatientDto, user: User) {
     const patient = await this.findOneRaw(id);
-    this.checkAccess(patient, user);
+    this.access.assertOwner(user, patient.practitionerId);
 
     const { tagIds, emergencyContact, ...data } = dto;
 
@@ -160,7 +167,7 @@ export class PatientsService {
 
   async remove(id: string, user: User) {
     const patient = await this.findOneRaw(id);
-    this.checkAccess(patient, user);
+    this.access.assertOwner(user, patient.practitionerId);
 
     return this.prisma.patient.update({
       where: { id },
@@ -174,7 +181,8 @@ export class PatientsService {
 
   async getTimeline(id: string, user: User) {
     const patient = await this.findOneRaw(id);
-    this.checkAccess(patient, user);
+    this.access.assertOwner(user, patient.practitionerId, 'record');
+    const clinical = this.access.canAccess(user, patient.practitionerId, 'full');
 
     const [appointments, notes, tasks] = await Promise.all([
       this.prisma.appointment.findMany({
@@ -183,8 +191,9 @@ export class PatientsService {
         take: 50,
         select: { id: true, startAt: true, status: true, type: true, reason: true, duration: true },
       }),
+      // Clinical notes are never listed for record-only access (assistants)
       this.prisma.clinicalNote.findMany({
-        where: { patientId: id },
+        where: clinical ? { patientId: id } : { id: { in: [] } },
         orderBy: { createdAt: 'desc' },
         take: 50,
         select: {
@@ -222,10 +231,12 @@ export class PatientsService {
     return patient;
   }
 
-  private checkAccess(patient: { practitionerId: string }, user: User) {
-    if (user.role === UserRole.ADMIN) return;
-    if (patient.practitionerId !== user.id) {
-      throw new ForbiddenException('Accès non autorisé à ce patient');
-    }
+  /** Drops clinical fields for users with record-only access (assistants). */
+  private redact<T extends { practitionerId: string }>(patient: T, user: AccessUser) {
+    if (this.access.canAccess(user, patient.practitionerId, 'full')) return patient;
+    const record: Record<string, unknown> = { ...patient };
+    delete record.privateNote;
+    delete record.nutritionalProfile;
+    return record as Omit<T, 'privateNote' | 'nutritionalProfile'>;
   }
 }

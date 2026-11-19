@@ -29,6 +29,19 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       terraform: ${{ steps.filter.outputs.terraform }}
     steps:
+      # A manual run deploys the branch it is started from, so it must match the target
+      # (otherwise "staging" code could be shipped to prod)
+      - name: Check branch matches target environment
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TARGET: ${{ inputs.environment }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [[ "$TARGET" != "$BRANCH" ]]; then
+            echo "::error::Refusing to deploy branch '$BRANCH' to '$TARGET'. Start the run from the '$TARGET' branch."
+            exit 1
+          fi
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0

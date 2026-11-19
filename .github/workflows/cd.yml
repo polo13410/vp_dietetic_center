@@ -31,21 +31,46 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Detect changed paths
         id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "api=true" >> $GITHUB_OUTPUT
-            echo "frontend=true" >> $GITHUB_OUTPUT
-            echo "terraform=true" >> $GITHUB_OUTPUT
-          else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD)
-            echo "api=$(echo "$CHANGED" | grep -q -E '^(apps/api/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT
-            echo "frontend=$(echo "$CHANGED" | grep -q -E '^(apps/frontend/|packages/types/)' && echo true || echo false)" >> $GITHUB_OUTPUT
-            echo "terraform=$(echo "$CHANGED" | grep -q '^infra/terraform/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          deploy_all() {
+            echo "api=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            echo "terraform=true" >> "$GITHUB_OUTPUT"
+          }
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            deploy_all
+            exit 0
           fi
+
+          # Compare against the commit the branch pointed to before this push, so a push
+          # of several commits deploys everything they touched (not just the last commit).
+          # New branch or force-push: no usable base, so deploy everything.
+          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            echo "No usable base commit (${BEFORE:-none}), deploying everything"
+            deploy_all
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+          echo "Changed files since $BEFORE:"
+          echo "$CHANGED"
+
+          # Files baked into both Docker images
+          SHARED='^(packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|\.dockerignore$)'
+          matches() { echo "$CHANGED" | grep -qE "$1" && echo true || echo false; }
+
+          echo "api=$(matches "^apps/api/|$SHARED")" >> "$GITHUB_OUTPUT"
+          echo "frontend=$(matches "^apps/frontend/|$SHARED")" >> "$GITHUB_OUTPUT"
+          echo "terraform=$(matches '^infra/terraform/')" >> "$GITHUB_OUTPUT"
 
   deploy-api:
     name: Build & Deploy API (${{ inputs.environment || github.ref_name }})

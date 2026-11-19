@@ -1,13 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 
+import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+
+import { CreateNutritionalEntryDto } from './dto/create-entry.dto';
+import { UpdateNutritionalProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class NutritionalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: PatientAccessService,
+  ) {}
 
-  async getProfile(patientId: string) {
+  async getProfile(patientId: string, user: AccessUser) {
+    await this.access.assertPatient(user, patientId);
     return this.prisma.nutritionalProfile.upsert({
       where: { patientId },
       update: {},
@@ -15,15 +22,17 @@ export class NutritionalService {
     });
   }
 
-  async updateProfile(patientId: string, data: Record<string, unknown>) {
+  async updateProfile(patientId: string, dto: UpdateNutritionalProfileDto, user: AccessUser) {
+    await this.access.assertPatient(user, patientId);
     return this.prisma.nutritionalProfile.upsert({
       where: { patientId },
-      update: data,
-      create: { patientId, ...data },
+      update: dto,
+      create: { patientId, ...dto },
     });
   }
 
-  async getEntries(patientId: string, from?: string, to?: string) {
+  async getEntries(patientId: string, user: AccessUser, from?: string, to?: string) {
+    await this.access.assertPatient(user, patientId);
     return this.prisma.nutritionalEntry.findMany({
       where: {
         patientId,
@@ -40,12 +49,14 @@ export class NutritionalService {
     });
   }
 
-  async createEntry(patientId: string, data: { date: string | Date } & Record<string, unknown>) {
+  async createEntry(
+    patientId: string,
+    data: Omit<CreateNutritionalEntryDto, 'patientId'>,
+    user: AccessUser,
+  ) {
+    await this.access.assertPatient(user, patientId);
     const entryDate = new Date(data.date);
-    const payload = {
-      ...data,
-      date: entryDate,
-    } as Omit<Prisma.NutritionalEntryUncheckedCreateInput, 'patientId'>;
+    const payload = { ...data, date: entryDate };
 
     return this.prisma.nutritionalEntry.upsert({
       where: { patientId_date: { patientId, date: entryDate } },

@@ -8,6 +8,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AppController } from './app.controller';
+import { AccessModule } from './common/access/access.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { configuration } from './config/configuration';
@@ -57,6 +58,7 @@ import { PrismaModule } from './prisma/prisma.module';
 
     // Core
     PrismaModule,
+    AccessModule,
 
     // Business modules
     AuthModule,

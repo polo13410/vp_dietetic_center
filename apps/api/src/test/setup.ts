@@ -21,6 +21,15 @@ export const mockNotifications = {
   unreadCount: vi.fn().mockResolvedValue(0),
 };
 
+export const mockAccess = {
+  patientScope: vi.fn((user: { id: string; role: string }) =>
+    user.role === 'ADMIN' ? {} : { practitionerId: user.id },
+  ),
+  assertOwner: vi.fn(),
+  assertPatient: vi.fn().mockResolvedValue(undefined),
+  assertAppointment: vi.fn().mockResolvedValue(undefined),
+};
+
 export function createMockUser(overrides = {}) {
   return {
     id: 'user-1',

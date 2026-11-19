@@ -16,6 +16,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
+import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 
@@ -29,6 +30,8 @@ const STATUSES = [
 ];
 
 export default function AppointmentsPage() {
+  // Admins and assistants see every practitioner's appointments
+  const showPractitioner = useIsRole('ADMIN', 'ASSISTANTE');
   const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -146,6 +149,11 @@ export default function AppointmentsPage() {
                     <Link to={`/patients/${appt.patientId}`} className="hover:text-primary">
                       {appt.patient?.lastName} {appt.patient?.firstName}
                     </Link>
+                    {showPractitioner && appt.practitioner && (
+                      <p className="text-xs font-normal text-muted-foreground">
+                        avec {appt.practitioner.firstName} {appt.practitioner.lastName}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={appt.type} /></td>
                   <td className="px-4 py-3 text-muted-foreground">{appt.duration} min</td>

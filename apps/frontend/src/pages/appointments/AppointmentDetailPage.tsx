@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
+import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import { formatDateTime } from '../../lib/utils';
 
@@ -17,6 +18,8 @@ export default function AppointmentDetailPage() {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // Assistants schedule appointments but never see post-session or clinical notes
+  const isAssistant = useIsRole('ASSISTANTE');
 
   const { data: appt, isLoading } = useQuery({
     queryKey: ['appointment', id],
@@ -96,6 +99,11 @@ export default function AppointmentDetailPage() {
             {appt.patient?.lastName} {appt.patient?.firstName}
           </Link>
         </InfoRow>
+        {appt.practitioner && (
+          <InfoRow label="Praticienne">
+            {appt.practitioner.firstName} {appt.practitioner.lastName}
+          </InfoRow>
+        )}
         <InfoRow label="Type"><StatusBadge status={appt.type} /></InfoRow>
         <InfoRow label="Duree">{appt.duration} minutes</InfoRow>
         <InfoRow label="Statut"><StatusBadge status={appt.status} /></InfoRow>
@@ -111,22 +119,28 @@ export default function AppointmentDetailPage() {
         </div>
       )}
 
-      {/* Post-notes (editable) */}
-      <div className="bg-card rounded-xl border border-border p-4">
-        <p className="text-xs font-medium text-muted-foreground mb-1.5">Notes post-consultation</p>
-        <PostNotesEditor
-          value={appt.postNotes ?? ''}
-          onSave={(value) => postNotesMutation.mutate(value)}
-          saving={postNotesMutation.isPending}
-        />
-      </div>
+      {!isAssistant && (
+        <>
+          {/* Post-notes (editable) */}
+          <div className="bg-card rounded-xl border border-border p-4">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">
+              Notes post-consultation
+            </p>
+            <PostNotesEditor
+              value={appt.postNotes ?? ''}
+              onSave={(value) => postNotesMutation.mutate(value)}
+              saving={postNotesMutation.isPending}
+            />
+          </div>
 
-      {/* Link to create note */}
-      <Button variant="outline" asChild>
-        <Link to={`/notes/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
-          <FileText className="w-4 h-4" /> Creer une note clinique
-        </Link>
-      </Button>
+          {/* Link to create note */}
+          <Button variant="outline" asChild>
+            <Link to={`/notes/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
+              <FileText className="w-4 h-4" /> Creer une note clinique
+            </Link>
+          </Button>
+        </>
+      )}
 
       {/* Edit dialog */}
       <AppointmentFormDialog

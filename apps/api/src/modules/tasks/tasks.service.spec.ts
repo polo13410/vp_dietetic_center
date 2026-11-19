@@ -1,8 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TaskStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createMockUser, mockNotifications, mockPrisma } from '../../test/setup';
+import { createMockUser, mockAccess, mockNotifications, mockPrisma } from '../../test/setup';
 
 import { TasksService } from './tasks.service';
 
@@ -12,7 +12,7 @@ describe('TasksService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new TasksService(mockPrisma as any, mockNotifications as any);
+    service = new TasksService(mockPrisma as any, mockNotifications as any, mockAccess as any);
   });
 
   describe('findAll', () => {
@@ -54,6 +54,24 @@ describe('TasksService', () => {
       );
     });
 
+    it('checks access to the linked patient and appointment', async () => {
+      mockPrisma.task.create.mockResolvedValue({ id: 't1' });
+      await service.create(
+        { title: 'New task', patientId: 'p1', appointmentId: 'a1' },
+        user as any,
+      );
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1');
+      expect(mockAccess.assertAppointment).toHaveBeenCalledWith(user, 'a1', 'p1');
+    });
+
+    it("refuses to link another practitioner's patient", async () => {
+      mockAccess.assertPatient.mockRejectedValueOnce(new ForbiddenException());
+      await expect(
+        service.create({ title: 'New task', patientId: 'p1' }, user as any),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.task.create).not.toHaveBeenCalled();
+    });
+
     it('creates a notification', async () => {
       mockPrisma.task.create.mockResolvedValue({ id: 't1' });
       await service.create({ title: 'New task' }, user as any);
@@ -63,10 +81,14 @@ describe('TasksService', () => {
 
   describe('update', () => {
     it('auto-sets completedAt when status is DONE', async () => {
-      mockPrisma.task.findUnique.mockResolvedValue({ id: 't1', completedAt: null });
+      mockPrisma.task.findUnique.mockResolvedValue({
+        id: 't1',
+        completedAt: null,
+        createdById: user.id,
+      });
       mockPrisma.task.update.mockResolvedValue({});
 
-      await service.update('t1', { status: TaskStatus.DONE });
+      await service.update('t1', { status: TaskStatus.DONE }, user as any);
 
       expect(mockPrisma.task.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -77,19 +99,57 @@ describe('TasksService', () => {
 
     it('throws NotFoundException when not found', async () => {
       mockPrisma.task.findUnique.mockResolvedValue(null);
-      await expect(service.update('nonexistent', { title: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(service.update('nonexistent', { title: 'X' }, user as any)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('lets the assignee update the task', async () => {
+      mockPrisma.task.findUnique.mockResolvedValue({
+        id: 't1',
+        createdById: 'other',
+        assignedToId: user.id,
+      });
+      mockPrisma.task.update.mockResolvedValue({});
+      await expect(service.update('t1', { title: 'X' }, user as any)).resolves.toBeDefined();
+    });
+
+    it('refuses updates from users who neither created nor are assigned the task', async () => {
+      mockPrisma.task.findUnique.mockResolvedValue({
+        id: 't1',
+        createdById: 'other',
+        assignedToId: 'someone-else',
+      });
+      await expect(service.update('t1', { title: 'X' }, user as any)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrisma.task.update).not.toHaveBeenCalled();
+    });
+
+    it('lets admins update any task', async () => {
+      const admin = createMockUser({ id: 'admin-1', role: 'ADMIN' });
+      mockPrisma.task.findUnique.mockResolvedValue({ id: 't1', createdById: 'other' });
+      mockPrisma.task.update.mockResolvedValue({});
+      await expect(service.update('t1', { title: 'X' }, admin as any)).resolves.toBeDefined();
     });
   });
 
   describe('remove', () => {
     it('soft deletes by setting CANCELLED status', async () => {
+      mockPrisma.task.findUnique.mockResolvedValue({ id: 't1', createdById: user.id });
       mockPrisma.task.update.mockResolvedValue({});
-      await service.remove('t1');
+      await service.remove('t1', user as any);
       expect(mockPrisma.task.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { status: TaskStatus.CANCELLED },
         }),
       );
+    });
+
+    it("refuses to cancel someone else's task", async () => {
+      mockPrisma.task.findUnique.mockResolvedValue({ id: 't1', createdById: 'other' });
+      await expect(service.remove('t1', user as any)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.task.update).not.toHaveBeenCalled();
     });
   });
 });

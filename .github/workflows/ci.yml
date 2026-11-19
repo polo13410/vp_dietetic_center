@@ -17,9 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Version comes from "packageManager" in package.json (setting it here too makes the action fail)
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -37,14 +36,11 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pnpm --filter api test:coverage
+          pnpm --filter @vp/api test:coverage
           pnpm --filter @vp/frontend test:coverage
 
       - name: Build
         run: pnpm build
-
-      - name: Generate Prisma client for API build
-        run: pnpm --filter api exec prisma generate
 
       - name: Upload test coverage
         uses: actions/upload-artifact@v4

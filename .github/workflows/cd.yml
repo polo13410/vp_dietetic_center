@@ -74,8 +74,12 @@ jobs:
 
   deploy-api:
     name: Build & Deploy API (${{ inputs.environment || github.ref_name }})
-    needs: changes
-    if: needs.changes.outputs.api == 'true'
+    # Terraform first: it creates/updates the Cloud Run service and the migration job
+    needs: [changes, terraform-apply]
+    if: >-
+      !cancelled() &&
+      needs.changes.outputs.api == 'true' &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -132,12 +136,7 @@ jobs:
           docker push "$IMAGE_ENV"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run services update "${{ steps.env.outputs.service }}" \
-            --image "${{ steps.build.outputs.image }}" \
-            --region "${{ env.REGION }}"
-
+      # Migrate with the new image before it serves traffic: new code never runs on an old schema
       - name: Run DB migrations
         run: |
           gcloud run jobs update "${{ steps.env.outputs.service }}-migrate" \
@@ -148,6 +147,12 @@ jobs:
             --region "${{ env.REGION }}" \
             --wait
 
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run services update "${{ steps.env.outputs.service }}" \
+            --image "${{ steps.build.outputs.image }}" \
+            --region "${{ env.REGION }}"
+
       - name: Verify deployment
         run: |
           URL=$(gcloud run services describe "${{ steps.env.outputs.service }}" \
@@ -157,10 +162,11 @@ jobs:
 
   deploy-frontend:
     name: Build & Deploy Frontend (${{ inputs.environment || github.ref_name }})
-    needs: [changes, deploy-api]
+    needs: [changes, terraform-apply, deploy-api]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.changes.outputs.frontend == 'true' &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -7,11 +7,14 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import { calculateAge, formatDate, formatDateTime } from '../../lib/utils';
 
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
+  // Assistants get a read-only administrative view: no edits, no clinical data
+  const isAssistant = useIsRole('ASSISTANTE');
 
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient', id],
@@ -37,7 +40,7 @@ export default function PatientDetailPage() {
       const { data } = await api.get('/notes', { params: { patientId: id } });
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !isAssistant,
   });
 
   const { data: documents = [] } = useQuery({
@@ -46,7 +49,7 @@ export default function PatientDetailPage() {
       const { data } = await api.get('/documents', { params: { patientId: id } });
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !isAssistant,
   });
 
   if (isLoading) return <LoadingSpinner />;
@@ -70,19 +73,21 @@ export default function PatientDetailPage() {
             {calculateAge(patient.dateOfBirth)} — Cree le {formatDate(patient.createdAt)}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={async () => {
-            const { exportPatientPdf } = await import('../../lib/pdf-export');
-            exportPatientPdf(patient, appointments, notes);
-          }}>
-            <Download className="w-4 h-4" /> PDF
-          </Button>
-          <Button size="sm" asChild>
-            <Link to={`/patients/${id}/edit`}>
-              <Edit className="w-4 h-4" /> Modifier
-            </Link>
-          </Button>
-        </div>
+        {!isAssistant && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={async () => {
+              const { exportPatientPdf } = await import('../../lib/pdf-export');
+              exportPatientPdf(patient, appointments, notes);
+            }}>
+              <Download className="w-4 h-4" /> PDF
+            </Button>
+            <Button size="sm" asChild>
+              <Link to={`/patients/${id}/edit`}>
+                <Edit className="w-4 h-4" /> Modifier
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tags */}
@@ -107,12 +112,16 @@ export default function PatientDetailPage() {
           <TabsTrigger value="appointments">
             RDV ({patient._count?.appointments ?? 0})
           </TabsTrigger>
-          <TabsTrigger value="notes">
-            Notes ({patient._count?.notes ?? 0})
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            Documents ({patient._count?.documents ?? 0})
-          </TabsTrigger>
+          {!isAssistant && (
+            <>
+              <TabsTrigger value="notes">
+                Notes ({patient._count?.notes ?? 0})
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                Documents ({patient._count?.documents ?? 0})
+              </TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
@@ -166,8 +175,12 @@ export default function PatientDetailPage() {
           <div className="grid grid-cols-4 gap-3">
             {[
               { label: 'Rendez-vous', count: patient._count?.appointments, icon: Calendar },
-              { label: 'Notes', count: patient._count?.notes, icon: FileText },
-              { label: 'Documents', count: patient._count?.documents, icon: FolderOpen },
+              ...(isAssistant
+                ? []
+                : [
+                    { label: 'Notes', count: patient._count?.notes, icon: FileText },
+                    { label: 'Documents', count: patient._count?.documents, icon: FolderOpen },
+                  ]),
             ].map(({ label, count, icon: Icon }) => (
               <div
                 key={label}

@@ -21,9 +21,9 @@ const navItems = [
   { to: '/patients', icon: Users, label: 'Patients' },
   { to: '/appointments', icon: Calendar, label: 'Rendez-vous' },
   { to: '/calendar', icon: Calendar, label: 'Calendrier' },
-  { to: '/notes', icon: FileText, label: 'Notes cliniques' },
+  { to: '/notes', icon: FileText, label: 'Notes cliniques', clinical: true },
   { to: '/tasks', icon: CheckSquare, label: 'Tâches' },
-  { to: '/documents', icon: FolderOpen, label: 'Documents' },
+  { to: '/documents', icon: FolderOpen, label: 'Documents', clinical: true },
   { to: '/analytics', icon: BarChart2, label: 'Analytiques & Reporting' },
   { to: '/settings', icon: Settings, label: 'Paramètres' },
 ];
@@ -39,6 +39,10 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useLocalStorage('sidebarCollapsed', false);
 
   const sidebarWidth = collapsed ? 64 : 256;
+  // Assistants have no access to clinical data (notes, documents)
+  const visibleNavItems = navItems.filter(
+    (item) => !(item.clinical && user?.role === 'ASSISTANTE'),
+  );
 
   useEffect(() => {
     onWidthChange?.(sidebarWidth);
@@ -87,7 +91,7 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {visibleNavItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}

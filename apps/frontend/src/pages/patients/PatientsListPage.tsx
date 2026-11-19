@@ -7,6 +7,7 @@ import { Link, useSearchParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
+import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import { calculateAge, formatDate } from '../../lib/utils';
 
@@ -22,6 +23,7 @@ const STATUS_COLORS: Record<PatientStatus, string> = {
 };
 
 export default function PatientsListPage() {
+  const isAssistant = useIsRole('ASSISTANTE');
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
 
@@ -61,11 +63,13 @@ export default function PatientsListPage() {
             </p>
           )}
         </div>
-        <Button asChild>
-          <Link to="/patients/new">
-            <Plus className="w-4 h-4" /> Nouveau patient
-          </Link>
-        </Button>
+        {!isAssistant && (
+          <Button asChild>
+            <Link to="/patients/new">
+              <Plus className="w-4 h-4" /> Nouveau patient
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Filters */}

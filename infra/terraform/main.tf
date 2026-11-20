@@ -69,6 +69,7 @@ resource "google_sql_database_instance" "main" {
       # (roles/cloudsql.client) and client certificates. Direct password logins are refused.
       ipv4_enabled = true
       ssl_mode     = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
+      require_ssl  = true # legacy flag: provider v5 sends false by default, which conflicts with ssl_mode
     }
 
     backup_configuration {

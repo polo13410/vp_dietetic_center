@@ -7,7 +7,7 @@ import {
   useLifeEvents,
   usePatientFileMutation,
 } from '../../lib/patient-file';
-import { formatDate } from '../../lib/utils';
+import { formatDate, todayISO } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { toast } from '../ui/toaster';
 
@@ -24,7 +24,7 @@ export function LifeEventForm({
   consultationId?: string;
   onDone?: () => void;
 }) {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayISO);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<LifeEventCategory>('OTHER');
   const [description, setDescription] = useState('');

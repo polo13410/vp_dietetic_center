@@ -39,3 +39,8 @@ export function calculateAge(dateOfBirth: string | null): string {
   if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
   return `${age} ans`;
 }
+
+/** Today's date as YYYY-MM-DD in local time (toISOString would give the UTC date). */
+export function todayISO(): string {
+  return formatDate(new Date(), 'yyyy-MM-dd');
+}

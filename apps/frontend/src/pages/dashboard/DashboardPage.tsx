@@ -1,202 +1,474 @@
-import { useQuery } from '@tanstack/react-query';
-import type { AppointmentStatus, DashboardSummary } from '@vp/types';
-import { Calendar, CheckSquare, Clock, FileText, Users } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DashboardAppointmentDto, DashboardSummary } from '@vp/types';
+import {
+  AlertTriangle,
+  CalendarDays,
+  CalendarPlus,
+  CheckCircle2,
+  Circle,
+  Clock,
+  FileClock,
+  FolderOpen,
+  History,
+  Phone,
+  Play,
+  Target,
+  UserRoundCheck,
+  Users,
+} from 'lucide-react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
-import { Card } from '../../components/ui/card';
+import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
+import { BmiBadge } from '../../components/patient-file/BmiBadge';
+import { useStartSession } from '../../components/patient-file/useStartSession';
+import { StatusBadge } from '../../components/shared/StatusBadge';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useCurrentUser } from '../../hooks/useAuth';
 import api from '../../lib/api';
-import { formatDate } from '../../lib/utils';
+import { GOAL_STATUSES, usePatientBrief } from '../../lib/patient-file';
+import { cn, formatDate, todayISO } from '../../lib/utils';
 
-const STATUS_LABELS: Record<AppointmentStatus, string> = {
-  SCHEDULED: 'Prévu',
-  CONFIRMED: 'Confirmé',
-  COMPLETED: 'Réalisé',
-  CANCELLED: 'Annulé',
-  NO_SHOW: 'Absent',
-};
+const TYPE_LABELS: Record<string, string> = { IN_PERSON: 'En cabinet', VIDEO: 'Visio', PHONE: 'Téléphone' };
 
-const STATUS_COLORS: Record<AppointmentStatus, string> = {
-  SCHEDULED: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  CONFIRMED: 'bg-green-500/15 text-green-600 dark:text-green-400',
-  COMPLETED: 'bg-muted text-muted-foreground',
-  CANCELLED: 'bg-red-500/15 text-red-600 dark:text-red-400',
-  NO_SHOW: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-};
-
+/** The practitioner's day: who is next and what to know, today's agenda, and what is pending. */
 export default function DashboardPage() {
   const user = useCurrentUser();
-
-  const { data, isLoading } = useQuery<DashboardSummary>({
+  const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: async () => {
-      const { data } = await api.get('/dashboard/summary');
-      return data;
-    },
+    queryFn: async () => (await api.get<DashboardSummary>('/dashboard/summary')).data,
     refetchInterval: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <LoadingSpinner />;
-
-  const today = new Date();
+  if (isLoading || !data) return <LoadingSpinner />;
+  const { stats } = data;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-2xl font-bold">Bonjour, {user?.firstName}</h1>
         <p className="text-sm text-muted-foreground">
-          {today.toLocaleDateString('fr-FR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })}
+          {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {' · '}
+          {stats.todayCount === 0
+            ? 'aucun rendez-vous aujourd’hui'
+            : `${stats.todayCount} rendez-vous aujourd’hui, ${stats.todayRemaining} à venir`}
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          icon={<Users className="w-4 h-4 text-primary" />}
-          label="Patients actifs"
-          value={data?.activePatientCount ?? 0}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi icon={<CalendarDays />} label="Rendez-vous aujourd’hui" value={stats.todayCount} href="/appointments" />
+        <Kpi
+          icon={<Users />}
+          label="Patients suivis"
+          value={stats.followedPatientCount}
           href="/patients"
+          hint="Vus depuis moins de 3 mois ou avec un RDV prévu"
         />
-        <KpiCard
-          icon={<Calendar className="w-4 h-4 text-blue-600" />}
-          label="RDV aujourd'hui"
-          value={data?.todayAppointments.length ?? 0}
-          href="/appointments"
-        />
-        <KpiCard
-          icon={<CheckSquare className="w-4 h-4 text-amber-600" />}
-          label="Tâches en cours"
-          value={data?.pendingTasks.length ?? 0}
-        />
-        <KpiCard
-          icon={<FileText className="w-4 h-4 text-slate-500" />}
+        <Kpi icon={<CalendarPlus />} label="Rendez-vous cette semaine" value={stats.weekAppointmentCount} href="/appointments" />
+        <Kpi
+          icon={<FileClock />}
           label="Séances à finaliser"
-          value={data?.draftConsultations.length ?? 0}
-          href={data?.draftConsultations[0] ? `/consultations/${data.draftConsultations[0].id}` : undefined}
+          value={data.draftConsultations.length}
+          tone={data.draftConsultations.length ? 'warn' : undefined}
         />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Today's appointments */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-foreground">Rendez-vous du jour</h2>
-            <Link to="/appointments" className="text-xs text-primary hover:underline">
-              Voir tout
-            </Link>
-          </div>
-          {!data?.todayAppointments.length ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              Aucun rendez-vous aujourd'hui
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {data.todayAppointments.map((appt) => (
-                <Link
-                  key={appt.id}
-                  to={`/appointments/${appt.id}`}
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted transition-colors group"
-                >
-                  <div className="w-1.5 h-8 rounded-full bg-primary/40 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {(appt as any).patient?.firstName} {(appt as any).patient?.lastName}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Clock className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(appt.startAt, 'HH:mm')} ({appt.duration}min)
-                      </span>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      STATUS_COLORS[appt.status]
-                    }`}
-                  >
-                    {STATUS_LABELS[appt.status]}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <NextPatient appointment={data.nextAppointment} />
+        <TodayAgenda appointments={data.todayAppointments} />
+      </div>
 
-        {/* Pending tasks */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-foreground">Tâches à faire</h2>
-          </div>
-          {!data?.pendingTasks.length ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              Aucune tâche en attente 🎉
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {data.pendingTasks.slice(0, 6).map((task) => (
-                <div key={task.id} className="flex items-start gap-2.5 p-2">
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
-                      task.priority === 'URGENT' || task.priority === 'HIGH'
-                        ? 'bg-red-500'
-                        : task.priority === 'MEDIUM'
-                          ? 'bg-amber-500'
-                          : 'bg-slate-300'
-                    }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground truncate">{task.title}</p>
-                    {task.dueAt && (
-                      <p className="text-xs text-muted-foreground">
-                        Échéance : {formatDate(task.dueAt)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <FollowUps followUps={data.followUps} />
+        <DraftSessions drafts={data.draftConsultations} />
+        <Tasks tasks={data.tasks} />
       </div>
     </div>
   );
 }
 
-function KpiCard({
+function Kpi({
   icon,
   label,
   value,
   href,
+  hint,
+  tone,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: number;
   href?: string;
+  hint?: string;
+  tone?: 'warn';
 }) {
   const content = (
     <>
-      <div className="flex items-center justify-between mb-2">
-        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-          {icon}
-        </div>
+      <div
+        className={cn(
+          'mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground [&_svg]:h-4 [&_svg]:w-4',
+          tone === 'warn' && 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+        )}
+      >
+        {icon}
       </div>
-      <p className="text-2xl font-semibold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+      <p className="text-2xl font-semibold">{value}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </>
   );
   const className = 'bg-card rounded-xl border border-border p-4';
   return href ? (
-    <Link to={href} className={`${className} hover:border-primary/20 transition-colors`}>
+    <Link to={href} title={hint} className={`${className} hover:border-primary/30 transition-colors`}>
       {content}
     </Link>
   ) : (
-    <div className={className}>{content}</div>
+    <div title={hint} className={className}>
+      {content}
+    </div>
+  );
+}
+
+function Panel({ icon, title, children, aside }: { icon: ReactNode; title: string; children: ReactNode; aside?: ReactNode }) {
+  return (
+    <section className="bg-card rounded-xl border border-border p-5">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
+          {title}
+        </h2>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>;
+}
+
+/** Starts the appointment's session, or reopens it. */
+function SessionButton({ appt }: { appt: DashboardAppointmentDto }) {
+  const start = useStartSession(appt.patientId);
+  if (appt.consultation?.status === 'FINALIZED') {
+    return (
+      <Button size="sm" variant="ghost" asChild>
+        <Link to={`/consultations/${appt.consultation.id}`}>Voir la séance</Link>
+      </Button>
+    );
+  }
+  if (appt.consultation) {
+    return (
+      <Button size="sm" asChild>
+        <Link to={`/consultations/${appt.consultation.id}`}>
+          <Play className="h-4 w-4" /> Reprendre
+        </Link>
+      </Button>
+    );
+  }
+  if (!['SCHEDULED', 'CONFIRMED'].includes(appt.status)) return null;
+  return (
+    <Button size="sm" onClick={() => start.mutate({ appointmentId: appt.id })} disabled={start.isPending}>
+      <Play className="h-4 w-4" /> Démarrer
+    </Button>
+  );
+}
+
+// ─── Next patient ─────────────────────────────────────────────────────────────
+
+/** Who is next, and what to have in mind before they come in. */
+function NextPatient({ appointment }: { appointment: DashboardAppointmentDto | null }) {
+  const { data: brief } = usePatientBrief(appointment?.patientId);
+
+  if (!appointment) {
+    return (
+      <Panel icon={<UserRoundCheck />} title="Prochain patient">
+        <Empty>Aucun rendez-vous à venir.</Empty>
+      </Panel>
+    );
+  }
+  const start = new Date(appointment.startAt);
+  const isToday = start.toDateString() === new Date().toDateString();
+  const patient = appointment.patient;
+  const weight = brief?.metrics.find((m) => m.type === 'WEIGHT');
+  const weightChange = weight && weight.count > 1 ? weight.latest.value - weight.first.value : null;
+
+  return (
+    <Panel
+      icon={<UserRoundCheck />}
+      title="Prochain patient"
+      aside={
+        <span className="text-xs text-muted-foreground">
+          {isToday ? 'Aujourd’hui' : formatDate(start, 'dd/MM')} à {formatDate(start, 'HH:mm')} ·{' '}
+          {TYPE_LABELS[appointment.type] ?? appointment.type}
+        </span>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <Link to={`/patients/${patient.id}`} className="text-lg font-semibold hover:text-primary">
+              {patient.firstName} {patient.lastName}
+            </Link>
+            <p className="text-xs text-muted-foreground">
+              {brief
+                ? brief.consultationCount === 0
+                  ? 'Première séance'
+                  : `${brief.consultationCount + 1}e séance · suivi depuis le ${formatDate(brief.firstConsultationAt)}`
+                : '…'}
+              {appointment.reason && ` · ${appointment.reason}`}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" asChild>
+              <Link to={`/patients/${patient.id}`}>
+                <FolderOpen className="h-4 w-4" /> Dossier
+              </Link>
+            </Button>
+            <SessionButton appt={appointment} />
+          </div>
+        </div>
+
+        {brief?.patient.allergies && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              <strong>Allergies :</strong> {brief.patient.allergies}
+            </span>
+          </div>
+        )}
+
+        {brief && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <History className="h-3.5 w-3.5" />
+                {brief.lastConsultation
+                  ? `Dernière séance · ${formatDate(brief.lastConsultation.date)}`
+                  : 'Motif de consultation'}
+              </p>
+              <p className="text-sm line-clamp-4 whitespace-pre-line">
+                {brief.lastConsultation?.summary ?? brief.patient.consultationReason ?? '—'}
+              </p>
+              {brief.lastConsultation?.advice && (
+                <p className="text-xs text-muted-foreground line-clamp-2">Conseils : {brief.lastConsultation.advice}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(weight || brief.bmi.current) && (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  {weight && (
+                    <span>
+                      <strong>{weight.latest.value.toLocaleString('fr-FR')} kg</strong>
+                      {weightChange !== null && (
+                        <span className="text-xs text-muted-foreground">
+                          {' '}
+                          ({weightChange > 0 ? '+' : ''}
+                          {weightChange.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg depuis le début)
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  <BmiBadge bmi={brief.bmi.current} />
+                </div>
+              )}
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Target className="h-3.5 w-3.5" /> Objectifs à revoir
+                </p>
+                {brief.openGoals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun</p>
+                ) : (
+                  <ul className="mt-1 space-y-1">
+                    {brief.openGoals.slice(0, 4).map((g) => (
+                      <li key={g.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate">{g.title}</span>
+                        <Badge variant="outline" className={cn(GOAL_STATUSES[g.status].className, 'shrink-0')}>
+                          {GOAL_STATUSES[g.status].label}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {brief.lastConsultation && brief.newEventsSinceLastConsultation > 0 && (
+                <p className="text-xs text-purple-600 dark:text-purple-300">
+                  {brief.newEventsSinceLastConsultation} événement(s) de vie depuis la dernière séance
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Today ────────────────────────────────────────────────────────────────────
+
+function TodayAgenda({ appointments }: { appointments: DashboardAppointmentDto[] }) {
+  const now = Date.now();
+  return (
+    <Panel
+      icon={<Clock />}
+      title="Aujourd’hui"
+      aside={
+        <Link to="/appointments" className="text-xs text-primary hover:underline">
+          Agenda
+        </Link>
+      }
+    >
+      {appointments.length === 0 ? (
+        <Empty>Aucun rendez-vous aujourd’hui.</Empty>
+      ) : (
+        <ol className="space-y-1">
+          {appointments.map((appt) => {
+            const past = new Date(appt.startAt).getTime() + appt.duration * 60000 < now;
+            const cancelled = appt.status === 'CANCELLED' || appt.status === 'NO_SHOW';
+            return (
+              <li key={appt.id} className="flex items-center gap-3 rounded-lg px-2 py-2">
+                {/* Past and cancelled appointments fade, their actions stay usable */}
+                <span className={cn('w-12 shrink-0 text-sm font-medium tabular-nums', (past || cancelled) && 'text-muted-foreground')}>
+                  {formatDate(appt.startAt, 'HH:mm')}
+                </span>
+                <Link
+                  to={`/appointments/${appt.id}`}
+                  className={cn(
+                    'flex-1 min-w-0 truncate text-sm hover:text-primary',
+                    (past || cancelled) && 'text-muted-foreground',
+                    cancelled && 'line-through',
+                  )}
+                >
+                  {appt.patient.firstName} {appt.patient.lastName}
+                </Link>
+                {cancelled ? <StatusBadge status={appt.status} /> : <SessionButton appt={appt} />}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Panel>
+  );
+}
+
+// ─── Pending ──────────────────────────────────────────────────────────────────
+
+function FollowUps({ followUps }: { followUps: DashboardSummary['followUps'] }) {
+  const [patientId, setPatientId] = useState<string | null>(null);
+  // Stable object: the dialog resets its form whenever its default values change
+  const defaults = useMemo(() => (patientId ? { patientId } : undefined), [patientId]);
+  return (
+    <Panel icon={<Phone />} title="À relancer">
+      {followUps.length === 0 ? (
+        <Empty>Tous les patients actifs ont un suivi en cours.</Empty>
+      ) : (
+        <ul className="space-y-2">
+          {followUps.map(({ patient, daysSince }) => (
+            <li key={patient.id} className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Link to={`/patients/${patient.id}`} className="block truncate text-sm font-medium hover:text-primary">
+                  {patient.firstName} {patient.lastName}
+                </Link>
+                <p className="truncate text-xs text-muted-foreground">
+                  {daysSince === null ? 'Jamais vu' : `Vu il y a ${Math.round(daysSince / 7)} semaines`}
+                  {patient.phone && ` · ${patient.phone}`}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setPatientId(patient.id)} title="Planifier un rendez-vous">
+                <CalendarPlus className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">Patients actifs sans RDV prévu et non vus depuis 6 semaines.</p>
+      <AppointmentFormDialog
+        open={!!patientId}
+        onOpenChange={(open) => !open && setPatientId(null)}
+        defaultValues={defaults}
+      />
+    </Panel>
+  );
+}
+
+function DraftSessions({ drafts }: { drafts: DashboardSummary['draftConsultations'] }) {
+  return (
+    <Panel icon={<FileClock />} title="Séances à finaliser">
+      {drafts.length === 0 ? (
+        <Empty>Toutes les séances sont finalisées.</Empty>
+      ) : (
+        <ul className="space-y-1">
+          {drafts.map((s) => (
+            <li key={s.id}>
+              <Link
+                to={`/consultations/${s.id}`}
+                className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-muted"
+              >
+                <span className="truncate">
+                  {s.patient.firstName} {s.patient.lastName}
+                </span>
+                <span className="text-xs text-muted-foreground">{formatDate(s.date)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function Tasks({ tasks }: { tasks: DashboardSummary['tasks'] }) {
+  const queryClient = useQueryClient();
+  const done = useMutation({
+    mutationFn: (id: string) => api.patch(`/tasks/${id}`, { status: 'DONE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+  const today = todayISO();
+  return (
+    <Panel icon={<CheckCircle2 />} title="Tâches">
+      {tasks.length === 0 ? (
+        <Empty>Aucune tâche en cours.</Empty>
+      ) : (
+        <ul className="space-y-2">
+          {tasks.map((task) => {
+            const overdue = !!task.dueAt && task.dueAt.slice(0, 10) < today;
+            return (
+              <li key={task.id} className="flex items-start gap-2">
+                <button
+                  onClick={() => done.mutate(task.id)}
+                  className="mt-0.5 text-muted-foreground hover:text-primary"
+                  title="Marquer comme faite"
+                >
+                  <Circle className="h-4 w-4" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm">{task.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {task.patient && (
+                      <Link to={`/patients/${task.patient.id}`} className="hover:text-primary">
+                        {task.patient.firstName} {task.patient.lastName}
+                      </Link>
+                    )}
+                    {task.patient && task.dueAt && ' · '}
+                    {task.dueAt && (
+                      <span className={cn(overdue && 'font-medium text-red-600 dark:text-red-400')}>
+                        {overdue && 'En retard · '}
+                        {formatDate(task.dueAt)}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Panel>
   );
 }

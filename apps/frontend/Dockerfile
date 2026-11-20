@@ -26,10 +26,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
 COPY . .
 
-ARG VITE_API_URL
 ARG VITE_APP_NAME="VP Dietetic Center"
 ARG VITE_GOOGLE_CLIENT_ID
-ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_APP_NAME=$VITE_APP_NAME
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
@@ -42,8 +40,10 @@ FROM nginx:1.27-alpine AS production
 # Copier le build
 COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
 
-# Configuration Nginx
-COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+# Nginx config, filled in at startup: API_URL (address of the API service, set by Terraform)
+# and the DNS resolvers of the container (NGINX_LOCAL_RESOLVERS)
+COPY apps/frontend/nginx.conf /etc/nginx/templates/default.conf.template
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 
 EXPOSE 80
 

@@ -22,8 +22,7 @@ export class MailService {
   }
 
   async sendPasswordReset(to: string, token: string, firstName: string): Promise<void> {
-    const origins = this.config.get<string[]>('cors.origins', ['http://localhost:5173']);
-    const frontendUrl = Array.isArray(origins) ? origins[0] : origins;
+    const frontendUrl = this.config.get<string>('appUrl', 'http://localhost:5173');
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
     const from = this.config.get<string>('smtp.from', 'noreply@vp-dietetic.fr');
 

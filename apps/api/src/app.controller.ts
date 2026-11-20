@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { Public } from './common/decorators/public.decorator';
 
@@ -8,6 +9,7 @@ import { Public } from './common/decorators/public.decorator';
 export class AppController {
   @Get('health')
   @Public()
+  @SkipThrottle() // polled by Cloud Run and CD
   health() {
     return {
       status: 'ok',

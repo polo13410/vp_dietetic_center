@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,6 +24,9 @@ import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const REFRESH_COOKIE = 'refresh_token';
+
+/** Sign-in endpoints: few attempts per IP (password guessing, reset emails). */
+const SIGN_IN_LIMIT = { default: { limit: 10, ttl: 60_000 } };
 
 // Sent only to /api/v1/auth/* (refresh and logout), never readable by scripts
 const REFRESH_COOKIE_OPTIONS: CookieOptions = {
@@ -45,6 +49,7 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
+  @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion avec email + mot de passe' })
   @ApiBody({ type: LoginDto })
@@ -98,6 +103,7 @@ export class AuthController {
 
   @Public()
   @Post('google')
+  @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion via Google' })
   async googleLogin(
@@ -125,6 +131,7 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
+  @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Demander un reset de mot de passe' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -133,6 +140,7 @@ export class AuthController {
 
   @Public()
   @Post('reset-password')
+  @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
   async resetPassword(@Body() dto: ResetPasswordDto) {

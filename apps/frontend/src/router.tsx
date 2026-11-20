@@ -22,6 +22,7 @@ const AppointmentDetailPage = lazy(() => import('./pages/appointments/Appointmen
 const ConsultationPage = lazy(() => import('./pages/consultations/ConsultationPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
+const AuditPage = lazy(() => import('./pages/admin/AuditPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export function AppRouter() {
@@ -65,6 +66,7 @@ export function AppRouter() {
           <Route element={<RequireRole roles={ADMIN_ROLES} />}>
             <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/audit" element={<AuditPage />} />
           </Route>
 
           {/* Paramètres */}

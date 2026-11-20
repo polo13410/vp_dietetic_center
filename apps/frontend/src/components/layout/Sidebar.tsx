@@ -1,4 +1,4 @@
-import { CalendarDays, LayoutDashboard, Settings, UserCog, Users, X } from 'lucide-react';
+import { CalendarDays, LayoutDashboard, ScrollText, Settings, UserCog, Users, X } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { NavLink } from 'react-router';
 
@@ -17,6 +17,7 @@ const clinicalItems = [
 // Admins manage the app and its users, never patients
 const adminItems = [
   { to: '/admin/users', icon: UserCog, label: 'Utilisateurs' },
+  { to: '/admin/audit', icon: ScrollText, label: 'Journal d’accès' },
   { to: '/settings', icon: Settings, label: 'Paramètres' },
 ];
 

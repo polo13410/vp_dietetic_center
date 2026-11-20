@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -22,6 +22,17 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+
+const REFRESH_COOKIE = 'refresh_token';
+
+// Sent only to /api/v1/auth/* (refresh and logout), never readable by scripts
+const REFRESH_COOKIE_OPTIONS: CookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/api/v1/auth',
+};
 
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })
@@ -41,14 +52,7 @@ export class AuthController {
 
     const result = await this.authService.login(user, ipAddress, userAgent);
 
-    // Refresh token en cookie httpOnly
-    res.cookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-      path: '/api/v1/auth/refresh',
-    });
+    res.cookie(REFRESH_COOKIE, result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
     return {
       accessToken: result.accessToken,
@@ -63,16 +67,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Rafraichir le token d'acces" })
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const rawToken = req.cookies['refresh_token'];
+    const rawToken = req.cookies[REFRESH_COOKIE];
     const result = await this.authService.refreshTokens(rawToken);
 
-    res.cookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/v1/auth/refresh',
-    });
+    res.cookie(REFRESH_COOKIE, result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
     return {
       accessToken: result.accessToken,
@@ -84,11 +82,11 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Déconnexion' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const rawToken = req.cookies['refresh_token'];
+    const rawToken = req.cookies[REFRESH_COOKIE];
     if (rawToken) {
       await this.authService.logout(rawToken);
     }
-    res.clearCookie('refresh_token', { path: '/api/v1/auth/refresh' });
+    res.clearCookie(REFRESH_COOKIE, { ...REFRESH_COOKIE_OPTIONS, maxAge: undefined });
   }
 
   @Public()
@@ -109,13 +107,7 @@ export class AuthController {
       userAgent,
     );
 
-    res.cookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/v1/auth/refresh',
-    });
+    res.cookie(REFRESH_COOKIE, result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
     return {
       accessToken: result.accessToken,

@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuditAction } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Audited } from '../audit/audited.decorator';
 
 import { AppointmentsService } from './appointments.service';
 import { AppointmentQueryDto } from './dto/appointment-query.dto';
@@ -31,18 +33,21 @@ export class AppointmentsController {
   }
 
   @Post()
+  @Audited({ action: AuditAction.CREATE, entity: 'appointment', patientId: 'result:patientId', entityId: 'result:id' })
   @ApiOperation({ summary: 'Créer un rendez-vous' })
   create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: any) {
     return this.service.create(dto, user);
   }
 
   @Patch(':id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'appointment', patientId: 'result:patientId' })
   @ApiOperation({ summary: 'Modifier un rendez-vous' })
   update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto, @CurrentUser() user: any) {
     return this.service.update(id, dto, user);
   }
 
   @Delete(':id')
+  @Audited({ action: AuditAction.DELETE, entity: 'appointment', patientId: 'result:patientId' })
   @ApiOperation({ summary: 'Annuler un rendez-vous' })
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.remove(id, user);

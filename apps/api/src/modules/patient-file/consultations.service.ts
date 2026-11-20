@@ -124,7 +124,7 @@ export class ConsultationsService {
    * to the status of their previous review (or "in progress" if there was none).
    */
   async remove(user: AccessUser, id: string) {
-    await this.draft(user, id);
+    const { patientId } = await this.draft(user, id);
     const where = { consultationId: id };
     await this.prisma.$transaction(async (tx) => {
       const reviewed = await tx.goalReview.findMany({ where, select: { goalId: true } });
@@ -145,6 +145,7 @@ export class ConsultationsService {
       await tx.goal.deleteMany({ where });
       await tx.consultation.delete({ where: { id } }); // its goal reviews go with it
     });
+    return { patientId };
   }
 
   /** Records how a goal stands at this session, and moves the goal to that status. */
@@ -162,7 +163,7 @@ export class ConsultationsService {
       }),
       this.prisma.goal.update({ where: { id: goalId }, data: goalStatusChange(dto.status) }),
     ]);
-    return review;
+    return { ...review, patientId: session.patientId };
   }
 
   /** A session of the user's patient that can still be changed. */

@@ -498,9 +498,11 @@ model AuditLog {
   id        String      @id @default(uuid())
   userId    String      @map("user_id")
   action    AuditAction
-  entity    String // "patient", "appointment", "note", etc.
+  entity    String // "patient", "consultation", "measurement", "document", "user", "session"…
   entityId  String?     @map("entity_id")
-  metadata  Json? // Données supplémentaires (avant/après pour UPDATE)
+  /// Patient whose data was read or changed. No foreign key: the trail outlives the patient.
+  patientId String?     @map("patient_id")
+  metadata  Json? // Context only (route, status); never clinical content
   ipAddress String?     @map("ip_address")
   userAgent String?     @map("user_agent")
   createdAt DateTime    @default(now()) @map("created_at")
@@ -509,6 +511,7 @@ model AuditLog {
 
   @@index([userId])
   @@index([entity, entityId])
+  @@index([patientId, createdAt])
   @@index([createdAt])
   @@map("audit_log")
 }

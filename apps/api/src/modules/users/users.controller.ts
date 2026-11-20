@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuditAction } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { Audited } from '../audit/audited.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -31,6 +33,7 @@ export class UsersController {
   }
 
   @Post()
+  @Audited({ action: AuditAction.CREATE, entity: 'user', entityId: 'result:id' })
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Créer un utilisateur (ADMIN)' })
   create(@Body() dto: CreateUserDto) {
@@ -38,6 +41,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'user' })
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Mettre à jour un utilisateur (ADMIN)' })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
@@ -45,6 +49,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Audited({ action: AuditAction.DELETE, entity: 'user' })
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Désactiver un utilisateur (ADMIN)' })
   remove(@Param('id') id: string) {

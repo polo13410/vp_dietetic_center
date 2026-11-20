@@ -11,11 +11,13 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { AuditAction } from '@prisma/client';
 import type { CookieOptions, Request, Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
+import { Audited } from '../audit/audited.decorator';
 
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -49,6 +51,7 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
+  @Audited({ action: AuditAction.LOGIN, entity: 'session', entityId: 'result:user.id' })
   @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion avec email + mot de passe' })
@@ -91,6 +94,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @Audited({ action: AuditAction.LOGOUT, entity: 'session' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Déconnexion' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -103,6 +107,7 @@ export class AuthController {
 
   @Public()
   @Post('google')
+  @Audited({ action: AuditAction.LOGIN, entity: 'session', entityId: 'result:user.id', userId: 'result:user.id' })
   @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion via Google' })

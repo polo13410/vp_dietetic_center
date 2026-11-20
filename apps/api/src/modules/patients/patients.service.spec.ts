@@ -20,6 +20,7 @@ describe('PatientsService', () => {
       mockPrisma as any,
       access,
       new PatientFileService(mockPrisma as any, access),
+      { forPatient: vi.fn() } as any,
     );
   });
 

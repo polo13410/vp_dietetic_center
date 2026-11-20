@@ -15,12 +15,14 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuditAction } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 import { DocumentType, User } from '@prisma/client';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Audited } from '../audit/audited.decorator';
 
 import { DocumentsService } from './documents.service';
 import { UploadDocumentBodyDto } from './dto/upload-document.dto';
@@ -67,6 +69,7 @@ export class DocumentsController {
   }
 
   @Get(':id/download')
+  @Audited({ action: AuditAction.EXPORT, entity: 'document', patientId: 'result:patientId' })
   @ApiOperation({ summary: 'Telecharger un document' })
   async download(
     @Param('id') id: string,
@@ -81,9 +84,11 @@ export class DocumentsController {
     res.attachment(doc.originalName);
     content.on('error', () => res.destroy());
     content.pipe(res);
+    return { patientId: doc.patientId }; // for the audit trail (the response is the file)
   }
 
   @Post('upload')
+  @Audited({ action: AuditAction.CREATE, entity: 'document', patientId: 'body:patientId', entityId: 'result:id' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -135,8 +140,10 @@ export class DocumentsController {
   }
 
   @Delete(':id')
+  @Audited({ action: AuditAction.DELETE, entity: 'document', patientId: 'result:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string, @CurrentUser() user: User) {
-    await this.service.remove(id, user);
+    const { patientId } = await this.service.remove(id, user);
+    return { patientId }; // for the audit trail (no body is sent)
   }
 }

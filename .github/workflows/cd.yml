@@ -14,9 +14,9 @@ on:
           - prod
 
 env:
-  REGION: europe-west1
+  REGION: europe-west9
   PROJECT_ID: vp-dietetic-center
-  REGISTRY: europe-west1-docker.pkg.dev/vp-dietetic-center/vp-dietetic
+  REGISTRY: europe-west9-docker.pkg.dev/vp-dietetic-center/vp-dietetic
   TARGET_ENV: ${{ inputs.environment || github.ref_name }}
 
 jobs:
@@ -27,7 +27,6 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
       # A manual run deploys the branch it is started from, so it must match the target
       # (otherwise "staging" code could be shipped to prod)
@@ -56,7 +55,6 @@ jobs:
           deploy_all() {
             echo "api=true" >> "$GITHUB_OUTPUT"
             echo "frontend=true" >> "$GITHUB_OUTPUT"
-            echo "terraform=true" >> "$GITHUB_OUTPUT"
           }
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
@@ -83,16 +81,13 @@ jobs:
 
           echo "api=$(matches "^apps/api/|$SHARED")" >> "$GITHUB_OUTPUT"
           echo "frontend=$(matches "^apps/frontend/|$SHARED")" >> "$GITHUB_OUTPUT"
-          echo "terraform=$(matches '^infra/terraform/')" >> "$GITHUB_OUTPUT"
 
   deploy-api:
     name: Build & Deploy API (${{ inputs.environment || github.ref_name }})
-    # Terraform first: it creates/updates the Cloud Run service and the migration job
-    needs: [changes, terraform-apply]
-    if: >-
-      !cancelled() &&
-      needs.changes.outputs.api == 'true' &&
-      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
+    # Infrastructure (services, migration job) is applied by the owner with Terraform;
+    # this workflow can only deploy new images to it.
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -176,11 +171,10 @@ jobs:
 
   deploy-frontend:
     name: Build & Deploy Frontend (${{ inputs.environment || github.ref_name }})
-    needs: [changes, terraform-apply, deploy-api]
+    needs: [changes, deploy-api]
     if: >-
       !cancelled() &&
       needs.changes.outputs.frontend == 'true' &&
-      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -262,44 +256,3 @@ jobs:
             --region "${{ env.REGION }}" --format="value(status.url)")
           echo "Deployed to: ${URL}"
           curl -sSf -o /dev/null --retry 12 --retry-delay 5 --retry-all-errors "${URL}/"
-
-  terraform-apply:
-    name: Terraform Apply
-    needs: changes
-    if: needs.changes.outputs.terraform == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    concurrency:
-      group: cd-terraform-${{ inputs.environment || github.ref_name }}
-      cancel-in-progress: false
-
-    environment: ${{ (inputs.environment || github.ref_name) == 'prod' && 'production' || 'staging' }}
-
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: "1.7.5"
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      - name: Terraform Init
-        working-directory: infra/terraform
-        run: terraform init -backend-config="prefix=infra/${{ env.TARGET_ENV }}"
-
-      - name: Terraform Apply
-        working-directory: infra/terraform
-        run: |
-          terraform apply -auto-approve \
-            -var="env=${{ env.TARGET_ENV }}" \
-            -var="db_password=${{ secrets.DB_PASSWORD }}"

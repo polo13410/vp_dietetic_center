@@ -102,6 +102,11 @@ export function PatientForm({
     delete payload.emergencyContactPhone;
     delete payload.emergencyContactRelationship;
 
+    // An empty field means "no value": the API refuses "" for dates and emails
+    for (const [key, value] of Object.entries(payload)) {
+      if (value === '') payload[key] = null;
+    }
+
     onSubmit(payload as PatientFormData);
   };
 

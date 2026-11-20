@@ -26,6 +26,9 @@ export const patientSchema = z.object({
   zipCode: z.string().optional(),
   referralSource: z.string().optional(),
   privateNote: z.string().optional(),
+  consultationReason: z.string().optional(),
+  allergies: z.string().optional(),
+  dietaryRestrictions: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']).optional(),
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -193,6 +196,31 @@ export function PatientForm({
             className={inputClass}
           />
         </Field>
+      </fieldset>
+
+      {/* Profile: shown at the top of the summary before each session */}
+      <fieldset className="bg-card rounded-xl border border-border p-5 space-y-4">
+        <legend className="text-sm font-medium px-1">Profil</legend>
+        <Field label="Motif de consultation">
+          <textarea
+            {...register('consultationReason')}
+            rows={2}
+            placeholder="Pourquoi le patient consulte, ce qu'il attend du suivi..."
+            className={cn(inputClass, 'resize-none')}
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Allergies et intolérances">
+            <input {...register('allergies')} placeholder="Arachides, lactose..." className={inputClass} />
+          </Field>
+          <Field label="Régime particulier">
+            <input
+              {...register('dietaryRestrictions')}
+              placeholder="Végétarien, halal, sans gluten..."
+              className={inputClass}
+            />
+          </Field>
+        </div>
       </fieldset>
 
       {/* Additional info */}

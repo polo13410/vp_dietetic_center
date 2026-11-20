@@ -24,7 +24,6 @@ const schema = z.object({
   duration: z.number().min(15, 'Minimum 15 minutes'),
   type: z.enum(['IN_PERSON', 'VIDEO', 'PHONE']),
   reason: z.string().optional(),
-  preNotes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -59,7 +58,6 @@ export function AppointmentFormDialog({
       duration: 45,
       type: 'IN_PERSON',
       reason: '',
-      preNotes: '',
       ...defaultValues,
     },
   });
@@ -72,7 +70,6 @@ export function AppointmentFormDialog({
         duration: 45,
         type: 'IN_PERSON',
         reason: '',
-        preNotes: '',
         ...defaultValues,
       });
     }
@@ -183,12 +180,6 @@ export function AppointmentFormDialog({
           <div>
             <label className="block text-sm font-medium mb-1.5">Motif</label>
             <textarea {...register('reason')} rows={2} className={`${inputClass} resize-none`} placeholder="Motif de la consultation..." />
-          </div>
-
-          {/* Pre-notes */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Notes pre-consultation</label>
-            <textarea {...register('preNotes')} rows={2} className={`${inputClass} resize-none`} placeholder="Notes preparatoires..." />
           </div>
 
           <DialogFooter>

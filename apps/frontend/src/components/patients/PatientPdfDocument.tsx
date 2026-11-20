@@ -22,10 +22,10 @@ const styles = StyleSheet.create({
 interface PatientPdfDocumentProps {
   patient: any;
   appointments: any[];
-  notes: any[];
+  sessions: any[];
 }
 
-export function PatientPdfDocument({ patient, appointments, notes }: PatientPdfDocumentProps) {
+export function PatientPdfDocument({ patient, appointments, sessions }: PatientPdfDocumentProps) {
   const formatDate = (d: string | null) => {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('fr-FR');
@@ -90,15 +90,14 @@ export function PatientPdfDocument({ patient, appointments, notes }: PatientPdfD
           </View>
         )}
 
-        {/* Recent Notes */}
-        {notes.length > 0 && (
+        {/* Recent sessions */}
+        {sessions.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dernieres notes ({notes.length})</Text>
-            {notes.slice(0, 10).map((n: any) => (
-              <View key={n.id} style={[styles.row, { marginBottom: 6 }]}>
-                <Text style={[styles.label, { width: 80 }]}>{formatDate(n.createdAt)}</Text>
-                <Text style={{ flex: 1 }}>{n.title || 'Note sans titre'}</Text>
-                <Text style={[styles.badge]}>{n.status}</Text>
+            <Text style={styles.sectionTitle}>Dernières séances ({sessions.length})</Text>
+            {sessions.slice(0, 10).map((s: any) => (
+              <View key={s.id} style={[styles.row, { marginBottom: 6 }]}>
+                <Text style={[styles.label, { width: 80 }]}>{formatDate(s.date)}</Text>
+                <Text style={{ flex: 1 }}>{s.summary || 'Sans résumé'}</Text>
               </View>
             ))}
           </View>

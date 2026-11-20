@@ -36,12 +36,6 @@ export class PatientsController {
     return this.patientsService.findOne(id, user);
   }
 
-  @Get(':id/timeline')
-  @ApiOperation({ summary: 'Timeline du patient (RDV, notes, tâches)' })
-  getTimeline(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.patientsService.getTimeline(id, user);
-  }
-
   @Post()
   @Roles(UserRole.PRATICIENNE)
   @ApiOperation({ summary: 'Créer un patient' })

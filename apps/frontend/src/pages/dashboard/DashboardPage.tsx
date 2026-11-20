@@ -74,13 +74,12 @@ export default function DashboardPage() {
           icon={<CheckSquare className="w-4 h-4 text-amber-600" />}
           label="Tâches en cours"
           value={data?.pendingTasks.length ?? 0}
-          href="/tasks"
         />
         <KpiCard
           icon={<FileText className="w-4 h-4 text-slate-500" />}
-          label="Brouillons"
-          value={data?.draftNotes.length ?? 0}
-          href="/notes"
+          label="Séances à finaliser"
+          value={data?.draftConsultations.length ?? 0}
+          href={data?.draftConsultations[0] ? `/consultations/${data.draftConsultations[0].id}` : undefined}
         />
       </div>
 
@@ -179,13 +178,10 @@ function KpiCard({
   icon: React.ReactNode;
   label: string;
   value: number;
-  href: string;
+  href?: string;
 }) {
-  return (
-    <Link
-      to={href}
-      className="bg-card rounded-xl border border-border p-4 hover:border-primary/20 transition-colors"
-    >
+  const content = (
+    <>
       <div className="flex items-center justify-between mb-2">
         <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
           {icon}
@@ -193,6 +189,14 @@ function KpiCard({
       </div>
       <p className="text-2xl font-semibold text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+    </>
+  );
+  const className = 'bg-card rounded-xl border border-border p-4';
+  return href ? (
+    <Link to={href} className={`${className} hover:border-primary/20 transition-colors`}>
+      {content}
     </Link>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }

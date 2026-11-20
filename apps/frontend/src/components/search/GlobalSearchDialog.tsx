@@ -45,13 +45,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const patients = data?.patients ?? [];
   const appointments = data?.appointments ?? [];
-  const notes = data?.notes ?? [];
-  const hasResults = patients.length > 0 || appointments.length > 0 || notes.length > 0;
+  const sessions = data?.consultations ?? [];
+  const hasResults = patients.length > 0 || appointments.length > 0 || sessions.length > 0;
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Rechercher un patient, rendez-vous, note..."
+        placeholder="Rechercher un patient, un rendez-vous, une séance..."
         value={query}
         onValueChange={setQuery}
       />
@@ -62,10 +62,6 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             <CommandItem onSelect={() => go('/patients/new')}>
               <Plus className="mr-2 h-4 w-4" />
               Nouveau patient
-            </CommandItem>
-            <CommandItem onSelect={() => go('/notes/new')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle note clinique
             </CommandItem>
             <CommandItem onSelect={() => go('/appointments')}>
               <Calendar className="mr-2 h-4 w-4" />
@@ -116,14 +112,19 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
               </>
             )}
 
-            {notes.length > 0 && (
+            {sessions.length > 0 && (
               <>
                 <CommandSeparator />
-                <CommandGroup heading="Notes">
-                  {notes.map((n: any) => (
-                    <CommandItem key={n.id} onSelect={() => go(`/notes/${n.id}`)}>
+                <CommandGroup heading="Séances">
+                  {sessions.map((s: any) => (
+                    <CommandItem key={s.id} onSelect={() => go(`/consultations/${s.id}`)}>
                       <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>{n.title || 'Note sans titre'}</span>
+                      <span>
+                        {s.patient?.firstName} {s.patient?.lastName}
+                      </span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {new Date(s.date).toLocaleDateString('fr-FR')}
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>

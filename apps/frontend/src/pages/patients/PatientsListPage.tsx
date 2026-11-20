@@ -4,6 +4,7 @@ import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
+import { BmiBadge } from '../../components/patient-file/BmiBadge';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
@@ -132,6 +133,9 @@ export default function PatientsListPage() {
                   Âge
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                  IMC
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
                   Contact
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
@@ -158,6 +162,9 @@ export default function PatientsListPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {calculateAge(patient.dateOfBirth ?? null)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {patient.bmi ? <BmiBadge bmi={patient.bmi} /> : <span className="text-muted-foreground">—</span>}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {patient.email ?? patient.phone ?? '—'}

@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -55,6 +56,24 @@ export class CreatePatientDto {
   @IsOptional()
   @IsString()
   referralSource?: string;
+
+  @ApiPropertyOptional({ description: 'Motif de consultation' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  consultationReason?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  allergies?: string;
+
+  @ApiPropertyOptional({ description: 'Régime particulier : végétarien, halal, sans gluten…' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  dietaryRestrictions?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

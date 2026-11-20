@@ -12,12 +12,12 @@ export class SearchService {
   ) {}
 
   async search(query: string, user: User) {
-    if (!query || query.trim().length < 2) return { patients: [], appointments: [], notes: [] };
+    if (!query || query.trim().length < 2) return { patients: [], appointments: [], consultations: [] };
 
     const q = query.trim();
     const apptScope = this.access.appointmentScope(user);
 
-    const [patients, appointments, notes] = await Promise.all([
+    const [patients, appointments, consultations] = await Promise.all([
       this.prisma.patient.findMany({
         where: {
           ...this.access.patientScope(user, 'record'),
@@ -40,32 +40,31 @@ export class SearchService {
             { patient: { lastName: { contains: q, mode: 'insensitive' } } },
           ],
         },
-        omit: { postNotes: true },
         include: { patient: { select: { firstName: true, lastName: true } } },
         take: 5,
         orderBy: { startAt: 'desc' },
       }),
-      this.prisma.clinicalNote.findMany({
+      // Session records: only the practitioner's own
+      this.prisma.consultation.findMany({
         where: {
-          authorId: user.id,
+          practitionerId: user.id,
           OR: [
-            { title: { contains: q, mode: 'insensitive' } },
-            { content: { contains: q, mode: 'insensitive' } },
+            { summary: { contains: q, mode: 'insensitive' } },
+            { advice: { contains: q, mode: 'insensitive' } },
           ],
         },
         select: {
           id: true,
-          title: true,
-          type: true,
+          date: true,
           status: true,
-          patientId: true,
-          createdAt: true,
+          patient: { select: { id: true, firstName: true, lastName: true } },
         },
+        orderBy: { date: 'desc' },
         take: 5,
       }),
     ]);
 
-    return { patients, appointments, notes };
+    return { patients, appointments, consultations };
   }
 
   async getDashboardSummary(user: User) {
@@ -80,13 +79,12 @@ export class SearchService {
       todayAppointments,
       upcomingAppointments,
       pendingTasks,
-      draftNotes,
+      draftConsultations,
       activePatientCount,
       weekAppts,
     ] = await Promise.all([
       this.prisma.appointment.findMany({
         where: { ...apptScope, startAt: { gte: startOfDay, lt: endOfDay } },
-        omit: { postNotes: true },
         include: { patient: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { startAt: 'asc' },
       }),
@@ -96,7 +94,6 @@ export class SearchService {
           startAt: { gte: endOfDay, lt: endOfWeek },
           status: { in: ['SCHEDULED', 'CONFIRMED'] },
         },
-        omit: { postNotes: true },
         include: { patient: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { startAt: 'asc' },
         take: 5,
@@ -110,12 +107,15 @@ export class SearchService {
         orderBy: [{ priority: 'desc' }, { dueAt: 'asc' }],
         take: 10,
       }),
-      this.prisma.clinicalNote.findMany({
-        where: {
-          authorId: user.id,
-          status: 'DRAFT',
+      // Sessions left unfinished
+      this.prisma.consultation.findMany({
+        where: { practitionerId: user.id, status: 'DRAFT' },
+        select: {
+          id: true,
+          date: true,
+          patient: { select: { id: true, firstName: true, lastName: true } },
         },
-        select: { id: true, title: true, patientId: true, updatedAt: true },
+        orderBy: { date: 'desc' },
         take: 5,
       }),
       this.prisma.patient.count({
@@ -142,7 +142,7 @@ export class SearchService {
       todayAppointments,
       upcomingAppointments,
       pendingTasks,
-      draftNotes,
+      draftConsultations,
       activePatientCount,
       weekStats,
     };

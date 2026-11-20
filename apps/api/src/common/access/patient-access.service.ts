@@ -6,9 +6,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 export type AccessUser = Pick<User, 'id' | 'role'>;
 
 /**
- * - `record`: read the administrative patient record (identity, contact, tags, appointments
- *   history in the timeline) or reference the patient from a task.
- * - `full`: clinical data (notes, nutrition, documents, private note) and any modification.
+ * - `record`: read the administrative patient record (identity, contact, tags) and its
+ *   appointments, or reference the patient from a task.
+ * - `full`: the patient's file (sessions, measurements, topics, events, goals, documents,
+ *   private note) and any modification.
  */
 export type PatientAccessLevel = 'record' | 'full';
 

@@ -35,14 +35,51 @@ enum AppointmentType {
   PHONE
 }
 
-enum NoteStatus {
+enum ConsultationStatus {
   DRAFT
   FINALIZED
 }
 
-enum NoteType {
-  FREE
-  STRUCTURED
+/// Themes of the patient's file. Each one keeps its history; the latest entry is the current state.
+enum PatientTopic {
+  EATING // Alimentation
+  ACTIVITY // Activité physique
+  SLEEP // Sommeil
+  EMOTIONS // Stress & émotions
+  DIGESTION // Digestion & transit
+  HEALTH // Santé & traitements
+  LIFE // Contexte de vie
+}
+
+/// What can be measured. Units: kg (WEIGHT, MUSCLE_MASS), cm (HEIGHT, WAIST, HIP), % (BODY_FAT),
+/// 1-10 scales (ENERGY, SLEEP_QUALITY, STRESS, HUNGER). BMI is computed, never stored.
+enum MetricType {
+  WEIGHT
+  HEIGHT
+  WAIST
+  HIP
+  BODY_FAT
+  MUSCLE_MASS
+  ENERGY
+  SLEEP_QUALITY
+  STRESS
+  HUNGER
+}
+
+enum LifeEventCategory {
+  HEALTH // Santé (blessure, maladie, opération)
+  TREATMENT // Traitement (début / arrêt d'un médicament)
+  FAMILY // Famille, couple
+  WORK // Travail, études
+  HOME // Déménagement, logement
+  OTHER
+}
+
+enum GoalStatus {
+  IN_PROGRESS
+  ACHIEVED
+  PARTIAL
+  ABANDONED
 }
 
 enum TaskStatus {
@@ -81,29 +118,29 @@ enum AuditAction {
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid()) @map("id")
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  firstName    String   @map("first_name")
-  lastName     String   @map("last_name")
-  role         UserRole @default(ASSISTANTE)
-  googleId     String?  @unique @map("google_id")
-  avatarUrl    String?  @map("avatar_url")
-  isActive     Boolean  @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at")
-  loginAttempts Int     @default(0) @map("login_attempts")
-  lockedUntil  DateTime? @map("locked_until")
-  passwordResetToken String?   @unique @map("password_reset_token")
+  id                     String    @id @default(uuid()) @map("id")
+  email                  String    @unique
+  passwordHash           String    @map("password_hash")
+  firstName              String    @map("first_name")
+  lastName               String    @map("last_name")
+  role                   UserRole  @default(ASSISTANTE)
+  googleId               String?   @unique @map("google_id")
+  avatarUrl              String?   @map("avatar_url")
+  isActive               Boolean   @default(true) @map("is_active")
+  lastLoginAt            DateTime? @map("last_login_at")
+  loginAttempts          Int       @default(0) @map("login_attempts")
+  lockedUntil            DateTime? @map("locked_until")
+  passwordResetToken     String?   @unique @map("password_reset_token")
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   // Relations
   preferences   UserPreferences?
   refreshTokens RefreshToken[]
   patients      Patient[]        @relation("PractitionerPatients")
   appointments  Appointment[]    @relation("PractitionerAppointments")
-  notes         ClinicalNote[]   @relation("AuthorNotes")
+  consultations Consultation[]   @relation("PractitionerConsultations")
   documents     Document[]       @relation("UploaderDocuments")
   tasks         Task[]           @relation("AssignedTasks")
   auditLogs     AuditLog[]
@@ -113,14 +150,14 @@ model User {
 }
 
 model UserPreferences {
-  id               String   @id @default(uuid())
-  userId           String   @unique @map("user_id")
-  language         String   @default("fr")
-  timezone         String   @default("Europe/Paris")
-  defaultView      String   @default("day") @map("default_view")
-  emailNotifications Boolean @default(true) @map("email_notifications")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  language           String   @default("fr")
+  timezone           String   @default("Europe/Paris")
+  defaultView        String   @default("day") @map("default_view")
+  emailNotifications Boolean  @default(true) @map("email_notifications")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -128,14 +165,14 @@ model UserPreferences {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  tokenHash String   @unique @map("token_hash")
-  expiresAt DateTime @map("expires_at")
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
   revokedAt DateTime? @map("revoked_at")
-  ipAddress String?  @map("ip_address")
-  userAgent String?  @map("user_agent")
-  createdAt DateTime @default(now()) @map("created_at")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -158,27 +195,34 @@ model Patient {
   status         PatientStatus @default(ACTIVE)
   privateNote    String?       @map("private_note") @db.Text
 
+  // Profile: why they came, and what must never be missed
+  consultationReason  String? @map("consultation_reason") @db.Text
+  allergies           String? @db.Text
+  dietaryRestrictions String? @map("dietary_restrictions") @db.Text // vegetarian, halal, etc.
+
   // Emergency contact (stored as JSON)
   emergencyContactName         String? @map("emergency_contact_name")
   emergencyContactPhone        String? @map("emergency_contact_phone")
   emergencyContactRelationship String? @map("emergency_contact_relationship")
 
   // Metadata
-  referralSource String?  @map("referral_source")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  referralSource String?   @map("referral_source")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
   // Relations
-  practitioner     User                @relation("PractitionerPatients", fields: [practitionerId], references: [id])
-  tags             PatientTag[]
-  appointments     Appointment[]
-  notes            ClinicalNote[]
-  nutritionalProfile NutritionalProfile?
-  nutritionalEntries NutritionalEntry[]
-  documents        Document[]
-  tasks            Task[]
-  consents         Consent[]
+  practitioner  User           @relation("PractitionerPatients", fields: [practitionerId], references: [id])
+  tags          PatientTag[]
+  appointments  Appointment[]
+  consultations Consultation[]
+  measurements  Measurement[]
+  topicNotes    TopicNote[]
+  lifeEvents    LifeEvent[]
+  goals         Goal[]
+  documents     Document[]
+  tasks         Task[]
+  consents      Consent[]
 
   @@map("patient")
 }
@@ -204,15 +248,15 @@ model PatientTag {
 }
 
 model Consent {
-  id          String   @id @default(uuid())
-  patientId   String   @map("patient_id")
-  type        String   // "data_processing", "health_data", "communication"
-  version     String   @default("1.0")
-  givenAt     DateTime @map("given_at")
-  revokedAt   DateTime? @map("revoked_at")
-  evidence    String?  @db.Text // Texte signé ou référence document
-  ipAddress   String?  @map("ip_address")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String    @id @default(uuid())
+  patientId String    @map("patient_id")
+  type      String // "data_processing", "health_data", "communication"
+  version   String    @default("1.0")
+  givenAt   DateTime  @map("given_at")
+  revokedAt DateTime? @map("revoked_at")
+  evidence  String?   @db.Text // Texte signé ou référence document
+  ipAddress String?   @map("ip_address")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
@@ -227,20 +271,18 @@ model Appointment {
   practitionerId String            @map("practitioner_id")
   startAt        DateTime          @map("start_at")
   endAt          DateTime          @map("end_at")
-  duration       Int               // minutes
+  duration       Int // minutes
   type           AppointmentType   @default(IN_PERSON)
   status         AppointmentStatus @default(SCHEDULED)
   reason         String?           @db.Text
-  preNotes       String?           @map("pre_notes") @db.Text
-  postNotes      String?           @map("post_notes") @db.Text
   cancelReason   String?           @map("cancel_reason")
   reminderSentAt DateTime?         @map("reminder_sent_at")
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
-  patient      Patient        @relation(fields: [patientId], references: [id])
-  practitioner User           @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
-  notes        ClinicalNote[]
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  practitioner User          @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
+  consultation Consultation?
   tasks        Task[]
 
   @@index([patientId])
@@ -249,83 +291,124 @@ model Appointment {
   @@map("appointment")
 }
 
-// ─── Clinical Notes ───────────────────────────────────────────────────────────
+// ─── Patient file ─────────────────────────────────────────────────────────────
 
-model ClinicalNote {
-  id            String     @id @default(uuid())
-  patientId     String     @map("patient_id")
-  appointmentId String?    @map("appointment_id")
-  authorId      String     @map("author_id")
-  type          NoteType   @default(FREE)
-  status        NoteStatus @default(DRAFT)
-  title         String?
-  content       String     @db.Text
-  // Structured note fields
-  sessionObjectives String? @map("session_objectives") @db.Text
-  actionPlan        String? @map("action_plan") @db.Text
-  followUpItems     String? @map("follow_up_items") @db.Text
-  observations      String? @db.Text
-  finalizedAt   DateTime?  @map("finalized_at")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+/// One session with the patient (usually from an appointment). Everything recorded during it
+/// (measurements, topic updates, events, goals) points back to it.
+model Consultation {
+  id             String             @id @default(uuid())
+  patientId      String             @map("patient_id")
+  practitionerId String             @map("practitioner_id")
+  appointmentId  String?            @unique @map("appointment_id")
+  date           DateTime
+  summary        String?            @db.Text // what happened, what was said
+  advice         String?            @db.Text // advice and plan given to the patient
+  status         ConsultationStatus @default(DRAFT)
+  finalizedAt    DateTime?          @map("finalized_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
 
-  patient     Patient      @relation(fields: [patientId], references: [id])
-  appointment Appointment? @relation(fields: [appointmentId], references: [id])
-  author      User         @relation("AuthorNotes", fields: [authorId], references: [id])
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  practitioner User          @relation("PractitionerConsultations", fields: [practitionerId], references: [id])
+  appointment  Appointment?  @relation(fields: [appointmentId], references: [id])
+  measurements Measurement[]
+  topicNotes   TopicNote[]
+  lifeEvents   LifeEvent[]
+  goals        Goal[]        @relation("GoalCreatedIn")
+  goalReviews  GoalReview[]
 
-  @@index([patientId])
-  @@index([appointmentId])
-  @@map("clinical_note")
+  @@index([patientId, date])
+  @@map("consultation")
 }
 
-// ─── Nutritional ─────────────────────────────────────────────────────────────
+model Measurement {
+  id             String     @id @default(uuid())
+  patientId      String     @map("patient_id")
+  consultationId String?    @map("consultation_id")
+  type           MetricType
+  value          Decimal    @db.Decimal(6, 2)
+  measuredAt     DateTime   @map("measured_at") @db.Date
+  note           String?
+  createdAt      DateTime   @default(now()) @map("created_at")
 
-model NutritionalProfile {
-  id                String   @id @default(uuid())
-  patientId         String   @unique @map("patient_id")
-  objectives        String?  @db.Text
-  dietaryHabits     String?  @map("dietary_habits") @db.Text
-  foodRelationship  String?  @map("food_relationship") @db.Text
-  emotionalTriggers String?  @map("emotional_triggers") @db.Text
-  allergies         String?  @db.Text
-  intolerances      String?  @db.Text
-  supplements       String?  @db.Text
-  medications       String?  @db.Text
-  activityLevel     String?  @map("activity_level")
-  sleepPattern      String?  @map("sleep_pattern") @db.Text
-  stressLevel       String?  @map("stress_level")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  @@map("nutritional_profile")
+  @@index([patientId, type, measuredAt])
+  @@map("measurement")
 }
 
-model NutritionalEntry {
-  id                  String   @id @default(uuid())
-  patientId           String   @map("patient_id")
-  date                DateTime @db.Date
-  weight              Decimal? @db.Decimal(5, 2)
-  bmi                 Decimal? @db.Decimal(4, 2)
-  mood                Int?     // 1-10
-  energyLevel         Int?     @map("energy_level") // 1-10
-  stressLevel         Int?     @map("stress_level") // 1-10
-  sleepHours          Decimal? @map("sleep_hours") @db.Decimal(4, 1)
-  sleepQuality        Int?     @map("sleep_quality") // 1-10
-  physicalActivity    String?  @map("physical_activity")
-  waterIntake         Decimal? @map("water_intake") @db.Decimal(4, 2) // liters
-  mealNotes           String?  @map("meal_notes") @db.Text
-  behaviorNotes       String?  @map("behavior_notes") @db.Text
-  practitionerComment String?  @map("practitioner_comment") @db.Text
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+/// An update on one topic of the file ("now eats breakfast", "started swimming twice a week").
+model TopicNote {
+  id             String       @id @default(uuid())
+  patientId      String       @map("patient_id")
+  consultationId String?      @map("consultation_id")
+  topic          PatientTopic
+  content        String       @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
 
-  @@unique([patientId, date])
-  @@index([patientId])
-  @@map("nutritional_entry")
+  @@index([patientId, topic, createdAt])
+  @@map("topic_note")
+}
+
+/// Something that happened in the patient's life, shown on the measurement charts.
+model LifeEvent {
+  id             String            @id @default(uuid())
+  patientId      String            @map("patient_id")
+  consultationId String?           @map("consultation_id")
+  date           DateTime          @db.Date
+  title          String
+  description    String?           @db.Text
+  category       LifeEventCategory @default(OTHER)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, date])
+  @@map("life_event")
+}
+
+/// A goal agreed with the patient, reviewed at each following session.
+model Goal {
+  id             String     @id @default(uuid())
+  patientId      String     @map("patient_id")
+  consultationId String?    @map("consultation_id") // session where it was set
+  title          String
+  details        String?    @db.Text
+  status         GoalStatus @default(IN_PROGRESS)
+  closedAt       DateTime?  @map("closed_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation Consultation? @relation("GoalCreatedIn", fields: [consultationId], references: [id], onDelete: SetNull)
+  reviews      GoalReview[]
+
+  @@index([patientId, status])
+  @@map("goal")
+}
+
+/// How a goal stood at a given session.
+model GoalReview {
+  id             String     @id @default(uuid())
+  goalId         String     @map("goal_id")
+  consultationId String     @map("consultation_id")
+  status         GoalStatus
+  comment        String?    @db.Text
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  goal         Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, consultationId])
+  @@map("goal_review")
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
@@ -386,7 +469,7 @@ enum NotificationType {
   APPOINTMENT_CANCELLED
   TASK_CREATED
   TASK_DUE
-  NOTE_FINALIZED
+  CONSULTATION_FINALIZED
   PATIENT_CREATED
   SYSTEM
 }
@@ -415,9 +498,9 @@ model AuditLog {
   id        String      @id @default(uuid())
   userId    String      @map("user_id")
   action    AuditAction
-  entity    String      // "patient", "appointment", "note", etc.
+  entity    String // "patient", "appointment", "note", etc.
   entityId  String?     @map("entity_id")
-  metadata  Json?       // Données supplémentaires (avant/après pour UPDATE)
+  metadata  Json? // Données supplémentaires (avant/après pour UPDATE)
   ipAddress String?     @map("ip_address")
   userAgent String?     @map("user_agent")
   createdAt DateTime    @default(now()) @map("created_at")

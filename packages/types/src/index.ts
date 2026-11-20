@@ -26,14 +26,9 @@ export enum AppointmentType {
   PHONE = 'PHONE',
 }
 
-export enum NoteStatus {
+export enum ConsultationStatus {
   DRAFT = 'DRAFT',
   FINALIZED = 'FINALIZED',
-}
-
-export enum NoteType {
-  FREE = 'FREE',
-  STRUCTURED = 'STRUCTURED',
 }
 
 export enum TaskStatus {
@@ -141,6 +136,8 @@ export interface PatientListItemDto {
   tags: TagDto[];
   lastAppointmentAt: string | null;
   nextAppointmentAt: string | null;
+  /** Latest BMI (practitioner only) */
+  bmi?: { value: number; category: 'UNDERWEIGHT' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY' | 'MASSIVE_OBESITY' } | null;
 }
 
 export interface CreatePatientDto {
@@ -178,8 +175,7 @@ export interface AppointmentDto {
   type: AppointmentType;
   status: AppointmentStatus;
   reason: string | null;
-  preNotes: string | null;
-  postNotes: string | null;
+  consultation?: { id: string; status: ConsultationStatus } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -190,77 +186,10 @@ export interface CreateAppointmentDto {
   duration: number;
   type: AppointmentType;
   reason?: string;
-  preNotes?: string;
 }
 
 export interface UpdateAppointmentDto extends Partial<CreateAppointmentDto> {
   status?: AppointmentStatus;
-  postNotes?: string;
-}
-
-// ─── Clinical Note ────────────────────────────────────────────────────────────
-
-export interface ClinicalNoteDto {
-  id: string;
-  patientId: string;
-  appointmentId: string | null;
-  authorId: string;
-  type: NoteType;
-  status: NoteStatus;
-  title: string | null;
-  content: string;
-  sessionObjectives: string | null;
-  actionPlan: string | null;
-  followUpItems: string | null;
-  finalizedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateClinicalNoteDto {
-  patientId: string;
-  appointmentId?: string;
-  type: NoteType;
-  title?: string;
-  content: string;
-  sessionObjectives?: string;
-  actionPlan?: string;
-  followUpItems?: string;
-}
-
-export interface UpdateClinicalNoteDto extends Partial<CreateClinicalNoteDto> {
-  status?: NoteStatus;
-}
-
-// ─── Nutritional ─────────────────────────────────────────────────────────────
-
-export interface NutritionalProfileDto {
-  id: string;
-  patientId: string;
-  objectives: string | null;
-  dietaryHabits: string | null;
-  foodRelationship: string | null;
-  emotionalTriggers: string | null;
-  allergies: string | null;
-  intolerances: string | null;
-  supplements: string | null;
-  medications: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface NutritionalEntryDto {
-  id: string;
-  patientId: string;
-  date: string;
-  mood: number | null;
-  sleepHours: number | null;
-  physicalActivity: string | null;
-  mealNotes: string | null;
-  behaviorNotes: string | null;
-  practitionerComment: string | null;
-  weight: number | null;
-  createdAt: string;
 }
 
 // ─── Document ─────────────────────────────────────────────────────────────────
@@ -347,14 +276,22 @@ export interface ApiError {
 export interface SearchResult {
   patients: PatientListItemDto[];
   appointments: AppointmentDto[];
-  notes: ClinicalNoteDto[];
+  consultations: ConsultationSummaryDto[];
+}
+
+/** A session as listed on the dashboard or in search results. */
+export interface ConsultationSummaryDto {
+  id: string;
+  date: string;
+  status?: ConsultationStatus;
+  patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName'>;
 }
 
 export interface DashboardSummary {
   todayAppointments: AppointmentDto[];
   upcomingAppointments: AppointmentDto[];
   pendingTasks: TaskDto[];
-  draftNotes: ClinicalNoteDto[];
+  draftConsultations: ConsultationSummaryDto[];
   activePatientCount: number;
   weekStats: {
     appointmentsCount: number;

@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* dark: styles follow the app's theme toggle (.dark on <html>), not the OS setting */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PatientAccessService } from '../../common/access/patient-access.service';
 import { createMockUser, mockPrisma } from '../../test/setup';
+import { PatientFileService } from '../patient-file/patient-file.service';
 
 import { PatientsService } from './patients.service';
 
@@ -13,7 +14,13 @@ describe('PatientsService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new PatientsService(mockPrisma as any, new PatientAccessService(mockPrisma as any));
+    const access = new PatientAccessService(mockPrisma as any);
+    mockPrisma.measurement.findMany.mockResolvedValue([]);
+    service = new PatientsService(
+      mockPrisma as any,
+      access,
+      new PatientFileService(mockPrisma as any, access),
+    );
   });
 
   describe('findAll', () => {
@@ -139,7 +146,7 @@ describe('PatientsService', () => {
       id: 'p1',
       practitionerId: 'pract-1',
       privateNote: 'secret',
-      nutritionalProfile: { allergies: 'x' },
+      allergies: 'arachides',
       tags: [],
       appointments: [],
     };
@@ -162,7 +169,7 @@ describe('PatientsService', () => {
       const result = await service.findOne('p1', assistant as any);
 
       expect(result).not.toHaveProperty('privateNote');
-      expect(result).not.toHaveProperty('nutritionalProfile');
+      expect(result).not.toHaveProperty('allergies');
     });
 
     it('keeps clinical fields for the owning practitioner', async () => {
@@ -172,7 +179,7 @@ describe('PatientsService', () => {
       const result = await service.findOne('p1', owner as any);
 
       expect(result).toHaveProperty('privateNote', 'secret');
-      expect(result).toHaveProperty('nutritionalProfile');
+      expect(result).toHaveProperty('allergies', 'arachides');
     });
 
     it('cannot update or archive a patient', async () => {
@@ -184,18 +191,6 @@ describe('PatientsService', () => {
       expect(mockPrisma.patient.update).not.toHaveBeenCalled();
     });
 
-    it('does not see clinical notes in the timeline', async () => {
-      mockPrisma.patient.findUnique.mockResolvedValue(patientRow);
-      mockPrisma.appointment.findMany.mockResolvedValue([]);
-      mockPrisma.clinicalNote.findMany.mockResolvedValue([]);
-      mockPrisma.task.findMany.mockResolvedValue([]);
-
-      await service.getTimeline('p1', assistant as any);
-
-      expect(mockPrisma.clinicalNote.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: { in: [] } } }),
-      );
-    });
   });
 
   describe('findAllTags', () => {

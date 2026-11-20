@@ -1,10 +1,21 @@
-# ─── Locals ───────────────────────────────────────────────────────────────────
+# App infrastructure for one environment (staging or prod), applied by the project owner.
+# Accounts, the GitHub login link (Workload Identity) and secrets come from ../bootstrap.
+# CI/CD only deploys new images to the services created here.
 
 locals {
   is_staging = var.env == "staging"
   is_prod    = var.env == "prod"
 
-  db_instance_name = "vp-dietetic-db"
+  db_instance_name   = "vp-dietetic-db"
+  db_connection_name = "${var.project_id}:${var.region}:${local.db_instance_name}"
+  registry           = "${var.region}-docker.pkg.dev/${var.project_id}/vp-dietetic"
+
+  api_sa      = "vp-${var.env}-api@${var.project_id}.iam.gserviceaccount.com"
+  frontend_sa = "vp-${var.env}-frontend@${var.project_id}.iam.gserviceaccount.com"
+
+  # Public "hello" image so the services can be created before the first real image exists.
+  # CD replaces it; Terraform then ignores the image (see lifecycle blocks).
+  placeholder_image = "us-docker.pkg.dev/cloudrun/container/hello"
 
   cfg = {
     staging = {
@@ -23,13 +34,7 @@ locals {
   }[var.env]
 }
 
-# ─── Shared resources (staging only) ─────────────────────────────────────────
-
-module "project_services" {
-  count      = local.is_staging ? 1 : 0
-  source     = "./modules/project-services"
-  project_id = var.project_id
-}
+# ─── Shared resources (created with the staging state) ───────────────────────
 
 resource "google_artifact_registry_repository" "docker" {
   count         = local.is_staging ? 1 : 0
@@ -38,10 +43,9 @@ resource "google_artifact_registry_repository" "docker" {
   repository_id = "vp-dietetic"
   format        = "DOCKER"
   description   = "Docker images for VP Dietetic Center"
-
-  depends_on = [module.project_services]
 }
 
+# One small instance hosts both databases (vp_staging, vp_prod) to fit the budget.
 resource "google_sql_database_instance" "main" {
   count            = local.is_staging ? 1 : 0
   project          = var.project_id
@@ -49,34 +53,31 @@ resource "google_sql_database_instance" "main" {
   database_version = "POSTGRES_15"
   region           = var.region
 
-  deletion_protection = false
+  deletion_protection = true
 
   settings {
-    tier              = var.db_tier
-    availability_type = "ZONAL"
-    disk_size         = 10
-    disk_type         = "PD_SSD"
-    disk_autoresize   = true
+    edition                     = "ENTERPRISE" # shared-core tiers are not available in Enterprise Plus
+    tier                        = var.db_tier
+    availability_type           = "ZONAL"
+    disk_size                   = 10
+    disk_type                   = "PD_SSD"
+    disk_autoresize             = true
+    deletion_protection_enabled = true
 
     ip_configuration {
+      # No authorized networks: the only way in is Google's Cloud SQL connector, which checks IAM
+      # (roles/cloudsql.client) and client certificates. Direct password logins are refused.
       ipv4_enabled = true
-      authorized_networks {
-        name  = "allow-all"
-        value = "0.0.0.0/0"
-      }
+      ssl_mode     = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
     }
 
     backup_configuration {
-      enabled    = true
-      start_time = "03:00"
+      enabled                        = true
+      start_time                     = "03:00"
+      point_in_time_recovery_enabled = false
       backup_retention_settings {
         retained_backups = 7
       }
-    }
-
-    database_flags {
-      name  = "max_connections"
-      value = "100"
     }
 
     insights_config {
@@ -91,6 +92,8 @@ resource "google_sql_database" "db" {
   project  = var.project_id
   instance = local.db_instance_name
   name     = "vp_${var.env}"
+
+  depends_on = [google_sql_database_instance.main]
 }
 
 resource "google_sql_user" "user" {
@@ -98,6 +101,8 @@ resource "google_sql_user" "user" {
   instance = local.db_instance_name
   name     = "vp_${var.env}"
   password = var.db_password
+
+  depends_on = [google_sql_database_instance.main]
 }
 
 # ─── Storage Bucket ──────────────────────────────────────────────────────────
@@ -128,13 +133,12 @@ resource "google_storage_bucket" "documents" {
       }
     }
   }
+}
 
-  cors {
-    origin          = ["*"]
-    method          = ["GET", "PUT", "POST", "DELETE"]
-    response_header = ["Content-Type"]
-    max_age_seconds = 3600
-  }
+resource "google_storage_bucket_iam_member" "api_documents" {
+  bucket = google_storage_bucket.documents.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${local.api_sa}"
 }
 
 # ─── Cloud Run — API ─────────────────────────────────────────────────────────
@@ -146,21 +150,33 @@ resource "google_cloud_run_v2_service" "api" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = "vp-${var.env}-api@${var.project_id}.iam.gserviceaccount.com"
+    service_account = local.api_sa
 
     scaling {
       min_instance_count = 0
       max_instance_count = local.cfg.max_api_instances
     }
 
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [local.db_connection_name]
+      }
+    }
+
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/vp-dietetic/api:latest"
+      image = local.placeholder_image
 
       resources {
         limits = {
           cpu    = "1"
           memory = "512Mi"
         }
+      }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
       }
 
       startup_probe {
@@ -229,10 +245,10 @@ resource "google_cloud_run_v2_service" "api" {
     }
   }
 
-  depends_on = [google_sql_database.db]
+  depends_on = [google_sql_database.db, google_sql_user.user]
 
   lifecycle {
-    ignore_changes = [template[0].containers[0].image]
+    ignore_changes = [template[0].containers[0].image, client, client_version]
   }
 }
 
@@ -255,12 +271,19 @@ resource "google_cloud_run_v2_job" "api_migrate" {
     task_count = 1
 
     template {
-      service_account = "vp-${var.env}-api@${var.project_id}.iam.gserviceaccount.com"
+      service_account = local.api_sa
       max_retries     = 0
       timeout         = "300s"
 
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [local.db_connection_name]
+        }
+      }
+
       containers {
-        image   = "${var.region}-docker.pkg.dev/${var.project_id}/vp-dietetic/api:latest"
+        image   = local.placeholder_image
         command = ["npx"]
         args    = ["prisma", "migrate", "deploy"]
 
@@ -269,6 +292,11 @@ resource "google_cloud_run_v2_job" "api_migrate" {
             cpu    = "1"
             memory = "512Mi"
           }
+        }
+
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
         }
 
         env {
@@ -284,10 +312,10 @@ resource "google_cloud_run_v2_job" "api_migrate" {
     }
   }
 
-  depends_on = [google_sql_database.db]
+  depends_on = [google_sql_database.db, google_sql_user.user]
 
   lifecycle {
-    ignore_changes = [template[0].template[0].containers[0].image]
+    ignore_changes = [template[0].template[0].containers[0].image, client, client_version]
   }
 }
 
@@ -300,7 +328,7 @@ resource "google_cloud_run_v2_service" "frontend" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = "vp-${var.env}-frontend@${var.project_id}.iam.gserviceaccount.com"
+    service_account = local.frontend_sa
 
     scaling {
       min_instance_count = 0
@@ -308,7 +336,7 @@ resource "google_cloud_run_v2_service" "frontend" {
     }
 
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/vp-dietetic/frontend:latest"
+      image = local.placeholder_image
 
       resources {
         limits = {
@@ -333,7 +361,7 @@ resource "google_cloud_run_v2_service" "frontend" {
   }
 
   lifecycle {
-    ignore_changes = [template[0].containers[0].image]
+    ignore_changes = [template[0].containers[0].image, client, client_version]
   }
 }
 

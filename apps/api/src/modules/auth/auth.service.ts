@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'crypto';
 
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
@@ -13,6 +13,7 @@ import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly googleClient: OAuth2Client;
 
   constructor(
@@ -188,7 +189,12 @@ export class AuthService {
       },
     });
 
-    await this.mailService.sendPasswordReset(user.email, token, user.firstName);
+    // Sent in the background: the answer comes as fast for an unknown email as for a known one
+    // (timing would reveal which accounts exist). A failed send is only logged; the user can
+    // simply ask again.
+    void this.mailService.sendPasswordReset(user.email, token, user.firstName).catch((error) => {
+      this.logger.error(`Password reset email not sent: ${error}`);
+    });
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

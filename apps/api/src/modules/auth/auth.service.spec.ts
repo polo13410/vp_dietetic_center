@@ -82,7 +82,7 @@ describe('AuthService sessions', () => {
 
 describe('AuthService password reset', () => {
   const user = { ...createMockUser(), firstName: 'Test' };
-  const mail = { sendPasswordReset: vi.fn() };
+  const mail = { sendPasswordReset: vi.fn().mockResolvedValue(undefined) };
   let service: AuthService;
 
   beforeEach(() => {
@@ -102,6 +102,11 @@ describe('AuthService password reset', () => {
     const stored = mockPrisma.user.update.mock.calls[0][0].data.passwordResetToken;
     expect(stored).toBe(createHash('sha256').update(sent).digest('hex'));
     expect(stored).not.toBe(sent);
+  });
+
+  it('answers the same way when the email cannot be sent', async () => {
+    mail.sendPasswordReset.mockRejectedValueOnce(new Error('SMTP down'));
+    await expect(service.requestPasswordReset(user.email)).resolves.toBeUndefined();
   });
 
   it('finds the user by the hash, and ends every open session', async () => {

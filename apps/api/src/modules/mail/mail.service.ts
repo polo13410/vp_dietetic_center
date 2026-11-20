@@ -7,17 +7,22 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: nodemailer.Transporter;
 
+  /**
+   * Development: Mailpit on localhost:1025 (docker compose). Deployed: Brevo's SMTP relay on
+   * port 587, where the connection must be upgraded to TLS before the credentials are sent.
+   */
   constructor(private readonly config: ConfigService) {
+    const user = this.config.get<string>('smtp.user');
     this.transporter = nodemailer.createTransport({
       host: this.config.get<string>('smtp.host', 'localhost'),
       port: this.config.get<number>('smtp.port', 1025),
       secure: this.config.get<boolean>('smtp.secure', false),
-      auth: this.config.get<string>('smtp.user')
-        ? {
-            user: this.config.get<string>('smtp.user'),
-            pass: this.config.get<string>('smtp.pass'),
-          }
-        : undefined,
+      requireTLS: !!user,
+      // Fail fast rather than keep a connection waiting
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+      auth: user ? { user, pass: this.config.get<string>('smtp.pass') } : undefined,
     });
   }
 
@@ -33,7 +38,7 @@ export class MailService {
       html: `
         <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
           <h2 style="color: #2563eb;">Réinitialisation du mot de passe</h2>
-          <p>Bonjour ${firstName},</p>
+          <p>Bonjour ${escapeHtml(firstName)},</p>
           <p>Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau :</p>
           <p style="text-align: center; margin: 32px 0;">
             <a href="${resetUrl}"
@@ -51,6 +56,11 @@ export class MailService {
       text: `Bonjour ${firstName},\n\nCliquez sur ce lien pour réinitialiser votre mot de passe :\n${resetUrl}\n\nCe lien est valable 1 heure.`,
     });
 
-    this.logger.log(`Password reset email sent to ${to}`);
+    // The address is personal data: not logged
+    this.logger.log('Password reset email sent');
   }
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }

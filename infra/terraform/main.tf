@@ -233,6 +233,30 @@ resource "google_cloud_run_v2_service" "api" {
           }
         }
       }
+      # Emails (password resets) through Brevo's SMTP relay, once its credentials are stored
+      dynamic "env" {
+        for_each = var.smtp_enabled ? {
+          SMTP_HOST = "smtp-relay.brevo.com"
+          SMTP_PORT = "587"
+          SMTP_FROM = var.smtp_from
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = var.smtp_enabled ? { SMTP_USER = "smtp-user", SMTP_PASS = "smtp-password" } : {}
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
       env {
         # Requests without it did not come through the frontend and are refused
         name = "PROXY_TOKEN"

@@ -39,7 +39,7 @@ export const configuration = () => ({
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.SMTP_FROM ?? 'noreply@vp-dietetic.fr',
+    from: process.env.SMTP_FROM ?? 'VP Diététique <noreply@vp-dietetic.local>',
   },
 
   // Documents bucket; empty in development (files then go to a local folder)

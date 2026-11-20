@@ -82,7 +82,9 @@ export class PatientsService {
         where,
         select: {
           ...PATIENT_SELECT,
+          // Last appointment that took place (not a future or cancelled one)
           appointments: {
+            where: { startAt: { lte: new Date() }, status: { notIn: ['CANCELLED', 'NO_SHOW'] } },
             select: { startAt: true, status: true },
             orderBy: { startAt: 'desc' },
             take: 1,

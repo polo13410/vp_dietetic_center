@@ -6,7 +6,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   Post,
   Query,
@@ -26,6 +25,21 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { DocumentsService } from './documents.service';
 import { UploadDocumentBodyDto } from './dto/upload-document.dto';
 import { StorageService } from './storage.service';
+
+/** Files a practice exchanges: analyses, prescriptions, reports, scans and photos. */
+const ALLOWED_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+]);
 
 @ApiTags('documents')
 @ApiBearerAuth()
@@ -60,20 +74,26 @@ export class DocumentsController {
     @Res() res: Response,
   ) {
     const doc = await this.service.findOne(id, user);
-    let filePath: string;
-    try {
-      filePath = await this.storage.getFilePath(doc.gcsPath);
-    } catch {
-      throw new NotFoundException('Fichier introuvable sur le stockage');
-    }
+    const content = await this.storage.read(doc.gcsPath);
+    // Always a download: the file is never rendered by the browser on the app's origin
     res.setHeader('Content-Type', doc.mimeType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.attachment(doc.originalName);
-    res.sendFile(filePath);
+    content.on('error', () => res.destroy());
+    content.pipe(res);
   }
 
   @Post('upload')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_req, file, accept) =>
+        ALLOWED_TYPES.has(file.mimetype)
+          ? accept(null, true)
+          : accept(new BadRequestException('Type de fichier non accepté (PDF, image, Word, Excel, texte)'), false),
+    }),
+  )
   @ApiOperation({ summary: 'Uploader un document' })
   @ApiBody({
     schema: {

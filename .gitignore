@@ -68,3 +68,6 @@ next-env.d.ts
 .vercel
 .aws
 .aws-sam
+
+# Documents stored locally in development (no GCS bucket)
+.uploads/

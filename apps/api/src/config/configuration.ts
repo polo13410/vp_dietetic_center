@@ -1,3 +1,15 @@
+/**
+ * The JWT signing secret. A known default is only acceptable in development: in production a
+ * missing or short secret would let anyone forge sessions, so the API refuses to start.
+ */
+function jwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production' && (!secret || secret.length < 32)) {
+    throw new Error('JWT_SECRET must be set (at least 32 characters) in production');
+  }
+  return secret ?? 'dev-secret-change-in-prod';
+}
+
 export const configuration = () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -8,7 +20,7 @@ export const configuration = () => ({
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-prod',
+    secret: jwtSecret(),
     expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
     // Length of a session (a working day). Counted from sign-in: refreshing does not extend it.
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '10h',
@@ -30,14 +42,14 @@ export const configuration = () => ({
     from: process.env.SMTP_FROM ?? 'noreply@vp-dietetic.fr',
   },
 
+  // Documents bucket; empty in development (files then go to a local folder)
   gcs: {
     bucketName: process.env.GCS_BUCKET_NAME ?? '',
-    projectId: process.env.GOOGLE_CLOUD_PROJECT ?? '',
   },
 
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL ?? '60000', 10),
-    limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
+    limit: parseInt(process.env.THROTTLE_LIMIT ?? '300', 10),
   },
 });
 

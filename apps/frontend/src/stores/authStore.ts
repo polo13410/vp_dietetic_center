@@ -38,11 +38,12 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'vp-auth',
-      partialState: (state: AuthState) => ({
+      // The access token stays in memory only (a script reading localStorage cannot steal it);
+      // after a reload it is fetched again with the httpOnly refresh cookie.
+      partialize: (state: AuthState) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-        // Don't persist the access token in localStorage — re-fetch via refresh cookie
       }),
-    } as PersistOptions<AuthState>,
+    } as PersistOptions<AuthState, Pick<AuthState, 'user' | 'isAuthenticated'>>,
   ),
 );

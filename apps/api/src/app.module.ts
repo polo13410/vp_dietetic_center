@@ -1,10 +1,10 @@
 import type { IncomingMessage } from 'http';
 
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AppController } from './app.controller';
@@ -45,11 +45,16 @@ import { PrismaModule } from './prisma/prisma.module';
       },
     }),
 
-    // Throttler
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 100 },
-      { name: 'auth', ttl: 60000, limit: 10 },
-    ]),
+    // Requests per client IP (sign-in endpoints have stricter limits, see AuthController)
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.get<number>('throttle.ttl', 60000),
+          limit: config.get<number>('throttle.limit', 300),
+        },
+      ],
+    }),
 
     // Scheduler
     ScheduleModule.forRoot(),
@@ -72,6 +77,8 @@ import { PrismaModule } from './prisma/prisma.module';
   ],
   controllers: [AppController],
   providers: [
+    // Rate limiting first, so floods are refused before any other work
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

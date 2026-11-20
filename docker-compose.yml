@@ -48,8 +48,6 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: noreply@vp-dietetic.local
-      GCS_BUCKET_NAME: vp-dietetic-dev-documents
-      GOOGLE_CLOUD_PROJECT: vp-dietetic-dev
     ports:
       - "3000:3000"
     volumes:

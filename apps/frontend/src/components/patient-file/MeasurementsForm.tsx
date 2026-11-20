@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import api from '../../lib/api';
 import { METRIC_TYPES, METRICS, type MetricType, useInvalidatePatientFile } from '../../lib/patient-file';
+import { todayISO } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { toast } from '../ui/toaster';
 
@@ -31,7 +32,7 @@ export function MeasurementsForm({
   const invalidate = useInvalidatePatientFile();
   const [values, setValues] = useState<Partial<Record<MetricType, string>>>({});
   const [showAll, setShowAll] = useState(false);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayISO);
   const [saving, setSaving] = useState(false);
 
   const shown = showAll

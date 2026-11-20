@@ -15,6 +15,7 @@ import { configuration } from './config/configuration';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PatientFileModule } from './modules/patient-file/patient-file.module';
@@ -72,6 +73,7 @@ import { PrismaModule } from './prisma/prisma.module';
     DocumentsModule,
     TasksModule,
     SearchModule,
+    DashboardModule,
     NotificationsModule,
     AuditModule,
   ],

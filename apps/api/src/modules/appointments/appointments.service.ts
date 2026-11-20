@@ -42,6 +42,7 @@ export class AppointmentsService {
         include: {
           patient: { select: { id: true, firstName: true, lastName: true } },
           practitioner: { select: { id: true, firstName: true, lastName: true } },
+          consultation: { select: { id: true, status: true } },
         },
         orderBy: { startAt: 'asc' },
         skip,

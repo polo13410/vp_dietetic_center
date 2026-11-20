@@ -287,16 +287,28 @@ export interface ConsultationSummaryDto {
   patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName'>;
 }
 
+/** An appointment as shown on the dashboard, with its session if one was started. */
+export interface DashboardAppointmentDto extends AppointmentDto {
+  consultation: { id: string; status: ConsultationStatus } | null;
+}
+
 export interface DashboardSummary {
-  todayAppointments: AppointmentDto[];
-  upcomingAppointments: AppointmentDto[];
-  pendingTasks: TaskDto[];
-  draftConsultations: ConsultationSummaryDto[];
-  activePatientCount: number;
-  weekStats: {
-    appointmentsCount: number;
-    completedCount: number;
-    cancelledCount: number;
-    noShowCount: number;
+  todayAppointments: DashboardAppointmentDto[];
+  /** Next appointment still to see (or started less than an hour ago) */
+  nextAppointment: DashboardAppointmentDto | null;
+  stats: {
+    todayCount: number;
+    todayRemaining: number;
+    weekAppointmentCount: number;
+    /** Active patients seen in the last 90 days or with an appointment booked */
+    followedPatientCount: number;
   };
+  draftConsultations: ConsultationSummaryDto[];
+  /** Active patients with nothing booked and not seen for 6 weeks */
+  followUps: {
+    patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName' | 'phone' | 'email'>;
+    lastSeenAt: string | null;
+    daysSince: number | null;
+  }[];
+  tasks: TaskDto[];
 }

@@ -49,7 +49,7 @@ describe('PatientsService', () => {
       );
     });
 
-    it('admin sees all patients', async () => {
+    it('admin sees no patient', async () => {
       const admin = createMockUser({ role: UserRole.ADMIN });
       mockPrisma.patient.count.mockResolvedValue(0);
       mockPrisma.patient.findMany.mockResolvedValue([]);
@@ -57,7 +57,7 @@ describe('PatientsService', () => {
       await service.findAll(admin as any, {});
 
       const call = mockPrisma.patient.findMany.mock.calls[0][0];
-      expect(call.where.practitionerId).toBeUndefined();
+      expect(call.where.id).toEqual({ in: [] });
     });
   });
 

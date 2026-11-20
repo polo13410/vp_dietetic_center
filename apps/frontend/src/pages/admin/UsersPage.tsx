@@ -1,7 +1,6 @@
 import type { UserDto } from '@vp/types';
-import { ArrowLeft, MoreHorizontal, Pencil, Plus, Search, Trash2, UserX } from 'lucide-react';
+import { MoreHorizontal, Pencil, Plus, Search, Trash2, UserX } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
 
 import { UserFormDialog } from '../../components/admin/UserFormDialog';
 import { Button } from '../../components/ui/button';
@@ -95,11 +94,6 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/admin">
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-          </Button>
           <div>
             <h1 className="text-2xl font-bold">Utilisateurs</h1>
             {users && (

@@ -1,7 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 import { AppointmentsService } from './appointments.service';
 import { AppointmentQueryDto } from './dto/appointment-query.dto';
@@ -10,6 +12,8 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
 @ApiTags('appointments')
 @ApiBearerAuth()
+// Patient data: never admins (they manage the app, not patients)
+@Roles(UserRole.PRATICIENNE, UserRole.ASSISTANTE)
 @Controller({ path: 'appointments', version: '1' })
 export class AppointmentsController {
   constructor(private readonly service: AppointmentsService) {}

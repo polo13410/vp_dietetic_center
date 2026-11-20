@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
+import { AppointmentViewSwitch } from '../../components/appointments/AppointmentViewSwitch';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
@@ -79,7 +80,10 @@ export default function AppointmentsPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Rendez-vous</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Rendez-vous</h1>
+          <AppointmentViewSwitch />
+        </div>
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="w-4 h-4" /> Nouveau rendez-vous
         </Button>

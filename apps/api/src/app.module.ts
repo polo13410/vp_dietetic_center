@@ -20,7 +20,6 @@ import { NotesModule } from './modules/notes/notes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { NutritionalModule } from './modules/nutritional/nutritional.module';
 import { PatientsModule } from './modules/patients/patients.module';
-import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { UsersModule } from './modules/users/users.module';
@@ -70,7 +69,6 @@ import { PrismaModule } from './prisma/prisma.module';
     DocumentsModule,
     TasksModule,
     SearchModule,
-    ReportsModule,
     NotificationsModule,
     AuditModule,
   ],

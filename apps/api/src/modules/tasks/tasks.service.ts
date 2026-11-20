@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, TaskStatus, User, UserRole } from '@prisma/client';
+import { NotificationType, TaskStatus, User } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -75,12 +75,11 @@ export class TasksService {
     });
   }
 
-  /** A task is visible to its creator, its assignee, and admins (same rule as findAll). */
+  /** A task is visible to its creator and its assignee (same rule as findAll). */
   private async findAccessible(id: string, user: AccessUser) {
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task) throw new NotFoundException('Tâche introuvable');
-    const allowed =
-      user.role === UserRole.ADMIN || task.createdById === user.id || task.assignedToId === user.id;
+    const allowed = task.createdById === user.id || task.assignedToId === user.id;
     if (!allowed) throw new ForbiddenException('Accès non autorisé à cette tâche');
     return task;
   }

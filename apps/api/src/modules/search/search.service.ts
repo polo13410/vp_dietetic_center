@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { User, UserRole } from '@prisma/client';
+import { User } from '@prisma/client';
 
 import { PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -47,7 +47,7 @@ export class SearchService {
       }),
       this.prisma.clinicalNote.findMany({
         where: {
-          ...(user.role !== UserRole.ADMIN ? { authorId: user.id } : {}),
+          authorId: user.id,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
             { content: { contains: q, mode: 'insensitive' } },
@@ -112,7 +112,7 @@ export class SearchService {
       }),
       this.prisma.clinicalNote.findMany({
         where: {
-          ...(user.role !== UserRole.ADMIN ? { authorId: user.id } : {}),
+          authorId: user.id,
           status: 'DRAFT',
         },
         select: { id: true, title: true, patientId: true, updatedAt: true },

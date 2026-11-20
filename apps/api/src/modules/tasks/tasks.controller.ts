@@ -11,9 +11,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { TaskStatus } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -21,6 +23,8 @@ import { TasksService } from './tasks.service';
 
 @ApiTags('tasks')
 @ApiBearerAuth()
+// Patient data: never admins (they manage the app, not patients)
+@Roles(UserRole.PRATICIENNE, UserRole.ASSISTANTE)
 @Controller({ path: 'tasks', version: '1' })
 export class TasksController {
   constructor(private readonly service: TasksService) {}

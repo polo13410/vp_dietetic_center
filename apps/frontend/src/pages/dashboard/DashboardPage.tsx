@@ -134,9 +134,6 @@ export default function DashboardPage() {
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground">Tâches à faire</h2>
-            <Link to="/tasks" className="text-xs text-primary hover:underline">
-              Voir tout
-            </Link>
           </div>
           {!data?.pendingTasks.length ? (
             <p className="text-sm text-muted-foreground text-center py-6">

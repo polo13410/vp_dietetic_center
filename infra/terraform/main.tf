@@ -234,15 +234,6 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
       env {
-        name = "JWT_REFRESH_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = "${var.env}-jwt-refresh-secret"
-            version = "latest"
-          }
-        }
-      }
-      env {
         name = "GOOGLE_CLIENT_ID"
         value_source {
           secret_key_ref {

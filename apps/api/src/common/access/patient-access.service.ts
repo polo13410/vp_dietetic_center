@@ -14,7 +14,8 @@ export type PatientAccessLevel = 'record' | 'full';
 
 /**
  * Single source of truth for "who may touch which patient's data".
- * - ADMIN: everything.
+ * - ADMIN: nothing. Admins manage the app and its users, not patients (health data is
+ *   need-to-know); clinical controllers also refuse them outright.
  * - PRATICIENNE: everything on their own patients.
  * - ASSISTANTE: read-only `record` access to all patients, never `full`; manages the
  *   appointments of every practitioner (scheduling only, not post-session notes).
@@ -25,16 +26,15 @@ export class PatientAccessService {
 
   /** Prisma filter restricting patients to those the user may access at `level`. */
   patientScope(user: AccessUser, level: PatientAccessLevel = 'full'): Prisma.PatientWhereInput {
-    if (user.role === UserRole.ADMIN) return {};
-    if (user.role === UserRole.ASSISTANTE) return level === 'record' ? {} : { id: { in: [] } };
-    return { practitionerId: user.id };
+    if (user.role === UserRole.PRATICIENNE) return { practitionerId: user.id };
+    if (user.role === UserRole.ASSISTANTE && level === 'record') return {};
+    return { id: { in: [] } };
   }
 
   /** Whether the user may access a patient owned by `practitionerId` at `level`. */
   canAccess(user: AccessUser, practitionerId: string, level: PatientAccessLevel = 'full'): boolean {
-    if (user.role === UserRole.ADMIN) return true;
-    if (user.role === UserRole.ASSISTANTE) return level === 'record';
-    return practitionerId === user.id;
+    if (user.role === UserRole.PRATICIENNE) return practitionerId === user.id;
+    return user.role === UserRole.ASSISTANTE && level === 'record';
   }
 
   /** Throws ForbiddenException unless the user may access a patient owned by `practitionerId`. */
@@ -64,14 +64,15 @@ export class PatientAccessService {
 
   /** Prisma filter restricting appointments to those the user may manage. */
   appointmentScope(user: AccessUser): Prisma.AppointmentWhereInput {
-    if (user.role === UserRole.ADMIN || user.role === UserRole.ASSISTANTE) return {};
-    return { practitionerId: user.id };
+    if (user.role === UserRole.PRATICIENNE) return { practitionerId: user.id };
+    if (user.role === UserRole.ASSISTANTE) return {};
+    return { id: { in: [] } };
   }
 
   /** Whether the user may view and manage (schedule, edit, cancel) an appointment. */
   canManageAppointment(user: AccessUser, practitionerId: string): boolean {
-    if (user.role === UserRole.ADMIN || user.role === UserRole.ASSISTANTE) return true;
-    return practitionerId === user.id;
+    if (user.role === UserRole.PRATICIENNE) return practitionerId === user.id;
+    return user.role === UserRole.ASSISTANTE;
   }
 
   assertCanManageAppointment(user: AccessUser, practitionerId: string): void {

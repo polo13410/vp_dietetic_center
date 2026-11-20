@@ -1,14 +1,4 @@
-import {
-  BarChart2,
-  Calendar,
-  CheckSquare,
-  FileText,
-  FolderOpen,
-  LayoutDashboard,
-  Settings,
-  Users,
-  X,
-} from 'lucide-react';
+import { CalendarDays, LayoutDashboard, Settings, UserCog, Users, X } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { NavLink } from 'react-router';
 
@@ -16,19 +6,25 @@ import { useLocalStorage } from '../../hooks/use-local-storage';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 
-const navItems = [
+// Practitioners work with their patients; notes, documents and tasks live in each patient's file
+const clinicalItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/patients', icon: Users, label: 'Patients' },
-  { to: '/appointments', icon: Calendar, label: 'Rendez-vous' },
-  { to: '/calendar', icon: Calendar, label: 'Calendrier' },
-  { to: '/notes', icon: FileText, label: 'Notes cliniques', clinical: true },
-  { to: '/tasks', icon: CheckSquare, label: 'Tâches' },
-  { to: '/documents', icon: FolderOpen, label: 'Documents', clinical: true },
-  { to: '/analytics', icon: BarChart2, label: 'Analytiques & Reporting' },
+  { to: '/appointments', icon: CalendarDays, label: 'Rendez-vous' },
   { to: '/settings', icon: Settings, label: 'Paramètres' },
 ];
 
-const adminItems = [{ to: '/admin', icon: Settings, label: 'Administration' }];
+// Admins manage the app and its users, never patients
+const adminItems = [
+  { to: '/admin/users', icon: UserCog, label: 'Utilisateurs' },
+  { to: '/settings', icon: Settings, label: 'Paramètres' },
+];
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrateur',
+  PRATICIENNE: 'Praticienne',
+  ASSISTANTE: 'Assistante',
+};
 
 interface SidebarProps {
   onWidthChange?: (width: number) => void;
@@ -39,10 +35,7 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useLocalStorage('sidebarCollapsed', false);
 
   const sidebarWidth = collapsed ? 64 : 256;
-  // Assistants have no access to clinical data (notes, documents)
-  const visibleNavItems = navItems.filter(
-    (item) => !(item.clinical && user?.role === 'ASSISTANTE'),
-  );
+  const visibleNavItems = user?.role === 'ADMIN' ? adminItems : clinicalItems;
 
   useEffect(() => {
     onWidthChange?.(sidebarWidth);
@@ -111,37 +104,6 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
           </NavLink>
         ))}
 
-        {/* Admin section */}
-        {user?.role === 'ADMIN' && (
-          <>
-            {!collapsed && (
-              <div className="pt-4 pb-1 px-3">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Administration
-                </span>
-              </div>
-            )}
-            {adminItems.map(({ to, icon: Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                title={collapsed ? label : undefined}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    collapsed && 'justify-center px-2',
-                  )
-                }
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                {!collapsed && label}
-              </NavLink>
-            ))}
-          </>
-        )}
       </nav>
 
       {/* User */}
@@ -163,7 +125,9 @@ export function Sidebar({ onWidthChange }: SidebarProps) {
               <p className="text-xs font-medium text-foreground truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">{user?.role}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user ? ROLE_LABELS[user.role] : ''}
+              </p>
             </div>
           )}
         </div>

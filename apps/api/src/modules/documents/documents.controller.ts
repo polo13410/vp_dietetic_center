@@ -16,10 +16,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { DocumentType, User } from '@prisma/client';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 import { DocumentsService } from './documents.service';
 import { UploadDocumentBodyDto } from './dto/upload-document.dto';
@@ -27,6 +29,8 @@ import { StorageService } from './storage.service';
 
 @ApiTags('documents')
 @ApiBearerAuth()
+// Patient data: never admins (they manage the app, not patients)
+@Roles(UserRole.PRATICIENNE, UserRole.ASSISTANTE)
 @Controller({ path: 'documents', version: '1' })
 export class DocumentsController {
   constructor(

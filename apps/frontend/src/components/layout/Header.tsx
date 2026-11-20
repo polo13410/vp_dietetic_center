@@ -26,16 +26,17 @@ export function Header() {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setSearchOpen(true);
+        if (user?.role !== 'ADMIN') setSearchOpen(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [user?.role]);
 
   return (
     <header className="h-16 bg-card border-b border-border flex items-center px-6 gap-4 shrink-0">
-      {/* Search trigger */}
+      {/* Search trigger (patients' data: not for admins) */}
+      {user?.role !== 'ADMIN' && (
       <button
         onClick={() => setSearchOpen(true)}
         className="flex-1 max-w-md flex items-center gap-2 px-3 py-2 text-sm bg-muted border border-border rounded-lg text-muted-foreground hover:border-primary/30 transition-colors cursor-pointer"
@@ -46,6 +47,7 @@ export function Header() {
           Ctrl K
         </kbd>
       </button>
+      )}
 
       <div className="flex items-center gap-1.5 ml-auto">
         <ThemeToggle />

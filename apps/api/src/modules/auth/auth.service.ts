@@ -59,7 +59,11 @@ export class AuthService {
     return user;
   }
 
-  async login(user: User, ipAddress?: string, userAgent?: string) {
+  /**
+   * Issues an access token and a new refresh token. `sessionExpiresAt` keeps the expiry of the
+   * session being refreshed, so a session ends `jwt.refreshExpiresIn` after sign-in at the latest.
+   */
+  async login(user: User, ipAddress?: string, userAgent?: string, sessionExpiresAt?: Date) {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     const accessToken = this.jwtService.sign(payload);
@@ -67,9 +71,9 @@ export class AuthService {
     // Generate refresh token
     const rawToken = randomBytes(64).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(
-      Date.now() + this.parseExpiry(this.config.get('jwt.refreshExpiresIn', '7d')),
-    );
+    const expiresAt =
+      sessionExpiresAt ??
+      new Date(Date.now() + this.parseExpiry(this.config.get('jwt.refreshExpiresIn', '10h')));
 
     await this.prisma.refreshToken.create({
       data: {
@@ -84,6 +88,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken: rawToken,
+      refreshExpiresAt: expiresAt,
       expiresIn: this.parseExpiry(this.config.get('jwt.expiresIn', '15m')) / 1000,
       user: {
         id: user.id,
@@ -95,7 +100,8 @@ export class AuthService {
     };
   }
 
-  async refreshTokens(rawToken: string) {
+  async refreshTokens(rawToken: string | undefined, ipAddress?: string, userAgent?: string) {
+    if (!rawToken) throw new UnauthorizedException('Session expirée');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
@@ -113,7 +119,7 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: stored.userId } });
     if (!user.isActive) throw new UnauthorizedException('Compte désactivé');
 
-    return this.login(user);
+    return this.login(user, ipAddress, userAgent, stored.expiresAt);
   }
 
   async logout(rawToken: string) {

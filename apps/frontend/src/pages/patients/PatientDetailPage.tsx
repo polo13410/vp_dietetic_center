@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, Download, Edit, FileText, FolderOpen, Heart } from 'lucide-react';
+import { ArrowLeft, Calendar, Download, Edit, FileText, FolderOpen, Heart, Plus, Upload } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { DocumentUploadDialog } from '../../components/documents/DocumentUploadDialog';
+import { PatientTasks } from '../../components/patients/PatientTasks';
 import { PatientTimeline } from '../../components/patients/PatientTimeline';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { toast } from '../../components/ui/toaster';
 import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import { calculateAge, formatDate, formatDateTime } from '../../lib/utils';
@@ -15,6 +19,7 @@ export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
   // Assistants get a read-only administrative view: no edits, no clinical data
   const isAssistant = useIsRole('ASSISTANTE');
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient', id],
@@ -51,6 +56,22 @@ export default function PatientDetailPage() {
     },
     enabled: !!id && !isAssistant,
   });
+
+  const handleDownload = async (docId: string, originalName: string) => {
+    try {
+      const res = await api.get(`/documents/${docId}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', originalName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Erreur lors du téléchargement', variant: 'destructive' });
+    }
+  };
 
   if (isLoading) return <LoadingSpinner />;
   if (!patient) return <p className="text-muted-foreground">Patient introuvable</p>;
@@ -120,6 +141,7 @@ export default function PatientDetailPage() {
               <TabsTrigger value="documents">
                 Documents ({patient._count?.documents ?? 0})
               </TabsTrigger>
+              <TabsTrigger value="tasks">Tâches</TabsTrigger>
             </>
           )}
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -235,7 +257,9 @@ export default function PatientDetailPage() {
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">{notes.length} notes</p>
             <Button size="sm" variant="outline" asChild>
-              <Link to={`/notes?patientId=${id}`}>Voir tout</Link>
+              <Link to={`/notes/new?patientId=${id}`}>
+                <Plus className="w-4 h-4" /> Nouvelle note
+              </Link>
             </Button>
           </div>
           {notes.length === 0 ? (
@@ -268,8 +292,8 @@ export default function PatientDetailPage() {
         <TabsContent value="documents" className="space-y-3">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">{documents.length} documents</p>
-            <Button size="sm" variant="outline" asChild>
-              <Link to={`/documents?patientId=${id}`}>Voir tout</Link>
+            <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
+              <Upload className="w-4 h-4" /> Ajouter
             </Button>
           </div>
           {documents.length === 0 ? (
@@ -287,18 +311,40 @@ export default function PatientDetailPage() {
                       {formatDate(doc.createdAt)} — {doc.originalName}
                     </p>
                   </div>
-                  <StatusBadge status={doc.type} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={doc.type} />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="Télécharger"
+                      onClick={() => handleDownload(doc.id, doc.originalName)}
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </TabsContent>
 
+        {/* ── Tasks Tab ─────────────────────── */}
+        {!isAssistant && (
+          <TabsContent value="tasks">
+            <PatientTasks patientId={id!} />
+          </TabsContent>
+        )}
+
         {/* ── Timeline Tab ─────────────────────── */}
         <TabsContent value="timeline">
           <PatientTimeline patientId={id!} />
         </TabsContent>
       </Tabs>
+
+      {!isAssistant && (
+        <DocumentUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} defaultPatientId={id} />
+      )}
     </div>
   );
 }

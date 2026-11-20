@@ -60,7 +60,10 @@ export default function NoteDetailPage() {
     <div className="max-w-2xl space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link to="/notes" className="text-muted-foreground hover:text-foreground">
+        <Link
+          to={`/patients/${note.patientId}`}
+          className="text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <h1 className="flex-1 text-xl font-semibold truncate">{note.title ?? 'Note sans titre'}</h1>

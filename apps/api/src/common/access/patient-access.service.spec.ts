@@ -16,12 +16,15 @@ describe('PatientAccessService', () => {
   });
 
   describe('patientScope', () => {
-    it('restricts non-admins to their own patients', () => {
+    it('restricts practitioners to their own patients', () => {
       expect(service.patientScope(user as any)).toEqual({ practitionerId: user.id });
     });
 
-    it('does not restrict admins', () => {
-      expect(service.patientScope(admin as any)).toEqual({});
+    it('gives admins no patient at all', () => {
+      expect(service.patientScope(admin as any)).toEqual({ id: { in: [] } });
+      expect(service.patientScope(admin as any, 'record')).toEqual({ id: { in: [] } });
+      expect(service.appointmentScope(admin as any)).toEqual({ id: { in: [] } });
+      expect(service.canManageAppointment(admin as any, 'other')).toBe(false);
     });
   });
 
@@ -74,11 +77,11 @@ describe('PatientAccessService', () => {
       await expect(service.assertPatient(user as any, 'p1')).rejects.toThrow(ForbiddenException);
     });
 
-    it('lets admins access any patient', async () => {
+    it('refuses admins, even for reading the record', async () => {
       mockPrisma.patient.findUnique.mockResolvedValue({ practitionerId: 'other' });
-      await expect(service.assertPatient(admin as any, 'p1')).resolves.toEqual({
-        practitionerId: 'other',
-      });
+      await expect(service.assertPatient(admin as any, 'p1', 'record')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws NotFound for missing or deleted patients', async () => {

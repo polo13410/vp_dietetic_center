@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Edit, FileText, X, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, Edit, Play, X, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
+import { PatientBrief } from '../../components/patient-file/PatientBrief';
+import { useStartSession } from '../../components/patient-file/useStartSession';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
@@ -18,7 +20,7 @@ export default function AppointmentDetailPage() {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  // Assistants schedule appointments but never see post-session or clinical notes
+  // Assistants schedule appointments but never see the patient's file
   const isAssistant = useIsRole('ASSISTANTE');
 
   const { data: appt, isLoading } = useQuery({
@@ -40,21 +42,13 @@ export default function AppointmentDetailPage() {
     },
   });
 
-  const postNotesMutation = useMutation({
-    mutationFn: (postNotes: string) => api.patch(`/appointments/${id}`, { postNotes }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointment', id] });
-      toast({ title: 'Notes post-consultation enregistrees' });
-    },
-  });
-
   if (isLoading) return <LoadingSpinner />;
   if (!appt) return <p className="text-muted-foreground">Rendez-vous introuvable</p>;
 
   const canTransition = appt.status === 'SCHEDULED' || appt.status === 'CONFIRMED';
 
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className="max-w-6xl space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link to="/appointments" className="text-muted-foreground hover:text-foreground">
@@ -77,9 +71,6 @@ export default function AppointmentDetailPage() {
               <Check className="w-4 h-4" /> Confirmer
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => statusMutation.mutate('COMPLETED')}>
-            <Check className="w-4 h-4" /> Termine
-          </Button>
           <Button size="sm" variant="outline" onClick={() => statusMutation.mutate('NO_SHOW')}>
             <XCircle className="w-4 h-4" /> Absent
           </Button>
@@ -111,34 +102,16 @@ export default function AppointmentDetailPage() {
         {appt.cancelReason && <InfoRow label="Motif annulation">{appt.cancelReason}</InfoRow>}
       </div>
 
-      {/* Pre-notes */}
-      {appt.preNotes && (
-        <div className="bg-card rounded-xl border border-border p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-1.5">Notes pre-consultation</p>
-          <p className="text-sm whitespace-pre-line">{appt.preNotes}</p>
-        </div>
-      )}
-
       {!isAssistant && (
         <>
-          {/* Post-notes (editable) */}
-          <div className="bg-card rounded-xl border border-border p-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">
-              Notes post-consultation
-            </p>
-            <PostNotesEditor
-              value={appt.postNotes ?? ''}
-              onSave={(value) => postNotesMutation.mutate(value)}
-              saving={postNotesMutation.isPending}
-            />
+          <SessionAction appt={appt} />
+          {/* What to know before seeing the patient */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Avant la séance
+            </h2>
+            <PatientBrief patientId={appt.patientId} />
           </div>
-
-          {/* Link to create note */}
-          <Button variant="outline" asChild>
-            <Link to={`/notes/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
-              <FileText className="w-4 h-4" /> Creer une note clinique
-            </Link>
-          </Button>
         </>
       )}
 
@@ -153,7 +126,6 @@ export default function AppointmentDetailPage() {
           duration: appt.duration,
           type: appt.type,
           reason: appt.reason ?? '',
-          preNotes: appt.preNotes ?? '',
         }}
       />
 
@@ -172,6 +144,28 @@ export default function AppointmentDetailPage() {
   );
 }
 
+/** Starts the session of this appointment, or opens it if it already exists. */
+function SessionAction({ appt }: { appt: any }) {
+  const start = useStartSession(appt.patientId);
+  const session = appt.consultation as { id: string; status: string } | null;
+  if (session) {
+    return (
+      <Button asChild variant={session.status === 'DRAFT' ? 'default' : 'outline'}>
+        <Link to={`/consultations/${session.id}`}>
+          <Play className="w-4 h-4" />
+          {session.status === 'DRAFT' ? 'Reprendre la séance' : 'Voir la séance'}
+        </Link>
+      </Button>
+    );
+  }
+  if (appt.status === 'CANCELLED' || appt.status === 'NO_SHOW') return null;
+  return (
+    <Button onClick={() => start.mutate({ appointmentId: appt.id })} disabled={start.isPending}>
+      <Play className="w-4 h-4" /> Démarrer la séance
+    </Button>
+  );
+}
+
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
@@ -181,45 +175,3 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function PostNotesEditor({
-  value,
-  onSave,
-  saving,
-}: {
-  value: string;
-  onSave: (val: string) => void;
-  saving: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(value);
-
-  if (!editing) {
-    return (
-      <div>
-        <p className="text-sm whitespace-pre-line">{value || 'Aucune note'}</p>
-        <Button size="sm" variant="ghost" className="mt-2" onClick={() => { setText(value); setEditing(true); }}>
-          <Edit className="w-3 h-3 mr-1" /> Editer
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={4}
-        className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-      />
-      <div className="flex gap-2">
-        <Button size="sm" onClick={() => { onSave(text); setEditing(false); }} disabled={saving}>
-          Enregistrer
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-          Annuler
-        </Button>
-      </div>
-    </div>
-  );
-}

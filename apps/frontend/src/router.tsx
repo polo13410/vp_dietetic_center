@@ -19,9 +19,7 @@ const PatientNewPage = lazy(() => import('./pages/patients/PatientNewPage'));
 const PatientEditPage = lazy(() => import('./pages/patients/PatientEditPage'));
 const AppointmentsPage = lazy(() => import('./pages/appointments/AppointmentsPage'));
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/AppointmentDetailPage'));
-const NoteNewPage = lazy(() => import('./pages/notes/NoteNewPage'));
-const NoteDetailPage = lazy(() => import('./pages/notes/NoteDetailPage'));
-const NutritionalPage = lazy(() => import('./pages/nutritional/NutritionalPage'));
+const ConsultationPage = lazy(() => import('./pages/consultations/ConsultationPage'));
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
@@ -52,14 +50,12 @@ export function AppRouter() {
           <Route element={<RequireRole roles={CLINICAL_ROLES} />}>
             <Route path="/dashboard" element={<DashboardPage />} />
 
-            {/* Patients — notes, nutrition, documents and tasks live in the patient's file */}
+            {/* Patients — sessions, measurements, documents and tasks live in the patient's file */}
             <Route path="/patients" element={<PatientsListPage />} />
             <Route path="/patients/new" element={<PatientNewPage />} />
             <Route path="/patients/:id" element={<PatientDetailPage />} />
             <Route path="/patients/:id/edit" element={<PatientEditPage />} />
-            <Route path="/notes/new" element={<NoteNewPage />} />
-            <Route path="/notes/:id" element={<NoteDetailPage />} />
-            <Route path="/nutritional/:patientId" element={<NutritionalPage />} />
+            <Route path="/consultations/:id" element={<ConsultationPage />} />
 
             {/* Rendez-vous */}
             <Route path="/appointments" element={<AppointmentsPage />} />

@@ -6,9 +6,9 @@ import { PatientPdfDocument } from '../components/patients/PatientPdfDocument';
 export async function exportPatientPdf(
   patient: any,
   appointments: any[],
-  notes: any[],
+  sessions: any[],
 ) {
-  const doc = createElement(PatientPdfDocument, { patient, appointments, notes });
+  const doc = createElement(PatientPdfDocument, { patient, appointments, sessions });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const blob = await pdf(doc as any).toBlob();
   const url = URL.createObjectURL(blob);

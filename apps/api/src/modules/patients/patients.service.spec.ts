@@ -191,21 +191,6 @@ describe('PatientsService', () => {
       expect(mockPrisma.patient.update).not.toHaveBeenCalled();
     });
 
-    it('does not see sessions or life events in the timeline', async () => {
-      mockPrisma.patient.findUnique.mockResolvedValue(patientRow);
-      mockPrisma.appointment.findMany.mockResolvedValue([]);
-      mockPrisma.consultation.findMany.mockResolvedValue([]);
-      mockPrisma.lifeEvent.findMany.mockResolvedValue([]);
-      mockPrisma.task.findMany.mockResolvedValue([]);
-
-      await service.getTimeline('p1', assistant as any);
-
-      for (const model of [mockPrisma.consultation, mockPrisma.lifeEvent]) {
-        expect(model.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({ where: { id: { in: [] } } }),
-        );
-      }
-    });
   });
 
   describe('findAllTags', () => {

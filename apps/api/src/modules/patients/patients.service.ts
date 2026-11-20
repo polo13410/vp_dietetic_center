@@ -206,50 +206,6 @@ export class PatientsService {
     return this.prisma.tag.findMany({ orderBy: { name: 'asc' } });
   }
 
-  async getTimeline(id: string, user: User) {
-    const patient = await this.findOneRaw(id);
-    this.access.assertOwner(user, patient.practitionerId, 'record');
-    const clinical = this.access.canAccess(user, patient.practitionerId, 'full');
-
-    const none = { id: { in: [] as string[] } };
-    const [appointments, consultations, lifeEvents, tasks] = await Promise.all([
-      this.prisma.appointment.findMany({
-        where: { patientId: id },
-        orderBy: { startAt: 'desc' },
-        take: 50,
-        select: { id: true, startAt: true, status: true, type: true, reason: true, duration: true },
-      }),
-      // Sessions and life events are never listed for record-only access (assistants)
-      this.prisma.consultation.findMany({
-        where: clinical ? { patientId: id } : none,
-        orderBy: { date: 'desc' },
-        take: 50,
-        select: { id: true, date: true, status: true, summary: true, finalizedAt: true },
-      }),
-      this.prisma.lifeEvent.findMany({
-        where: clinical ? { patientId: id } : none,
-        orderBy: { date: 'desc' },
-        take: 50,
-        select: { id: true, date: true, title: true, category: true },
-      }),
-      this.prisma.task.findMany({
-        where: { patientId: id },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          priority: true,
-          dueAt: true,
-          completedAt: true,
-        },
-      }),
-    ]);
-
-    return { appointments, consultations, lifeEvents, tasks };
-  }
-
   private async findOneRaw(id: string) {
     const patient = await this.prisma.patient.findUnique({
       where: { id, deletedAt: null },

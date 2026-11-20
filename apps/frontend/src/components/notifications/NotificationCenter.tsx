@@ -21,9 +21,8 @@ function getEntityLink(entityType?: string | null, entityId?: string | null): st
   if (!entityType || !entityId) return null;
   switch (entityType) {
     case 'appointment': return `/appointments/${entityId}`;
-    case 'note': return `/notes/${entityId}`;
+    case 'consultation': return `/consultations/${entityId}`;
     case 'patient': return `/patients/${entityId}`;
-    case 'task': return '/tasks';
     default: return null;
   }
 }

@@ -15,22 +15,22 @@ describe('SearchService', () => {
   });
 
   describe('globalSearch', () => {
-    it('searches patients, appointments, and notes in parallel', async () => {
+    it('searches patients, appointments and sessions in parallel', async () => {
       mockPrisma.patient.findMany.mockResolvedValue([{ id: 'p1', firstName: 'Marie' }]);
       mockPrisma.appointment.findMany.mockResolvedValue([]);
-      mockPrisma.clinicalNote.findMany.mockResolvedValue([]);
+      mockPrisma.consultation.findMany.mockResolvedValue([]);
 
       const result = await service.search('Marie', user as any);
 
       expect(result.patients).toHaveLength(1);
       expect(result.appointments).toHaveLength(0);
-      expect(result.notes).toHaveLength(0);
+      expect(result.consultations).toHaveLength(0);
     });
 
     it('returns empty results for empty query', async () => {
       mockPrisma.patient.findMany.mockResolvedValue([]);
       mockPrisma.appointment.findMany.mockResolvedValue([]);
-      mockPrisma.clinicalNote.findMany.mockResolvedValue([]);
+      mockPrisma.consultation.findMany.mockResolvedValue([]);
 
       const result = await service.search('', user as any);
       expect(result.patients).toHaveLength(0);
@@ -41,7 +41,7 @@ describe('SearchService', () => {
     it('returns dashboard aggregations', async () => {
       mockPrisma.appointment.findMany.mockResolvedValue([]);
       mockPrisma.task.findMany.mockResolvedValue([]);
-      mockPrisma.clinicalNote.findMany.mockResolvedValue([]);
+      mockPrisma.consultation.findMany.mockResolvedValue([]);
       mockPrisma.patient.count.mockResolvedValue(10);
 
       const result = await service.getDashboardSummary(user as any);

@@ -3,6 +3,7 @@ import { PatientStatus, User } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PatientFileService } from '../patient-file/patient-file.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { PatientQueryDto } from './dto/patient-query.dto';
@@ -21,6 +22,9 @@ const PATIENT_SELECT = {
   zipCode: true,
   status: true,
   privateNote: true,
+  consultationReason: true,
+  allergies: true,
+  dietaryRestrictions: true,
   emergencyContactName: true,
   emergencyContactPhone: true,
   emergencyContactRelationship: true,
@@ -34,11 +38,21 @@ const PATIENT_SELECT = {
   },
 };
 
+/** Profile fields that are health data, hidden from record-only access. */
+const CLINICAL_FIELDS = [
+  'privateNote',
+  'consultationReason',
+  'allergies',
+  'dietaryRestrictions',
+  'bmi',
+] as const;
+
 @Injectable()
 export class PatientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: PatientAccessService,
+    private readonly file: PatientFileService,
   ) {}
 
   async findAll(user: User, query: PatientQueryDto) {
@@ -80,6 +94,10 @@ export class PatientsService {
       }),
     ]);
 
+    const bmi = await this.file.bmiFor(
+      data.filter((p) => this.access.canAccess(user, p.practitionerId, 'full')).map((p) => p.id),
+    );
+
     return {
       data: data.map((p) =>
         this.redact(
@@ -87,6 +105,7 @@ export class PatientsService {
             ...p,
             tags: p.tags.map((pt: any) => pt.tag),
             lastAppointmentAt: p.appointments[0]?.startAt ?? null,
+            bmi: bmi.get(p.id) ?? null,
           },
           user,
         ),
@@ -100,12 +119,11 @@ export class PatientsService {
       where: { id, deletedAt: null },
       select: {
         ...PATIENT_SELECT,
-        nutritionalProfile: true,
         consents: { orderBy: { givenAt: 'desc' } },
         _count: {
           select: {
             appointments: true,
-            notes: true,
+            consultations: true,
             documents: true,
             tasks: true,
           },
@@ -116,7 +134,14 @@ export class PatientsService {
     if (!patient) throw new NotFoundException('Patient introuvable');
     this.access.assertOwner(user, patient.practitionerId, 'record');
 
-    return this.redact({ ...patient, tags: patient.tags.map((pt: any) => pt.tag) }, user);
+    const bmi = this.access.canAccess(user, patient.practitionerId, 'full')
+      ? ((await this.file.bmiFor([patient.id])).get(patient.id) ?? null)
+      : null;
+
+    return this.redact(
+      { ...patient, tags: patient.tags.map((pt: any) => pt.tag), bmi },
+      user,
+    );
   }
 
   async create(dto: CreatePatientDto, user: User) {
@@ -184,26 +209,26 @@ export class PatientsService {
     this.access.assertOwner(user, patient.practitionerId, 'record');
     const clinical = this.access.canAccess(user, patient.practitionerId, 'full');
 
-    const [appointments, notes, tasks] = await Promise.all([
+    const none = { id: { in: [] as string[] } };
+    const [appointments, consultations, lifeEvents, tasks] = await Promise.all([
       this.prisma.appointment.findMany({
         where: { patientId: id },
         orderBy: { startAt: 'desc' },
         take: 50,
         select: { id: true, startAt: true, status: true, type: true, reason: true, duration: true },
       }),
-      // Clinical notes are never listed for record-only access (assistants)
-      this.prisma.clinicalNote.findMany({
-        where: clinical ? { patientId: id } : { id: { in: [] } },
-        orderBy: { createdAt: 'desc' },
+      // Sessions and life events are never listed for record-only access (assistants)
+      this.prisma.consultation.findMany({
+        where: clinical ? { patientId: id } : none,
+        orderBy: { date: 'desc' },
         take: 50,
-        select: {
-          id: true,
-          title: true,
-          type: true,
-          status: true,
-          createdAt: true,
-          finalizedAt: true,
-        },
+        select: { id: true, date: true, status: true, summary: true, finalizedAt: true },
+      }),
+      this.prisma.lifeEvent.findMany({
+        where: clinical ? { patientId: id } : none,
+        orderBy: { date: 'desc' },
+        take: 50,
+        select: { id: true, date: true, title: true, category: true },
       }),
       this.prisma.task.findMany({
         where: { patientId: id },
@@ -220,7 +245,7 @@ export class PatientsService {
       }),
     ]);
 
-    return { appointments, notes, tasks };
+    return { appointments, consultations, lifeEvents, tasks };
   }
 
   private async findOneRaw(id: string) {
@@ -235,8 +260,7 @@ export class PatientsService {
   private redact<T extends { practitionerId: string }>(patient: T, user: AccessUser) {
     if (this.access.canAccess(user, patient.practitionerId, 'full')) return patient;
     const record: Record<string, unknown> = { ...patient };
-    delete record.privateNote;
-    delete record.nutritionalProfile;
-    return record as Omit<T, 'privateNote' | 'nutritionalProfile'>;
+    for (const field of CLINICAL_FIELDS) delete record[field];
+    return record as Omit<T, (typeof CLINICAL_FIELDS)[number]>;
   }
 }

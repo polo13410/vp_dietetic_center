@@ -16,5 +16,4 @@ export class CreateAppointmentDto {
   type: AppointmentType;
 
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() preNotes?: string;
 }

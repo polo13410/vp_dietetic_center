@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus, NotificationType, User } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
@@ -61,7 +61,7 @@ export class AppointmentsService {
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },
         practitioner: { select: { id: true, firstName: true, lastName: true } },
-        notes: { select: { id: true, title: true, status: true, type: true } },
+        consultation: { select: { id: true, status: true } },
       },
     });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
@@ -82,7 +82,6 @@ export class AppointmentsService {
         duration: dto.duration,
         type: dto.type,
         reason: dto.reason,
-        preNotes: dto.preNotes,
       },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },
@@ -105,9 +104,6 @@ export class AppointmentsService {
     const appt = await this.prisma.appointment.findUnique({ where: { id } });
     if (!appt) throw new NotFoundException('Rendez-vous introuvable');
     this.access.assertCanManageAppointment(user, appt.practitionerId);
-    if (dto.postNotes !== undefined && !this.access.canAccess(user, appt.practitionerId, 'full')) {
-      throw new ForbiddenException('Les notes post-consultation sont réservées à la praticienne');
-    }
     // Moving the appointment to another patient also moves it to that patient's practitioner
     let practitionerId: string | undefined;
     if (dto.patientId && dto.patientId !== appt.patientId) {
@@ -142,12 +138,11 @@ export class AppointmentsService {
     });
   }
 
-  /** Drops post-session notes and linked clinical notes for scheduling-only users (assistants). */
+  /** Drops the link to the session record for scheduling-only users (assistants). */
   private redact<T extends { practitionerId: string }>(appt: T, user: AccessUser) {
     if (this.access.canAccess(user, appt.practitionerId, 'full')) return appt;
     const visible: Record<string, unknown> = { ...appt };
-    delete visible.postNotes;
-    delete visible.notes;
-    return visible as Omit<T, 'postNotes' | 'notes'>;
+    delete visible.consultation;
+    return visible as Omit<T, 'consultation'>;
   }
 }

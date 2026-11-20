@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, Edit, Play, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Edit, Eye, Play, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
+import {
+  DocumentPreviewDialog,
+  downloadDocument,
+  type PreviewableDocument,
+} from '../../components/documents/DocumentPreviewDialog';
 import { DocumentUploadDialog } from '../../components/documents/DocumentUploadDialog';
 import { BmiBadge } from '../../components/patient-file/BmiBadge';
 import { GoalsPanel } from '../../components/patient-file/GoalsPanel';
@@ -19,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { toast } from '../../components/ui/toaster';
 import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
+import { previewKind } from '../../lib/documents';
 import { useConsultations } from '../../lib/patient-file';
 import { calculateAge, formatDate, formatDateTime } from '../../lib/utils';
 
@@ -209,22 +215,15 @@ function AppointmentsList({ appointments }: { appointments: Appointment[] }) {
 
 function PatientDocuments({ patientId }: { patientId: string }) {
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [previewing, setPreviewing] = useState<PreviewableDocument | null>(null);
   const { data: documents = [] } = useQuery({
     queryKey: ['documents', { patientId }],
     queryFn: async () => (await api.get('/documents', { params: { patientId } })).data as any[],
   });
 
-  const download = async (docId: string, originalName: string) => {
+  const download = async (doc: PreviewableDocument) => {
     try {
-      const res = await api.get(`/documents/${docId}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', originalName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await downloadDocument(doc);
     } catch {
       toast({ title: 'Erreur lors du téléchargement', variant: 'destructive' });
     }
@@ -242,31 +241,39 @@ function PatientDocuments({ patientId }: { patientId: string }) {
         <p className="text-sm text-muted-foreground py-8 text-center">Aucun document</p>
       ) : (
         <div className="space-y-2">
-          {documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between bg-card rounded-lg border border-border p-3">
-              <div>
-                <p className="text-sm font-medium">{doc.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(doc.createdAt)} — {doc.originalName}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={doc.type} />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  title="Télécharger"
-                  onClick={() => download(doc.id, doc.originalName)}
+          {documents.map((doc) => {
+            const viewable = !!previewKind(doc.mimeType);
+            return (
+              <div key={doc.id} className="flex items-center justify-between bg-card rounded-lg border border-border p-3">
+                <button
+                  className="text-left disabled:cursor-default"
+                  onClick={() => setPreviewing(doc)}
+                  disabled={!viewable}
+                  title={viewable ? 'Afficher' : undefined}
                 >
-                  <Download className="w-4 h-4" />
-                </Button>
+                  <p className="text-sm font-medium hover:text-primary">{doc.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(doc.createdAt)} — {doc.originalName}
+                  </p>
+                </button>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={doc.type} />
+                  {viewable && (
+                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Afficher" onClick={() => setPreviewing(doc)}>
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button size="icon" variant="ghost" className="h-8 w-8" title="Télécharger" onClick={() => download(doc)}>
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <DocumentUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} defaultPatientId={patientId} />
+      <DocumentPreviewDialog doc={previewing} onOpenChange={(open) => !open && setPreviewing(null)} />
     </div>
   );
 }

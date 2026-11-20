@@ -377,6 +377,9 @@ resource "google_cloud_run_v2_service" "frontend" {
           cpu    = "1"
           memory = "512Mi"
         }
+        # Billed per request: nginx has nothing to do between requests (the API keeps its CPU,
+        # it finishes work such as audit entries after answering)
+        cpu_idle = true
       }
 
       ports {

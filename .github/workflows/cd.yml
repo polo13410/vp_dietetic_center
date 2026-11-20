@@ -197,11 +197,9 @@ jobs:
         run: |
           if [[ "${{ env.TARGET_ENV }}" == "prod" ]]; then
             echo "service=prod-frontend" >> $GITHUB_OUTPUT
-            echo "api_service=prod-api" >> $GITHUB_OUTPUT
             echo "tag=prod" >> $GITHUB_OUTPUT
           else
             echo "service=staging-frontend" >> $GITHUB_OUTPUT
-            echo "api_service=staging-api" >> $GITHUB_OUTPUT
             echo "tag=staging" >> $GITHUB_OUTPUT
           fi
 
@@ -217,13 +215,6 @@ jobs:
       - name: Configure Docker
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Get API URL
-        id: api
-        run: |
-          URL=$(gcloud run services describe "${{ steps.env.outputs.api_service }}" \
-            --region="${{ env.REGION }}" --format="value(status.url)" 2>/dev/null || echo "")
-          echo "url=${URL}/api/v1" >> $GITHUB_OUTPUT
-
       - name: Build and push Frontend image
         id: build
         run: |
@@ -232,7 +223,6 @@ jobs:
 
           docker build \
             --target production \
-            --build-arg VITE_API_URL="${{ steps.api.outputs.url }}" \
             --build-arg VITE_APP_NAME="VP Dietetic Center" \
             --build-arg VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
             --tag "$IMAGE" \
@@ -256,3 +246,5 @@ jobs:
             --region "${{ env.REGION }}" --format="value(status.url)")
           echo "Deployed to: ${URL}"
           curl -sSf -o /dev/null --retry 12 --retry-delay 5 --retry-all-errors "${URL}/"
+          # The API must also answer through the frontend's /api proxy
+          curl -sSf --retry 12 --retry-delay 5 --retry-all-errors "${URL}/api/v1/health"

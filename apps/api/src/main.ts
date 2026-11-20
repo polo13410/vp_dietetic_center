@@ -36,14 +36,8 @@ async function bootstrap() {
   // Cookie parser
   app.use(cookieParser());
 
-  // CORS
-  const rawOrigins = config.get<string>('CORS_ORIGINS', 'http://localhost:5173');
-  app.enableCors({
-    origin: rawOrigins === '*' ? true : rawOrigins.split(','),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
+  // No CORS: the app is served from the same origin as the API (nginx in deployed
+  // environments, the Vite proxy in development), so browsers refuse other sites' calls.
 
   // Global prefix + versioning
   app.setGlobalPrefix('api');

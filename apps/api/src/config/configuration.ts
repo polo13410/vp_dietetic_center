@@ -18,9 +18,8 @@ export const configuration = () => ({
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
   },
 
-  cors: {
-    origins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
-  },
+  // Public address of the app (the API is served under it at /api), used in emails
+  appUrl: process.env.APP_URL ?? 'http://localhost:5173',
 
   smtp: {
     host: process.env.SMTP_HOST ?? 'localhost',

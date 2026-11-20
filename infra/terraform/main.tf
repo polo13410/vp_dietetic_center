@@ -2,6 +2,10 @@
 # Accounts, the GitHub login link (Workload Identity) and secrets come from ../bootstrap.
 # CI/CD only deploys new images to the services created here.
 
+data "google_project" "this" {
+  project_id = var.project_id
+}
+
 locals {
   is_staging = var.env == "staging"
   is_prod    = var.env == "prod"
@@ -12,6 +16,10 @@ locals {
 
   api_sa      = "vp-${var.env}-api@${var.project_id}.iam.gserviceaccount.com"
   frontend_sa = "vp-${var.env}-frontend@${var.project_id}.iam.gserviceaccount.com"
+
+  # Cloud Run's predictable address for the API service. The frontend forwards /api there;
+  # using it (instead of the service's uri) avoids a frontend <-> API dependency loop.
+  api_url = "https://${var.env}-api-${data.google_project.this.number}.${var.region}.run.app"
 
   # Public "hello" image so the services can be created before the first real image exists.
   # CD replaces it; Terraform then ignores the image (see lifecycle blocks).
@@ -195,8 +203,8 @@ resource "google_cloud_run_v2_service" "api" {
         value = local.cfg.node_env
       }
       env {
-        # Only this environment's frontend may call the API with credentials
-        name  = "CORS_ORIGINS"
+        # Public address of the app (it serves the API at /api), used in emails
+        name  = "APP_URL"
         value = google_cloud_run_v2_service.frontend.uri
       }
       env {
@@ -348,6 +356,12 @@ resource "google_cloud_run_v2_service" "frontend" {
 
       ports {
         container_port = 80
+      }
+
+      env {
+        # nginx forwards /api/* to the API, so the browser only talks to the frontend's origin
+        name  = "API_URL"
+        value = local.api_url
       }
 
       startup_probe {

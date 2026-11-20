@@ -227,7 +227,7 @@ ASSISTANTE   → lecture patients + gestion rendez-vous + tâches administrative
 
 - Helmet (headers HTTP sécurisés)
 - Rate limiting : 100 req/15min global, 5 req/min sur auth
-- CORS restreint aux origines connues
+- Même origine pour l'app et l'API (pas de CORS)
 - Validation stricte tous les inputs (class-validator)
 - Pas d'exposition d'IDs séquentiels (UUIDs v7)
 - Audit log automatique via intercepteur NestJS
@@ -452,13 +452,12 @@ JWT_SECRET=...
 JWT_REFRESH_SECRET=...
 GCS_BUCKET_NAME=...
 GOOGLE_CLOUD_PROJECT=...
-CORS_ORIGINS=http://localhost:5173
+APP_URL=http://localhost:5173
 ```
 
 ### Frontend (`apps/frontend/.env`)
 
 ```
-VITE_API_URL=http://localhost:3000/api/v1
 VITE_APP_NAME=VP Dietetic Center
 ```
 

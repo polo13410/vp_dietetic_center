@@ -13,7 +13,7 @@ import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
 import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
-import { formatDateTime } from '../../lib/utils';
+import { formatDate, formatDateTime } from '../../lib/utils';
 
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -122,7 +122,7 @@ export default function AppointmentDetailPage() {
         editId={id}
         defaultValues={{
           patientId: appt.patientId,
-          startAt: appt.startAt?.slice(0, 16),
+          startAt: formatDate(appt.startAt, 'yyyy-MM-ddTHH:mm'), // local time for the field
           duration: appt.duration,
           type: appt.type,
           reason: appt.reason ?? '',

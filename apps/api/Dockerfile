@@ -37,6 +37,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# The practice's time zone: "today", day boundaries and dates in emails follow Paris time
+ENV TZ=Europe/Paris
 
 # Réutiliser l'installation workspace déjà résolue par le builder
 COPY --from=builder /app/node_modules ./node_modules

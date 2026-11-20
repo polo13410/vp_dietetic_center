@@ -21,9 +21,4 @@ export class SearchController {
     return this.service.search(q, user);
   }
 
-  @Get('dashboard/summary')
-  @ApiOperation({ summary: 'Données du tableau de bord' })
-  dashboardSummary(@CurrentUser() user: any) {
-    return this.service.getDashboardSummary(user);
-  }
 }

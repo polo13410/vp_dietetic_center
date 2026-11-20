@@ -37,18 +37,4 @@ describe('SearchService', () => {
     });
   });
 
-  describe('getDashboardSummary', () => {
-    it('returns dashboard aggregations', async () => {
-      mockPrisma.appointment.findMany.mockResolvedValue([]);
-      mockPrisma.task.findMany.mockResolvedValue([]);
-      mockPrisma.consultation.findMany.mockResolvedValue([]);
-      mockPrisma.patient.count.mockResolvedValue(10);
-
-      const result = await service.getDashboardSummary(user as any);
-
-      expect(result).toHaveProperty('activePatientCount', 10);
-      expect(result).toHaveProperty('todayAppointments');
-      expect(result).toHaveProperty('pendingTasks');
-    });
-  });
 });

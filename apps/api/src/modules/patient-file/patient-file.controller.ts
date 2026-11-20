@@ -14,11 +14,13 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuditAction } from '@prisma/client';
 import { MetricType, PatientTopic, UserRole } from '@prisma/client';
 
 import type { AccessUser } from '../../common/access/patient-access.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Audited } from '../audit/audited.decorator';
 
 import { ConsultationsService } from './consultations.service';
 import { CreateConsultationDto, ReviewGoalDto, UpdateConsultationDto } from './dto/consultation.dto';
@@ -48,6 +50,7 @@ export class PatientFileController {
   ) {}
 
   @Get('brief')
+  @Audited({ action: AuditAction.READ, entity: 'patient', patientId: 'param:patientId', entityId: 'param:patientId' })
   @ApiOperation({ summary: 'Résumé du patient avant une séance' })
   brief(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
     return this.file.getBrief(user, patientId);
@@ -61,6 +64,7 @@ export class PatientFileController {
   }
 
   @Post('consultations')
+  @Audited({ action: AuditAction.CREATE, entity: 'consultation', patientId: 'param:patientId', entityId: 'result:id' })
   @ApiOperation({ summary: 'Démarrer une séance (depuis un rendez-vous ou non)' })
   startSession(
     @CurrentUser() user: AccessUser,
@@ -82,6 +86,7 @@ export class PatientFileController {
   }
 
   @Post('measurements')
+  @Audited({ action: AuditAction.CREATE, entity: 'measurement', patientId: 'param:patientId', entityId: 'result:id' })
   createMeasurement(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -91,6 +96,7 @@ export class PatientFileController {
   }
 
   @Patch('measurements/:id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'measurement', patientId: 'param:patientId' })
   updateMeasurement(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -101,6 +107,7 @@ export class PatientFileController {
   }
 
   @Delete('measurements/:id')
+  @Audited({ action: AuditAction.DELETE, entity: 'measurement', patientId: 'param:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
   removeMeasurement(
     @CurrentUser() user: AccessUser,
@@ -122,6 +129,7 @@ export class PatientFileController {
   }
 
   @Post('topic-notes')
+  @Audited({ action: AuditAction.CREATE, entity: 'topic_note', patientId: 'param:patientId', entityId: 'result:id' })
   createTopicNote(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -131,6 +139,7 @@ export class PatientFileController {
   }
 
   @Patch('topic-notes/:id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'topic_note', patientId: 'param:patientId' })
   updateTopicNote(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -141,6 +150,7 @@ export class PatientFileController {
   }
 
   @Delete('topic-notes/:id')
+  @Audited({ action: AuditAction.DELETE, entity: 'topic_note', patientId: 'param:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
   removeTopicNote(
     @CurrentUser() user: AccessUser,
@@ -158,6 +168,7 @@ export class PatientFileController {
   }
 
   @Post('life-events')
+  @Audited({ action: AuditAction.CREATE, entity: 'life_event', patientId: 'param:patientId', entityId: 'result:id' })
   createLifeEvent(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -167,6 +178,7 @@ export class PatientFileController {
   }
 
   @Patch('life-events/:id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'life_event', patientId: 'param:patientId' })
   updateLifeEvent(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -177,6 +189,7 @@ export class PatientFileController {
   }
 
   @Delete('life-events/:id')
+  @Audited({ action: AuditAction.DELETE, entity: 'life_event', patientId: 'param:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
   removeLifeEvent(
     @CurrentUser() user: AccessUser,
@@ -194,6 +207,7 @@ export class PatientFileController {
   }
 
   @Post('goals')
+  @Audited({ action: AuditAction.CREATE, entity: 'goal', patientId: 'param:patientId', entityId: 'result:id' })
   createGoal(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -203,6 +217,7 @@ export class PatientFileController {
   }
 
   @Patch('goals/:id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'goal', patientId: 'param:patientId' })
   updateGoal(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -213,6 +228,7 @@ export class PatientFileController {
   }
 
   @Delete('goals/:id')
+  @Audited({ action: AuditAction.DELETE, entity: 'goal', patientId: 'param:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
   removeGoal(
     @CurrentUser() user: AccessUser,
@@ -231,11 +247,13 @@ export class ConsultationsController {
   constructor(private readonly sessions: ConsultationsService) {}
 
   @Get(':id')
+  @Audited({ action: AuditAction.READ, entity: 'consultation', patientId: 'result:patientId' })
   findOne(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
     return this.sessions.findOne(user, id);
   }
 
   @Patch(':id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'consultation', patientId: 'result:patientId' })
   update(
     @CurrentUser() user: AccessUser,
     @Param('id', uuid) id: string,
@@ -245,6 +263,7 @@ export class ConsultationsController {
   }
 
   @Post(':id/finalize')
+  @Audited({ action: AuditAction.FINALIZE, entity: 'consultation', patientId: 'result:patientId' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Finaliser la séance (verrouillée ensuite, RDV marqué terminé)' })
   finalize(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
@@ -252,6 +271,7 @@ export class ConsultationsController {
   }
 
   @Delete(':id')
+  @Audited({ action: AuditAction.DELETE, entity: 'consultation', patientId: 'result:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Abandonner un brouillon de séance et ce qui y a été saisi' })
   remove(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
@@ -259,6 +279,7 @@ export class ConsultationsController {
   }
 
   @Put(':id/goal-reviews/:goalId')
+  @Audited({ action: AuditAction.UPDATE, entity: 'goal', patientId: 'result:patientId', entityId: 'param:goalId' })
   @ApiOperation({ summary: "Faire le point sur un objectif pendant la séance" })
   reviewGoal(
     @CurrentUser() user: AccessUser,

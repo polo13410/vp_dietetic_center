@@ -16,6 +16,7 @@ import { PatientBrief } from '../../components/patient-file/PatientBrief';
 import { SessionsPanel } from '../../components/patient-file/SessionsPanel';
 import { TopicsPanel } from '../../components/patient-file/TopicsPanel';
 import { useStartSession } from '../../components/patient-file/useStartSession';
+import { PatientAccessLog } from '../../components/patients/PatientAccessLog';
 import { PatientTasks } from '../../components/patients/PatientTasks';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
@@ -107,8 +108,9 @@ export default function PatientDetailPage() {
           <TabsContent value="tasks">
             <PatientTasks patientId={id} />
           </TabsContent>
-          <TabsContent value="record">
+          <TabsContent value="record" className="space-y-4">
             <RecordCard patient={patient} />
+            <PatientAccessLog patientId={id} />
           </TabsContent>
         </Tabs>
       )}

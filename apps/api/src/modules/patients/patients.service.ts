@@ -3,6 +3,7 @@ import { PatientStatus, User } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { PatientFileService } from '../patient-file/patient-file.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -53,6 +54,7 @@ export class PatientsService {
     private readonly prisma: PrismaService,
     private readonly access: PatientAccessService,
     private readonly file: PatientFileService,
+    private readonly audit: AuditService,
   ) {}
 
   async findAll(user: User, query: PatientQueryDto) {
@@ -200,6 +202,12 @@ export class PatientsService {
       where: { id },
       data: { deletedAt: new Date(), status: PatientStatus.ARCHIVED },
     });
+  }
+
+  /** The audit trail of one patient's file, for their practitioner. */
+  async accessLog(id: string, user: AccessUser) {
+    await this.access.assertPatient(user, id);
+    return this.audit.forPatient(id);
   }
 
   async findAllTags() {

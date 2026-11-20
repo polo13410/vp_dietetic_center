@@ -113,11 +113,9 @@ for env in $ENVS; do
   ensure_secret "$env-db-password"
   ensure_secret "$env-db-url" "$api"
   ensure_secret "$env-jwt-secret" "$api"
-  ensure_secret "$env-jwt-refresh-secret" "$api"
 
   # Values are piped straight into Secret Manager and never printed
   has_version "$env-jwt-secret" || random | gcloud secrets versions add "$env-jwt-secret" --data-file=- --project "$PROJECT" >/dev/null
-  has_version "$env-jwt-refresh-secret" || random | gcloud secrets versions add "$env-jwt-refresh-secret" --data-file=- --project "$PROJECT" >/dev/null
   if ! has_version "$env-db-password"; then
     random | gcloud secrets versions add "$env-db-password" --data-file=- --project "$PROJECT" >/dev/null
   fi

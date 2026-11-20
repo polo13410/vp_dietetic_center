@@ -100,7 +100,8 @@ export class AuthService {
     };
   }
 
-  async refreshTokens(rawToken: string, ipAddress?: string, userAgent?: string) {
+  async refreshTokens(rawToken: string | undefined, ipAddress?: string, userAgent?: string) {
+    if (!rawToken) throw new UnauthorizedException('Session expirée');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });

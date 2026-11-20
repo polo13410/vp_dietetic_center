@@ -14,7 +14,6 @@ import type { CookieOptions, Request, Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { JwtRefreshGuard } from '../../common/guards/jwt-refresh.guard';
 import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 
 import { AuthService } from './auth.service';
@@ -65,8 +64,8 @@ export class AuthController {
     };
   }
 
+  // Public: the refresh token (an opaque value from the cookie) is checked by the service
   @Public()
-  @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Rafraichir le token d'acces" })

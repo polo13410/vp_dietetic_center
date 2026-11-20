@@ -61,6 +61,11 @@ describe('AuthService sessions', () => {
     expect(result.refreshExpiresAt).toEqual(sessionEnd);
   });
 
+  it('refuses a refresh without a cookie', async () => {
+    await expect(service.refreshTokens(undefined)).rejects.toThrow(UnauthorizedException);
+    expect(mockPrisma.refreshToken.findUnique).not.toHaveBeenCalled();
+  });
+
   it('refuses an expired session', async () => {
     mockPrisma.refreshToken.findUnique.mockResolvedValue({
       id: 'rt1',

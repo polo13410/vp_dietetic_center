@@ -107,7 +107,12 @@ export class PatientFileService {
         take: 5,
       }),
       this.prisma.goal.findMany({
-        where: { patientId, status: { notIn: CLOSED_GOAL_STATUSES } },
+        // Goals set in a session still being written are new, not yet to review
+        where: {
+          patientId,
+          status: { notIn: CLOSED_GOAL_STATUSES },
+          OR: [{ consultationId: null }, { consultation: { status: ConsultationStatus.FINALIZED } }],
+        },
         orderBy: { createdAt: 'asc' },
         include: {
           reviews: {

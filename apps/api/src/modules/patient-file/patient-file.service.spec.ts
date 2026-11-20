@@ -70,6 +70,14 @@ describe('PatientFileService', () => {
       expect(brief.topics.map((t) => t.id)).toEqual(['t3', 't2']);
     });
 
+    it('only lists goals to review that were set in a finished session (or outside one)', async () => {
+      await service.getBrief(user as any, 'p1');
+      expect(mockPrisma.goal.findMany.mock.calls[0][0].where.OR).toEqual([
+        { consultationId: null },
+        { consultation: { status: 'FINALIZED' } },
+      ]);
+    });
+
     it('counts the life events since the last session and the sessions done', async () => {
       const brief = await service.getBrief(user as any, 'p1');
       expect(brief.newEventsSinceLastConsultation).toBe(1);

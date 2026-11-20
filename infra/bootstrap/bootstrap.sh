@@ -106,16 +106,24 @@ read_secret() { gcloud secrets versions access latest --secret "$1" --project "$
 API_READERS=()
 for env in $ENVS; do API_READERS+=("vp-$env-api@$PROJECT.iam.gserviceaccount.com"); done
 ensure_secret google-oauth-client-id "${API_READERS[@]}"
+# Brevo SMTP credentials, shared by the environments. Values are added by the owner (see
+# infra/terraform/README.md), then smtp_enabled=true in Terraform.
+ensure_secret smtp-user "${API_READERS[@]}"
+ensure_secret smtp-password "${API_READERS[@]}"
 
 for env in $ENVS; do
   api="vp-$env-api@$PROJECT.iam.gserviceaccount.com"
+  frontend="vp-$env-frontend@$PROJECT.iam.gserviceaccount.com"
   # The DB password is read by the person running Terraform (owner), not by the app
   ensure_secret "$env-db-password"
   ensure_secret "$env-db-url" "$api"
   ensure_secret "$env-jwt-secret" "$api"
+  # Shared by the frontend's nginx and the API: the API refuses requests without it
+  ensure_secret "$env-proxy-token" "$api" "$frontend"
 
   # Values are piped straight into Secret Manager and never printed
   has_version "$env-jwt-secret" || random | gcloud secrets versions add "$env-jwt-secret" --data-file=- --project "$PROJECT" >/dev/null
+  has_version "$env-proxy-token" || random | gcloud secrets versions add "$env-proxy-token" --data-file=- --project "$PROJECT" >/dev/null
   if ! has_version "$env-db-password"; then
     random | gcloud secrets versions add "$env-db-password" --data-file=- --project "$PROJECT" >/dev/null
   fi

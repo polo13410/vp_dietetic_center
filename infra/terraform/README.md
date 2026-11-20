@@ -28,6 +28,26 @@ The CI/CD deploy account can only push images and update existing Cloud Run serv
 It cannot create databases, buckets or new APIs, change permissions, or read secrets, so a stolen
 GitHub token cannot use it to create expensive resources. CI only runs `terraform fmt`/`validate`.
 
+## API access
+
+The API's own `run.app` address is public, but it only answers requests carrying the
+`<env>-proxy-token` secret, which the frontend's nginx adds to everything it forwards under
+`/api`. Direct calls get a 403 (only `/api/v1/health` is open, for the startup probe and CD).
+
+## Emails (Brevo)
+
+Password-reset emails go through Brevo's SMTP relay. Once:
+
+1. In Brevo: verify the sender domain (DNS records Brevo gives: DKIM, plus `include:spf.brevo.com`
+   merged into the domain's existing SPF record, as a domain can only have one), then create an
+   SMTP key (*SMTP & API → SMTP*).
+2. Store the login and key (typed in your own terminal, never in a file):
+   ```sh
+   printf '%s' 'LOGIN@smtp-brevo.com' | gcloud secrets versions add smtp-user --data-file=- --project vp-dietetic-center
+   read -rs KEY && printf '%s' "$KEY" | gcloud secrets versions add smtp-password --data-file=- --project vp-dietetic-center; unset KEY
+   ```
+3. Apply with `-var="smtp_enabled=true"` (and `-var='smtp_from=Name <address>'` if the sender differs).
+
 ## Database access
 
 Cloud SQL has no authorized networks and requires client certificates, so the only way in is

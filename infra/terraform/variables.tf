@@ -18,6 +18,18 @@ variable "region" {
   default = "europe-west9" # Paris
 }
 
+variable "smtp_enabled" {
+  description = "Send emails through Brevo. Needs the smtp-user and smtp-password secrets to have a value."
+  type        = bool
+  default     = false
+}
+
+variable "smtp_from" {
+  description = "Sender of the app's emails (an address or domain verified in Brevo)"
+  type        = string
+  default     = "VP Diététique <noreply@dietetiquecenter.fr>"
+}
+
 variable "db_tier" {
   type    = string
   default = "db-f1-micro"

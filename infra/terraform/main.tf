@@ -233,6 +233,40 @@ resource "google_cloud_run_v2_service" "api" {
           }
         }
       }
+      # Emails (password resets) through Brevo's SMTP relay, once its credentials are stored
+      dynamic "env" {
+        for_each = var.smtp_enabled ? {
+          SMTP_HOST = "smtp-relay.brevo.com"
+          SMTP_PORT = "587"
+          SMTP_FROM = var.smtp_from
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = var.smtp_enabled ? { SMTP_USER = "smtp-user", SMTP_PASS = "smtp-password" } : {}
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+      env {
+        # Requests without it did not come through the frontend and are refused
+        name = "PROXY_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.env}-proxy-token"
+            version = "latest"
+          }
+        }
+      }
       env {
         name = "GOOGLE_CLIENT_ID"
         value_source {
@@ -343,6 +377,9 @@ resource "google_cloud_run_v2_service" "frontend" {
           cpu    = "1"
           memory = "512Mi"
         }
+        # Billed per request: nginx has nothing to do between requests (the API keeps its CPU,
+        # it finishes work such as audit entries after answering)
+        cpu_idle = true
       }
 
       ports {
@@ -353,6 +390,16 @@ resource "google_cloud_run_v2_service" "frontend" {
         # nginx forwards /api/* to the API, so the browser only talks to the frontend's origin
         name  = "API_URL"
         value = local.api_url
+      }
+      env {
+        # Added by nginx to every API call: the API accepts nothing else
+        name = "PROXY_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.env}-proxy-token"
+            version = "latest"
+          }
+        }
       }
 
       startup_probe {

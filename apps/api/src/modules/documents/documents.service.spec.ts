@@ -36,12 +36,12 @@ describe('DocumentsService', () => {
       );
     });
 
-    it('does not restrict admins to a practitioner', async () => {
+    it('gives admins no documents', async () => {
       mockPrisma.document.findMany.mockResolvedValue([]);
       await service.findAll(admin as any);
       expect(mockPrisma.document.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { deletedAt: null, patient: { deletedAt: null } },
+          where: { deletedAt: null, patient: { deletedAt: null, id: { in: [] } } },
         }),
       );
     });

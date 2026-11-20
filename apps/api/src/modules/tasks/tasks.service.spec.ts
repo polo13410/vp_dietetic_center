@@ -126,11 +126,10 @@ describe('TasksService', () => {
       expect(mockPrisma.task.update).not.toHaveBeenCalled();
     });
 
-    it('lets admins update any task', async () => {
+    it("refuses admins on someone else's task", async () => {
       const admin = createMockUser({ id: 'admin-1', role: 'ADMIN' });
       mockPrisma.task.findUnique.mockResolvedValue({ id: 't1', createdById: 'other' });
-      mockPrisma.task.update.mockResolvedValue({});
-      await expect(service.update('t1', { title: 'X' }, admin as any)).resolves.toBeDefined();
+      await expect(service.update('t1', { title: 'X' }, admin as any)).rejects.toThrow();
     });
   });
 

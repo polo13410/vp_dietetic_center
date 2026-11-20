@@ -23,16 +23,19 @@ export const mockNotifications = {
 
 export const mockAccess = {
   patientScope: vi.fn((user: { id: string; role: string }) =>
-    user.role === 'ADMIN' ? {} : { practitionerId: user.id },
+    user.role === 'PRATICIENNE' ? { practitionerId: user.id } : { id: { in: [] } },
   ),
   canAccess: vi.fn((user: { id: string; role: string }, practitionerId: string, level = 'full') =>
-    user.role === 'ADMIN' ||
-    (user.role === 'ASSISTANTE' ? level === 'record' : practitionerId === user.id),
+    user.role === 'PRATICIENNE' ? practitionerId === user.id : user.role === 'ASSISTANTE' && level === 'record',
   ),
   assertOwner: vi.fn(),
   assertPatient: vi.fn().mockResolvedValue({ practitionerId: 'user-1' }),
   appointmentScope: vi.fn((user: { id: string; role: string }) =>
-    user.role === 'ADMIN' || user.role === 'ASSISTANTE' ? {} : { practitionerId: user.id },
+    user.role === 'PRATICIENNE'
+      ? { practitionerId: user.id }
+      : user.role === 'ASSISTANTE'
+        ? {}
+        : { id: { in: [] } },
   ),
   assertCanManageAppointment: vi.fn(),
   assertAppointment: vi.fn().mockResolvedValue(undefined),

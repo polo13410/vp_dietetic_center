@@ -11,9 +11,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { NoteStatus } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
@@ -21,6 +23,8 @@ import { NotesService } from './notes.service';
 
 @ApiTags('notes')
 @ApiBearerAuth()
+// Patient data: never admins (they manage the app, not patients)
+@Roles(UserRole.PRATICIENNE, UserRole.ASSISTANTE)
 @Controller({ path: 'notes', version: '1' })
 export class NotesController {
   constructor(private readonly service: NotesService) {}

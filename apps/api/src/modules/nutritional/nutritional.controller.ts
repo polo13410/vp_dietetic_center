@@ -1,8 +1,10 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { User } from '@prisma/client';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 import { CreateNutritionalEntryDto } from './dto/create-entry.dto';
 import { UpdateNutritionalProfileDto } from './dto/update-profile.dto';
@@ -10,6 +12,8 @@ import { NutritionalService } from './nutritional.service';
 
 @ApiTags('nutritional')
 @ApiBearerAuth()
+// Patient data: never admins (they manage the app, not patients)
+@Roles(UserRole.PRATICIENNE, UserRole.ASSISTANTE)
 @Controller({ path: 'nutritional', version: '1' })
 export class NutritionalController {
   constructor(private readonly service: NutritionalService) {}

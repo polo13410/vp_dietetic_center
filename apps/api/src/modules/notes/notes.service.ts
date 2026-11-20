@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NoteStatus, NotificationType, User, UserRole } from '@prisma/client';
+import { NoteStatus, NotificationType, User } from '@prisma/client';
 
 import { PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -23,7 +23,7 @@ export class NotesService {
 
   async findAll(user: User, patientId?: string, appointmentId?: string, status?: NoteStatus) {
     const where: Record<string, unknown> = {
-      ...(user.role !== UserRole.ADMIN ? { authorId: user.id } : {}),
+      authorId: user.id,
       ...(patientId ? { patientId } : {}),
       ...(appointmentId ? { appointmentId } : {}),
       ...(status ? { status } : {}),
@@ -50,7 +50,7 @@ export class NotesService {
   async findOne(id: string, user: User) {
     const note = await this.prisma.clinicalNote.findUnique({ where: { id } });
     if (!note) throw new NotFoundException('Note introuvable');
-    if (user.role !== UserRole.ADMIN && note.authorId !== user.id) throw new ForbiddenException();
+    if (note.authorId !== user.id) throw new ForbiddenException();
     return note;
   }
 

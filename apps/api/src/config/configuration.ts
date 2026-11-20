@@ -30,9 +30,9 @@ export const configuration = () => ({
     from: process.env.SMTP_FROM ?? 'noreply@vp-dietetic.fr',
   },
 
+  // Documents bucket; empty in development (files then go to a local folder)
   gcs: {
     bucketName: process.env.GCS_BUCKET_NAME ?? '',
-    projectId: process.env.GOOGLE_CLOUD_PROJECT ?? '',
   },
 
   throttle: {

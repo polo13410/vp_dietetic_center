@@ -20,7 +20,6 @@ const PatientEditPage = lazy(() => import('./pages/patients/PatientEditPage'));
 const AppointmentsPage = lazy(() => import('./pages/appointments/AppointmentsPage'));
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/AppointmentDetailPage'));
 const ConsultationPage = lazy(() => import('./pages/consultations/ConsultationPage'));
-const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -60,7 +59,6 @@ export function AppRouter() {
             {/* Rendez-vous */}
             <Route path="/appointments" element={<AppointmentsPage />} />
             <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
           </Route>
 
           {/* Administration: the app and its users */}

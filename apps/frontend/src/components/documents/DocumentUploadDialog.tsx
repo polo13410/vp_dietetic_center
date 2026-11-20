@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import api from '../../lib/api';
+import { ACCEPT_ATTRIBUTE, ACCEPTED_FORMATS_LABEL, documentProblem } from '../../lib/documents';
 import { PatientCombobox } from '../shared/PatientCombobox';
 import { Button } from '../ui/button';
 import {
@@ -41,6 +42,11 @@ export function DocumentUploadDialog({
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  // A new attempt starts without the previous error
+  useEffect(() => {
+    if (open) setFileError(null);
+  }, [open]);
 
   const {
     register,
@@ -75,12 +81,23 @@ export function DocumentUploadDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      toast({ title: 'Document uploade' });
+      toast({ title: 'Document ajouté' });
       reset();
       setSelectedFile(null);
       onOpenChange(false);
     },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message;
+      setFileError(Array.isArray(message) ? message.join(', ') : (message ?? 'Envoi impossible, réessayez.'));
+    },
   });
+
+  /** Keeps the file only if the API will accept it, else says why. */
+  const pickFile = (file: File | null) => {
+    const problem = file ? documentProblem(file) : null;
+    setFileError(problem);
+    setSelectedFile(problem ? null : file);
+  };
 
   const inputClass =
     'w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50';
@@ -89,7 +106,7 @@ export function DocumentUploadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Uploader un document</DialogTitle>
+          <DialogTitle>Ajouter un document</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit((d) => mutate(d))} className="space-y-4">
@@ -103,8 +120,12 @@ export function DocumentUploadDialog({
               <input
                 ref={fileRef}
                 type="file"
+                accept={ACCEPT_ATTRIBUTE}
                 className="hidden"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  pickFile(e.target.files?.[0] ?? null);
+                  e.target.value = ''; // the same file can be picked again after an error
+                }}
               />
               {selectedFile ? (
                 <div>
@@ -117,10 +138,17 @@ export function DocumentUploadDialog({
                 <div>
                   <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">Cliquez pour choisir un fichier</p>
-                  <p className="text-xs text-muted-foreground mt-1">Max 10 Mo</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {ACCEPTED_FORMATS_LABEL} · 10 Mo maximum
+                  </p>
                 </div>
               )}
             </div>
+            {fileError && (
+              <p role="alert" className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {fileError}
+              </p>
+            )}
           </div>
 
           {/* Patient */}
@@ -158,8 +186,8 @@ export function DocumentUploadDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ANALYSIS">Analyse</SelectItem>
-                    <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
-                    <SelectItem value="REPORT">Rapport</SelectItem>
+                    <SelectItem value="PRESCRIPTION">Ordonnance</SelectItem>
+                    <SelectItem value="REPORT">Compte rendu</SelectItem>
                     <SelectItem value="CONSENT">Consentement</SelectItem>
                     <SelectItem value="OTHER">Autre</SelectItem>
                   </SelectContent>
@@ -184,7 +212,7 @@ export function DocumentUploadDialog({
               Annuler
             </Button>
             <Button type="submit" disabled={isPending || !selectedFile}>
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Uploader'}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ajouter'}
             </Button>
           </DialogFooter>
         </form>

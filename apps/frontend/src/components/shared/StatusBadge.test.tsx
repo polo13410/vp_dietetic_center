@@ -14,9 +14,14 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Planifie')).toBeInTheDocument();
   });
 
-  it('renders note status', () => {
+  it('renders session status', () => {
     render(<StatusBadge status="FINALIZED" />);
-    expect(screen.getByText('Finalise')).toBeInTheDocument();
+    expect(screen.getByText('Finalisée')).toBeInTheDocument();
+  });
+
+  it('renders document types in French', () => {
+    render(<StatusBadge status="PRESCRIPTION" />);
+    expect(screen.getByText('Ordonnance')).toBeInTheDocument();
   });
 
   it('renders task status', () => {

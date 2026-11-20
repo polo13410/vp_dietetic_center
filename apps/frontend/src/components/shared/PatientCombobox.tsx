@@ -42,7 +42,14 @@ export function PatientCombobox({
   });
 
   const patients = data ?? [];
-  const selectedPatient = patients.find((p) => p.id === value);
+  // A preselected patient (e.g. opened from their file) must show before the list is ever opened
+  const { data: preselected } = useQuery({
+    queryKey: ['patient', value],
+    queryFn: async () => (await api.get(`/patients/${value}`)).data as Patient,
+    enabled: !!value && !patients.some((p) => p.id === value),
+    staleTime: 5 * 60 * 1000,
+  });
+  const selectedPatient = patients.find((p) => p.id === value) ?? (preselected?.id === value ? preselected : undefined);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -1,6 +1,9 @@
+import { createHash } from 'crypto';
+
 import { UnauthorizedException } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { configuration } from '../../config/configuration';
 import { createMockUser, mockPrisma } from '../../test/setup';
 
 import { AuthService } from './auth.service';
@@ -74,5 +77,62 @@ describe('AuthService sessions', () => {
       revokedAt: null,
     });
     await expect(service.refreshTokens('raw-token')).rejects.toThrow(UnauthorizedException);
+  });
+});
+
+describe('AuthService password reset', () => {
+  const user = { ...createMockUser(), firstName: 'Test' };
+  const mail = { sendPasswordReset: vi.fn() };
+  let service: AuthService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new AuthService(
+      mockPrisma as any,
+      { findByEmail: vi.fn().mockResolvedValue(user) } as any,
+      {} as any,
+      { get: vi.fn() } as any,
+      mail as any,
+    );
+  });
+
+  it('emails the token but stores only its hash', async () => {
+    await service.requestPasswordReset(user.email);
+    const sent = mail.sendPasswordReset.mock.calls[0][1] as string;
+    const stored = mockPrisma.user.update.mock.calls[0][0].data.passwordResetToken;
+    expect(stored).toBe(createHash('sha256').update(sent).digest('hex'));
+    expect(stored).not.toBe(sent);
+  });
+
+  it('finds the user by the hash, and ends every open session', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...user,
+      passwordResetExpiresAt: new Date(Date.now() + 60_000),
+    });
+    await service.resetPassword('raw-token', 'N0uveau-mot-de-passe!');
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { passwordResetToken: createHash('sha256').update('raw-token').digest('hex') },
+    });
+    expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+});
+
+describe('configuration', () => {
+  const env = { ...process.env };
+  afterEach(() => {
+    process.env = { ...env };
+  });
+
+  it('refuses a missing or short JWT secret in production', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.JWT_SECRET;
+    expect(() => configuration()).toThrow(/JWT_SECRET/);
+    process.env.JWT_SECRET = 'too-short';
+    expect(() => configuration()).toThrow(/JWT_SECRET/);
+    process.env.JWT_SECRET = 'x'.repeat(64);
+    expect(configuration().jwt.secret).toHaveLength(64);
   });
 });

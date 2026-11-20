@@ -179,10 +179,11 @@ export class AuthService {
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
 
+    // Only a hash is stored: a database leak does not give working reset links
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordResetToken: token,
+        passwordResetToken: hashToken(token),
         passwordResetExpiresAt: expiresAt,
       },
     });
@@ -192,7 +193,7 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
-      where: { passwordResetToken: token },
+      where: { passwordResetToken: hashToken(token) },
     });
 
     if (
@@ -215,6 +216,11 @@ export class AuthService {
         lockedUntil: null,
       },
     });
+    // A new password ends every open session (e.g. a stolen one)
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   private parseExpiry(expiry: string): number {
@@ -228,4 +234,8 @@ export class AuthService {
     if (!match) return 15 * 60 * 1000; // default 15min
     return parseInt(match[1]) * (units[match[2]] ?? 1000);
   }
+}
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }

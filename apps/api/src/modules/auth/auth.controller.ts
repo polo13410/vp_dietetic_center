@@ -30,9 +30,13 @@ const REFRESH_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   path: '/api/v1/auth',
 };
+
+/** The cookie expires with the session it belongs to. */
+function setRefreshCookie(res: Response, token: string, expires: Date) {
+  res.cookie(REFRESH_COOKIE, token, { ...REFRESH_COOKIE_OPTIONS, expires });
+}
 
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })
@@ -52,7 +56,7 @@ export class AuthController {
 
     const result = await this.authService.login(user, ipAddress, userAgent);
 
-    res.cookie(REFRESH_COOKIE, result.refreshToken, REFRESH_COOKIE_OPTIONS);
+    setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
 
     return {
       accessToken: result.accessToken,
@@ -68,9 +72,13 @@ export class AuthController {
   @ApiOperation({ summary: "Rafraichir le token d'acces" })
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const rawToken = req.cookies[REFRESH_COOKIE];
-    const result = await this.authService.refreshTokens(rawToken);
+    const result = await this.authService.refreshTokens(
+      rawToken,
+      req.ip,
+      req.headers['user-agent'],
+    );
 
-    res.cookie(REFRESH_COOKIE, result.refreshToken, REFRESH_COOKIE_OPTIONS);
+    setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
 
     return {
       accessToken: result.accessToken,
@@ -86,7 +94,7 @@ export class AuthController {
     if (rawToken) {
       await this.authService.logout(rawToken);
     }
-    res.clearCookie(REFRESH_COOKIE, { ...REFRESH_COOKIE_OPTIONS, maxAge: undefined });
+    res.clearCookie(REFRESH_COOKIE, REFRESH_COOKIE_OPTIONS);
   }
 
   @Public()
@@ -107,7 +115,7 @@ export class AuthController {
       userAgent,
     );
 
-    res.cookie(REFRESH_COOKIE, result.refreshToken, REFRESH_COOKIE_OPTIONS);
+    setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
 
     return {
       accessToken: result.accessToken,

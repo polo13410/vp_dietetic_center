@@ -11,7 +11,8 @@ export const configuration = () => ({
     secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-prod',
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret',
     expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+    // Length of a session (a working day). Counted from sign-in: refreshing does not extend it.
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '10h',
   },
 
   google: {

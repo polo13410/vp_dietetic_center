@@ -28,6 +28,8 @@ export default function NoteNewPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  const fromPatient = searchParams.get('patientId');
+  const backTo = fromPatient ? `/patients/${fromPatient}` : '/patients';
 
   const {
     register,
@@ -67,7 +69,7 @@ export default function NoteNewPage() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link to="/notes" className="text-muted-foreground hover:text-foreground">
+        <Link to={backTo} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <h1 className="text-xl font-semibold">Nouvelle note clinique</h1>
@@ -189,7 +191,7 @@ export default function NoteNewPage() {
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" asChild>
-            <Link to="/notes">Annuler</Link>
+            <Link to={backTo}>Annuler</Link>
           </Button>
           <Button type="submit" disabled={isPending}>
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Creer la note'}

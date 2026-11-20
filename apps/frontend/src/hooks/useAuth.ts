@@ -3,6 +3,7 @@ import type { UserDto } from '@vp/types';
 import { useNavigate } from 'react-router';
 
 import api from '../lib/api';
+import { homePathFor } from '../lib/roles';
 import { useAuthStore } from '../stores/authStore';
 
 interface LoginResponse {
@@ -22,7 +23,7 @@ export function useLogin() {
     },
     onSuccess: (data) => {
       setAuth(data.user as any, data.accessToken);
-      navigate('/dashboard');
+      navigate(homePathFor(data.user.role));
     },
   });
 }
@@ -38,7 +39,7 @@ export function useGoogleLogin() {
     },
     onSuccess: (data) => {
       setAuth(data.user as any, data.accessToken);
-      navigate('/dashboard');
+      navigate(homePathFor(data.user.role));
     },
   });
 }

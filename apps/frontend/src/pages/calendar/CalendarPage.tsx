@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
+import { AppointmentViewSwitch } from '../../components/appointments/AppointmentViewSwitch';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -49,7 +50,10 @@ export default function CalendarPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Calendrier</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Rendez-vous</h1>
+          <AppointmentViewSwitch />
+        </div>
         <Button onClick={() => openNewAppointment()}>
           <Plus className="h-4 w-4" />
           Nouveau rendez-vous

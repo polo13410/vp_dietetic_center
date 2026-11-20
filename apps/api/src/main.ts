@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
+import { proxyTokenMiddleware } from './common/middleware/proxy-token.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
@@ -22,6 +23,9 @@ async function bootstrap() {
   // those, so req.ip is the visitor's address and a forged X-Forwarded-For is ignored.
   const hops = config.get<string>('TRUST_PROXY_HOPS');
   app.set('trust proxy', hops ? Number(hops) : config.get('nodeEnv') === 'production' ? 2 : 'loopback');
+
+  // Only the frontend may call the API (shared secret added by its nginx)
+  app.use(proxyTokenMiddleware(config.get<string>('PROXY_TOKEN')));
 
   // Security
   app.use(

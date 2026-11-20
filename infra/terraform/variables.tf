@@ -15,12 +15,7 @@ variable "project_id" {
 
 variable "region" {
   type    = string
-  default = "europe-west1"
-}
-
-variable "github_repository" {
-  type    = string
-  default = "polo13410/vp_dietetic_center"
+  default = "europe-west9" # Paris
 }
 
 variable "db_tier" {
@@ -29,6 +24,7 @@ variable "db_tier" {
 }
 
 variable "db_password" {
-  type      = string
-  sensitive = true
+  description = "Read from Secret Manager (<env>-db-password) by the person applying, never typed"
+  type        = string
+  sensitive   = true
 }

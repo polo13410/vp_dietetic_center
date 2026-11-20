@@ -8,10 +8,6 @@ output "db_connection_name" {
   value = local.is_staging ? google_sql_database_instance.main[0].connection_name : null
 }
 
-output "db_public_ip" {
-  value = local.is_staging ? google_sql_database_instance.main[0].public_ip_address : null
-}
-
 # ─── Cloud Run URLs ──────────────────────────────────────────
 
 output "api_url" {

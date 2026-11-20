@@ -76,8 +76,12 @@ export function AppointmentFormDialog({
   }, [open, defaultValues, reset]);
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (data: FormData) =>
-      isEdit ? api.patch(`/appointments/${editId}`, data) : api.post('/appointments', data),
+    mutationFn: (data: FormData) => {
+      // The field holds a local time ("2026-11-20T14:00"): send it as an exact instant, or a
+      // server in another time zone would read it differently
+      const payload = { ...data, startAt: new Date(data.startAt).toISOString() };
+      return isEdit ? api.patch(`/appointments/${editId}`, payload) : api.post('/appointments', payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment'] });

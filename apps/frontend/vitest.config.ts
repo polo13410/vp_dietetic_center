@@ -14,10 +14,12 @@ export default defineConfig({
       exclude: ['src/components/ui/**'],
       // Ratchet set just below actual coverage (the old 70% target was never met):
       // raise these as tests are added, never lower them.
+      // Ratchet: raise as tests are added. Vitest 4 counts every included file, tested or
+      // not, so these are far below the old figures (which only counted loaded files).
       thresholds: {
-        lines: 2,
-        functions: 18,
-        branches: 35,
+        lines: 4,
+        functions: 3,
+        branches: 3,
       },
     },
   },

@@ -24,12 +24,12 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.8.0",
-    "@commitlint/config-conventional": "^19.8.0",
-    "eslint": "^9.39.4",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "eslint": "^9.39.5",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.0",
-    "turbo": "^2.9.6"
+    "lint-staged": "^15.5.2",
+    "turbo": "^2.11.13"
   },
   "lint-staged": {
     "apps/api/src/**/*.ts": [
@@ -54,5 +54,12 @@
       ]
     }
   },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "overrides": {
+      "effect": "3.22.4",
+      "deepmerge-ts": "^8.0.2",
+      "@nestjs/cli>glob": "^14.0.6"
+    }
+  }
 }

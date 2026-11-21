@@ -25,7 +25,8 @@ import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
-const REFRESH_COOKIE = 'refresh_token';
+// Firebase Hosting (in front of the app) only guarantees to forward a cookie with this name
+const REFRESH_COOKIE = '__session';
 
 /** Sign-in endpoints: few attempts per IP (password guessing, reset emails). */
 const SIGN_IN_LIMIT = { default: { limit: 10, ttl: 60_000 } };

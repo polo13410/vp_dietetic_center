@@ -17,6 +17,9 @@ locals {
   api_sa      = "vp-${var.env}-api@${var.project_id}.iam.gserviceaccount.com"
   frontend_sa = "vp-${var.env}-frontend@${var.project_id}.iam.gserviceaccount.com"
 
+  # The app's public address: its own domain (through Firebase Hosting)
+  app_url = "https://${local.cfg.domain}"
+
   # Cloud Run's predictable address for the API service. The frontend forwards /api there;
   # using it (instead of the service's uri) avoids a frontend <-> API dependency loop.
   api_url = "https://${var.env}-api-${data.google_project.this.number}.${var.region}.run.app"
@@ -32,12 +35,14 @@ locals {
       max_api_instances      = 1
       max_frontend_instances = 1
       bucket_force_destroy   = true
+      domain                 = "staging.app.dietetiquecenter.fr"
     }
     prod = {
       node_env               = "production"
       max_api_instances      = 1
       max_frontend_instances = 1
       bucket_force_destroy   = false
+      domain                 = "app.dietetiquecenter.fr"
     }
   }[var.env]
 }
@@ -203,9 +208,15 @@ resource "google_cloud_run_v2_service" "api" {
         value = local.cfg.node_env
       }
       env {
+        # Through the domain, requests reach the API via Firebase Hosting, Google's front end and
+        # nginx: the visitor's address is the third from the end of X-Forwarded-For
+        name  = "TRUST_PROXY_HOPS"
+        value = "3"
+      }
+      env {
         # Public address of the app (it serves the API at /api), used in emails
         name  = "APP_URL"
-        value = google_cloud_run_v2_service.frontend.uri
+        value = local.app_url
       }
       env {
         name  = "GCS_BUCKET_NAME"
@@ -424,4 +435,55 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_public" {
   name     = google_cloud_run_v2_service.frontend.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# ─── Custom domain ───────────────────────────────────────────────────────────
+# Cloud Run cannot map a domain in europe-west9, and a load balancer would cost more than the
+# rest of the project. Firebase Hosting serves the domain (free certificate, edge cache for the
+# app's static files) and forwards every request to the frontend service.
+
+resource "google_firebase_project" "default" {
+  provider = google-beta
+  count    = local.is_staging ? 1 : 0 # once per project, with the staging state
+  project  = var.project_id
+}
+
+resource "google_firebase_hosting_site" "app" {
+  provider = google-beta
+  project  = var.project_id
+  site_id  = "vp-dietetic-${var.env}"
+
+  depends_on = [google_firebase_project.default]
+}
+
+resource "google_firebase_hosting_version" "app" {
+  provider = google-beta
+  site_id  = google_firebase_hosting_site.app.site_id
+
+  config {
+    rewrites {
+      glob = "**"
+      run {
+        service_id = google_cloud_run_v2_service.frontend.name
+        region     = var.region
+      }
+    }
+  }
+}
+
+resource "google_firebase_hosting_release" "app" {
+  provider     = google-beta
+  site_id      = google_firebase_hosting_site.app.site_id
+  version_name = google_firebase_hosting_version.app.name
+  message      = "Forward every request to ${google_cloud_run_v2_service.frontend.name}"
+}
+
+resource "google_firebase_hosting_custom_domain" "app" {
+  provider      = google-beta
+  project       = var.project_id
+  site_id       = google_firebase_hosting_site.app.site_id
+  custom_domain = local.cfg.domain
+
+  # The DNS records are added by hand at the registrar (see the dns_records output)
+  wait_dns_verification = false
 }

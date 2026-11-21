@@ -40,7 +40,7 @@ gcloud services enable --project "$PROJECT" \
   run.googleapis.com sqladmin.googleapis.com artifactregistry.googleapis.com \
   secretmanager.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
   storage.googleapis.com logging.googleapis.com monitoring.googleapis.com \
-  cloudresourcemanager.googleapis.com
+  cloudresourcemanager.googleapis.com firebase.googleapis.com firebasehosting.googleapis.com
 
 say "Service accounts"
 create_sa vp-github-deploy "GitHub Actions deploy (images only)"

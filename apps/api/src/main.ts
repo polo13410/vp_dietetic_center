@@ -18,9 +18,11 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
 
-  // Client IP (rate limits, sign-in history). Deployed, requests pass two proxies: Google's
-  // front end, then the frontend's nginx, whose egress address Google appends. Trust exactly
-  // those, so req.ip is the visitor's address and a forged X-Forwarded-For is ignored.
+  // Client IP (rate limits, sign-in history). Deployed, requests pass several proxies, each
+  // appending to X-Forwarded-For: Firebase Hosting (custom domain), Google's front end, then the
+  // frontend's nginx, whose egress address Google appends. Trust exactly those (3 through the
+  // domain, set by Terraform; 2 through the frontend's run.app address), so req.ip is the
+  // visitor's address and a forged X-Forwarded-For is ignored.
   const hops = config.get<string>('TRUST_PROXY_HOPS');
   app.set('trust proxy', hops ? Number(hops) : config.get('nodeEnv') === 'production' ? 2 : 'loopback');
 
@@ -71,7 +73,7 @@ async function bootstrap() {
       .setDescription('API REST pour la gestion du cabinet psycho-nutritionnel')
       .setVersion('1.0')
       .addBearerAuth()
-      .addCookieAuth('refresh_token')
+      .addCookieAuth('__session')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

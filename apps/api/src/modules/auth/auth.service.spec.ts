@@ -141,3 +141,16 @@ describe('configuration', () => {
     expect(configuration().jwt.secret).toHaveLength(64);
   });
 });
+
+describe('AuthService Google sign-in', () => {
+  it('refuses a malformed or forged Google token with 401, not a server error', async () => {
+    const service = new AuthService(
+      mockPrisma as any,
+      { findByEmail: vi.fn() } as any,
+      {} as any,
+      { get: vi.fn(() => 'client-id') } as any,
+      {} as any,
+    );
+    await expect(service.validateGoogleToken('not-a-token')).rejects.toThrow(UnauthorizedException);
+  });
+});

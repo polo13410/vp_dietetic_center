@@ -134,10 +134,12 @@ export class AuthService {
   async validateGoogleToken(idToken: string, ipAddress?: string, userAgent?: string) {
     const googleClientId = this.config.get<string>('google.clientId');
 
-    const ticket = await this.googleClient.verifyIdToken({
-      idToken,
-      audience: googleClientId,
-    });
+    // A malformed, expired, forged or foreign token is a refused sign-in, not a server error
+    const ticket = await this.googleClient
+      .verifyIdToken({ idToken, audience: googleClientId })
+      .catch(() => {
+        throw new UnauthorizedException('Token Google invalide');
+      });
 
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.email_verified) {

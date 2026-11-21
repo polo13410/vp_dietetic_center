@@ -19,9 +19,9 @@ variable "region" {
 }
 
 variable "smtp_enabled" {
-  description = "Send emails through Brevo. Needs the smtp-user and smtp-password secrets to have a value."
+  description = "Send emails through Brevo (smtp-user and smtp-password secrets, shared by the environments)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "smtp_from" {

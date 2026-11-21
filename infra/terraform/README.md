@@ -55,7 +55,8 @@ Password-reset emails go through Brevo's SMTP relay. Once:
    printf '%s' 'LOGIN@smtp-brevo.com' | gcloud secrets versions add smtp-user --data-file=- --project vp-dietetic-center
    read -rs KEY && printf '%s' "$KEY" | gcloud secrets versions add smtp-password --data-file=- --project vp-dietetic-center; unset KEY
    ```
-3. Apply with `-var="smtp_enabled=true"` (and `-var='smtp_from=Name <address>'` if the sender differs).
+3. Apply (sending is on by default; `-var="smtp_enabled=false"` turns it off, and
+   `-var='smtp_from=Name <address>'` changes the sender).
 
 ## Database access
 

@@ -28,6 +28,15 @@ The CI/CD deploy account can only push images and update existing Cloud Run serv
 It cannot create databases, buckets or new APIs, change permissions, or read secrets, so a stolen
 GitHub token cannot use it to create expensive resources. CI only runs `terraform fmt`/`validate`.
 
+## Custom domain
+
+Cloud Run cannot map a domain in europe-west9 and a load balancer would cost more than the rest
+of the project, so Firebase Hosting serves `staging.app.dietetiquecenter.fr` /
+`app.dietetiquecenter.fr` (free certificate, edge cache for static files) and forwards every
+request to the frontend service. After the first apply of an environment, add the records from
+`terraform output dns_records` at the registrar (LWS); the certificate follows within an hour.
+Also add the domain to the OAuth client's authorized JavaScript origins (Google sign-in).
+
 ## API access
 
 The API's own `run.app` address is public, but it only answers requests carrying the

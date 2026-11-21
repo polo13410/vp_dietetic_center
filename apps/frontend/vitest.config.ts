@@ -17,9 +17,9 @@ export default defineConfig({
       // Ratchet: raise as tests are added. Vitest 4 counts every included file, tested or
       // not, so these are far below the old figures (which only counted loaded files).
       thresholds: {
-        lines: 4,
-        functions: 3,
-        branches: 3,
+        lines: 7,
+        functions: 3.5,
+        branches: 4,
       },
     },
   },

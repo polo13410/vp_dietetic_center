@@ -10,7 +10,9 @@ import api from '../../lib/api';
 import { type IdentityDraft, identityFromSearch } from '../../lib/new-patient';
 import { cn } from '../../lib/utils';
 import { QuickPatientForm } from '../patients/QuickPatientForm';
+import { Field } from '../shared/Field';
 import { PatientCombobox } from '../shared/PatientCombobox';
+import { SegmentedControl } from '../shared/SegmentedControl';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -20,18 +22,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { toast } from '../ui/toaster';
 
 const schema = z.object({
-  patientId: z.string().min(1, 'Patient requis'),
-  startAt: z.string().min(1, 'Date requise'),
-  duration: z.number().min(15, 'Minimum 15 minutes'),
+  patientId: z.string().min(1, 'Choisissez le patient.'),
+  startAt: z.string().min(1, 'Choisissez la date et l’heure.'),
+  duration: z.number({ message: 'Indiquez la durée en minutes.' }).min(15, 'Comptez au moins 15 minutes.'),
   type: z.enum(['IN_PERSON', 'VIDEO', 'PHONE']),
   reason: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
+
+const DURATIONS = [
+  { value: '30', label: '30 min' },
+  { value: '45', label: '45 min' },
+  { value: '60', label: '1 h' },
+] as const;
+
+const TYPES = [
+  { value: 'IN_PERSON', label: 'En cabinet' },
+  { value: 'VIDEO', label: 'Vidéo' },
+  { value: 'PHONE', label: 'Téléphone' },
+] as const;
 
 interface AppointmentFormDialogProps {
   open: boolean;
@@ -98,20 +113,17 @@ export function AppointmentFormDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment'] });
-      toast({ title: isEdit ? 'Rendez-vous modifie' : 'Rendez-vous cree' });
+      toast({ title: isEdit ? 'Rendez-vous modifié' : 'Rendez-vous pris' });
       onOpenChange(false);
     },
   });
-
-  const inputClass =
-    'w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         ref={ref}
         // The iPad keyboard covers the bottom half: move the window up and let it scroll above it
-        className={cn(newPatient ? 'sm:max-w-xl' : 'sm:max-w-[500px]', keyboardInset > 0 && 'top-4 translate-y-0')}
+        className={cn('sm:max-w-xl', keyboardInset > 0 && 'top-4 translate-y-0')}
         style={keyboardInset > 0 ? { maxHeight: `calc(100dvh - ${keyboardInset}px - 2rem)` } : undefined}
       >
         <DialogHeader>
@@ -135,10 +147,8 @@ export function AppointmentFormDialog({
             }}
           />
         ) : (
-          <form onSubmit={handleSubmit((d) => mutate(d))} className="space-y-4">
-            {/* Patient */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Patient *</label>
+          <form onSubmit={handleSubmit((d) => mutate(d))} className="space-y-5">
+            <Field label="Patient" required error={errors.patientId?.message}>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Controller
                   control={control}
@@ -155,88 +165,67 @@ export function AppointmentFormDialog({
                 />
                 {!isEdit && (
                   <Button type="button" variant="outline" onClick={() => setNewPatient(identityFromSearch(''))}>
-                    <UserPlus />
+                    <UserPlus aria-hidden />
                     Nouveau patient
                   </Button>
                 )}
               </div>
-              {errors.patientId && (
-                <p className="text-xs text-destructive mt-1">{errors.patientId.message}</p>
-              )}
-            </div>
+            </Field>
 
-            {/* Date & Time */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Date et heure *</label>
-              <input type="datetime-local" {...register('startAt')} className={inputClass} />
-              {errors.startAt && (
-                <p className="text-xs text-destructive mt-1">{errors.startAt.message}</p>
-              )}
-            </div>
+            <Field label="Date et heure" required error={errors.startAt?.message}>
+              <Input type="datetime-local" {...register('startAt')} />
+            </Field>
 
-            {/* Duration & Type */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Duree (min) *</label>
-                <div className="flex gap-1.5">
-                  {[30, 45, 60].map((d) => (
-                    <Controller
-                      key={d}
-                      control={control}
-                      name="duration"
-                      render={({ field }) => (
-                        <Button
-                          type="button"
-                          variant={field.value === d ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => field.onChange(d)}
-                        >
-                          {d}
-                        </Button>
-                      )}
-                    />
-                  ))}
-                  <input
-                    type="number"
-                    min={15}
-                    {...register('duration', { valueAsNumber: true })}
-                    className={`${inputClass} w-16 text-center`}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Type *</label>
+            <Field label="Durée" required error={errors.duration?.message}>
+              <div className="flex flex-wrap items-center gap-3">
                 <Controller
                   control={control}
-                  name="type"
+                  name="duration"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="IN_PERSON">En cabinet</SelectItem>
-                        <SelectItem value="VIDEO">Video</SelectItem>
-                        <SelectItem value="PHONE">Telephone</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SegmentedControl
+                      label="Durée habituelle"
+                      options={DURATIONS}
+                      value={String(field.value)}
+                      onChange={(value) => field.onChange(Number(value))}
+                    />
                   )}
                 />
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={15}
+                    step={5}
+                    aria-label="Durée en minutes"
+                    {...register('duration', { valueAsNumber: true })}
+                    className="w-24 text-center"
+                  />
+                  <span className="text-base text-muted-foreground">min</span>
+                </div>
               </div>
-            </div>
+            </Field>
 
-            {/* Reason */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Motif</label>
-              <textarea {...register('reason')} rows={2} className={`${inputClass} resize-none`} placeholder="Motif de la consultation..." />
-            </div>
+            <Field label="Lieu">
+              <Controller
+                control={control}
+                name="type"
+                render={({ field }) => (
+                  <SegmentedControl label="Lieu" options={TYPES} value={field.value} onChange={field.onChange} />
+                )}
+              />
+            </Field>
+
+            <Field label="Motif">
+              <Textarea {...register('reason')} rows={2} className="min-h-20" placeholder="Bilan, suivi…" />
+            </Field>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Annuler
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : isEdit ? 'Enregistrer' : 'Creer'}
+                {isPending && <Loader2 className="animate-spin" aria-hidden />}
+                {isEdit ? 'Enregistrer les modifications' : 'Prendre le rendez-vous'}
               </Button>
             </DialogFooter>
           </form>

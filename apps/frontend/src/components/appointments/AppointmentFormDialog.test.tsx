@@ -58,7 +58,7 @@ describe('AppointmentFormDialog: « Nouveau patient » from the agenda', () => {
     });
     expect(screen.getAllByRole('combobox')[0]).toHaveTextContent('Claire Martin');
 
-    click('Creer');
+    click('Prendre le rendez-vous');
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith(
         '/appointments',
@@ -70,8 +70,8 @@ describe('AppointmentFormDialog: « Nouveau patient » from the agenda', () => {
 
   it('offers it from the patient search, with the name typed there', async () => {
     renderWithProviders(<AppointmentFormDialog open onOpenChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('Selectionner un patient...'));
-    fireEvent.change(await screen.findByPlaceholderText('Rechercher un patient...'), {
+    fireEvent.click(screen.getByText('Choisir un patient'));
+    fireEvent.change(await screen.findByPlaceholderText('Rechercher un patient…'), {
       target: { value: 'Marie Dupont' },
     });
     fireEvent.click(await screen.findByText('Nouveau patient : Marie Dupont'));

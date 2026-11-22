@@ -235,8 +235,20 @@ export class PatientFileController {
     return this.gpReports.findOne(user, patientId, id);
   }
 
+  @Get('gp-reports/:id/document')
+  @Audited({ action: AuditAction.EXPORT, entity: 'gp_report', patientId: 'param:patientId' })
+  @ApiOperation({ summary: 'Un compte rendu avec le papier à en-tête du cabinet, pour en faire le PDF' })
+  gpReportDocument(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Param('id', uuid) id: string,
+  ) {
+    return this.gpReports.document(user, patientId, id);
+  }
+
   @Post('gp-reports')
   @Audited({ action: AuditAction.CREATE, entity: 'gp_report', patientId: 'param:patientId', entityId: 'result:id' })
+  @ApiOperation({ summary: 'Rédiger un compte rendu (sans texte : pré-rempli à partir du dossier)' })
   createGpReport(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
@@ -255,6 +267,17 @@ export class PatientFileController {
     @Body() dto: UpdateGpReportDto,
   ) {
     return this.gpReports.update(user, patientId, id, dto);
+  }
+
+  @Post('gp-reports/:id/regenerate')
+  @Audited({ action: AuditAction.UPDATE, entity: 'gp_report', patientId: 'param:patientId' })
+  @ApiOperation({ summary: 'Régénérer un brouillon à partir du dossier (remplace son texte)' })
+  regenerateGpReport(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Param('id', uuid) id: string,
+  ) {
+    return this.gpReports.regenerate(user, patientId, id);
   }
 
   @Delete('gp-reports/:id')

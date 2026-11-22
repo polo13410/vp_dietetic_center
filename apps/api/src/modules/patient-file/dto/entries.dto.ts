@@ -101,10 +101,11 @@ export class CreateGpReportDto {
   @IsDateString()
   date?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Pre-filled from the file when left out' })
+  @IsOptional()
   @IsString()
   @MaxLength(50000)
-  content: string;
+  content?: string;
 }
 
 export class UpdateGpReportDto extends PartialType(CreateGpReportDto) {

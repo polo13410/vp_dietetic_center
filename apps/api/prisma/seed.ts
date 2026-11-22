@@ -1,5 +1,6 @@
 /*
- * Local demo data: three accounts, the practitioner's two formulas and five patients with
+ * Local demo data: three accounts, the practitioner's practice (printed on invoices) and two
+ * formulas (Bilan 60 €, Suivi 50 €), and five patients with
  * realistic follow-ups (sessions, weights, medical file with its history, life events).
  * Martine Roux is the test case of docs/REFONTE.md § 3.1: woman, 56, 1.59 m, 79 → 78.2 →
  * 76.5 kg (BMI 31.25, BMR 5.86 / 5.83 / 5.77 MJ, 1 400.3 / 1 393.5 / 1 378.9 kcal).
@@ -69,7 +70,11 @@ type SessionSeed = {
   events?: { daysAgo: number; title: string; category?: LifeEventCategory }[];
 };
 
-async function upsertUser(email: string, password: string, data: { firstName: string; lastName: string; role: UserRole }) {
+async function upsertUser(
+  email: string,
+  password: string,
+  data: { firstName: string; lastName: string; role: UserRole; phone?: string },
+) {
   return prisma.user.upsert({
     where: { email },
     update: {},
@@ -85,6 +90,25 @@ async function upsertFormulas(practitionerId: string): Promise<Formulas> {
     return (await prisma.formula.create({ data: { practitionerId, label, priceCents, position } })).id;
   };
   return { bilan: await upsert('Bilan', 6000, 0), suivi: await upsert('Suivi', 5000, 1) };
+}
+
+/** Her practice, as printed on her invoices (fictitious numbers that pass the checks). */
+async function upsertPractice(userId: string) {
+  const practice = {
+    practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+    address: '12 rue des Oliviers',
+    zipCode: '13100',
+    city: 'Aix-en-Provence',
+    siret: '91234567800011',
+    adeliRpps: '139512345',
+    vatMention: 'TVA non applicable, article 261-4-1° du CGI',
+    invoiceFooter: 'Règlement à réception. Merci de votre confiance.',
+  };
+  await prisma.practitionerProfile.upsert({
+    where: { userId },
+    update: {},
+    create: { userId, ...practice },
+  });
 }
 
 /** Removes the demo patients and everything attached to them. */
@@ -181,6 +205,7 @@ async function main() {
     firstName: 'Valérie',
     lastName: 'Perrot',
     role: UserRole.PRATICIENNE,
+    phone: '06 12 34 56 78',
   });
   await upsertUser('assistante@vp-dietetic.fr', 'Assist1234!', {
     firstName: 'Sophie',
@@ -188,7 +213,8 @@ async function main() {
     role: UserRole.ASSISTANTE,
   });
   const formulas = await upsertFormulas(pract.id);
-  console.log('✅ Users and formulas');
+  await upsertPractice(pract.id);
+  console.log('✅ Users, practice and formulas');
 
   // ── Patients ────────────────────────────────────────────────────────────────
   await resetDemoPatients();

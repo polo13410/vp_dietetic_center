@@ -18,9 +18,11 @@ describe('EmptyState', () => {
     expect(screen.getByRole('button', { name: 'Démarrer le bilan' })).toBeInTheDocument();
   });
 
-  it('shows the pear mascot as illustration', () => {
-    render(<EmptyState title="Rien ici" illustration="pear" />);
-    expect(screen.getByTestId('pear-mascot')).toBeInTheDocument();
+  it.each(['pear', 'pear-calm'] as const)('shows the official logo for %s', (illustration) => {
+    render(<EmptyState title="Rien ici" illustration={illustration} />);
+    expect(screen.getByTestId('pear-mascot')).toHaveAttribute('src', '/logo_small.png');
+    expect(screen.getByTestId('pear-mascot')).toHaveClass('h-24');
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
   it('shows a coloured icon otherwise', () => {

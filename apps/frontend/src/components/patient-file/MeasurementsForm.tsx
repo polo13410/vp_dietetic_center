@@ -1,44 +1,33 @@
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
 import api from '../../lib/api';
-import { METRIC_TYPES, METRICS, type MetricType, useInvalidatePatientFile } from '../../lib/patient-file';
+import { METRICS, type MetricType, useInvalidatePatientFile } from '../../lib/patient-file';
 import { todayISO } from '../../lib/utils';
 import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { toast } from '../ui/toaster';
 
-/** The measurements taken at most sessions; the others are one click away. */
-const COMMON: MetricType[] = ['WEIGHT', 'WAIST'];
-
 /**
- * Enter several measurements at once. Inside a session they are dated with the session;
- * otherwise the date can be chosen (e.g. a weight the patient sent by email).
+ * Enter several measurements at once, outside a séance, on a chosen date (e.g. a weight the patient
+ * sent by email). In a séance, each measurement is its own autosaved field.
  */
 export function MeasurementsForm({
   patientId,
-  consultationId,
-  needsHeight,
   types,
   onSaved,
 }: {
   patientId: string;
-  consultationId?: string;
-  /** No height on file yet: ask for it (BMI needs it). */
-  needsHeight?: boolean;
-  /** The measurements offered (all of them, without the « Autres mesures » link) */
-  types?: MetricType[];
+  /** The measurements offered */
+  types: MetricType[];
   onSaved?: () => void;
 }) {
   const invalidate = useInvalidatePatientFile();
   const [values, setValues] = useState<Partial<Record<MetricType, string>>>({});
-  const [showAll, setShowAll] = useState(false);
   const [date, setDate] = useState(todayISO);
   const [saving, setSaving] = useState(false);
 
-  const shown =
-    types ?? (showAll ? METRIC_TYPES : [...(needsHeight ? (['HEIGHT'] as MetricType[]) : []), ...COMMON]);
   const filled = (Object.entries(values) as [MetricType, string][]).filter(([, v]) => v.trim() !== '');
 
   const save = async () => {
@@ -49,8 +38,7 @@ export function MeasurementsForm({
         await api.post(`/patients/${patientId}/measurements`, {
           type,
           value: Number(raw.replace(',', '.')),
-          consultationId,
-          measuredAt: consultationId ? undefined : date,
+          measuredAt: date,
         });
       }
       toast({ title: filled.length > 1 ? `${filled.length} mesures enregistrées` : 'Mesure enregistrée' });
@@ -70,13 +58,11 @@ export function MeasurementsForm({
 
   return (
     <div className="space-y-4">
-      {!consultationId && (
-        <Field label="Date" className="max-w-[14rem]">
-          <Input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />
-        </Field>
-      )}
+      <Field label="Date" className="max-w-[14rem]">
+        <Input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />
+      </Field>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {shown.map((type) => {
+        {types.map((type) => {
           const meta = METRICS[type];
           return (
             <Field key={type} label={`${meta.label} (${meta.unit})`}>
@@ -90,14 +76,7 @@ export function MeasurementsForm({
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {!types && !showAll ? (
-          <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>
-            <Plus aria-hidden /> Autres mesures
-          </Button>
-        ) : (
-          <span />
-        )}
+      <div className="flex justify-end">
         <Button onClick={save} disabled={saving || filled.length === 0}>
           {saving && <Loader2 className="animate-spin" aria-hidden />}
           Enregistrer {filled.length > 1 ? `les ${filled.length} mesures` : 'la mesure'}

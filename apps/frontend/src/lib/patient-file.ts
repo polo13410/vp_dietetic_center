@@ -148,7 +148,6 @@ export const METRICS: Record<MetricType, { label: string; unit: string; step: nu
   BODY_FAT: { label: 'Masse grasse', unit: '%', step: 0.1 },
   MUSCLE_MASS: { label: 'Masse musculaire', unit: 'kg', step: 0.1 },
 };
-export const METRIC_TYPES = Object.keys(METRICS) as MetricType[];
 
 /** Sections of the medical file, with her labels, in her order. */
 export const FILE_FIELDS: Record<FileField, string> = {

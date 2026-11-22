@@ -1,13 +1,13 @@
 # VP Dietetic Center
 
-Application métier pour psycho-nutritionniste — gestion patients, rendez-vous, notes cliniques, suivi nutritionnel.
+Application métier pour diététicienne / psycho-nutritionniste : dossier patient (mesures, IMC, thèmes, objectifs, séances), rendez-vous, documents, journal d'accès.
 
 ## Architecture
 
 - **Frontend** : React 19 + Vite + TypeScript + TanStack Query + React Hook Form + Recharts
 - **Backend** : NestJS + Node.js 24 + TypeScript + Prisma
 - **Base de données** : PostgreSQL 15
-- **Déploiement** : Google Cloud (Cloud Run + Cloud SQL + Cloud Storage)
+- **Déploiement** : Google Cloud, région Paris (Firebase Hosting + Cloud Run + Cloud SQL + Cloud Storage)
 - **IaC** : Terraform
 - **CI/CD** : GitHub Actions
 
@@ -19,8 +19,8 @@ Voir [docs/PLAN.md](docs/PLAN.md) pour l'architecture complète et la roadmap.
 
 ### Prérequis
 
-- Node.js >= 20
-- pnpm >= 9 (`npm install -g pnpm`)
+- Node.js 24
+- pnpm 10 (`corepack enable`, la version vient de `packageManager` dans `package.json`)
 - Docker + Docker Compose
 
 ### Installation
@@ -36,8 +36,8 @@ cp apps/frontend/.env.example apps/frontend/.env
 # 3. Démarrer PostgreSQL + Mailpit
 docker compose up -d postgres mailpit
 
-# 4. Créer la migration initiale puis seeder la base
-pnpm db:migrate:init
+# 4. Appliquer les migrations puis seeder la base
+pnpm db:migrate
 pnpm db:seed
 
 # 5. Démarrer en mode développement
@@ -51,7 +51,7 @@ L'application sera disponible sur :
 - Swagger : http://localhost:3000/api/docs
 - Mailpit : http://localhost:8026
 
-### Comptes de démonstration
+### Comptes de démonstration (local uniquement)
 
 | Email                      | Mot de passe | Rôle        |
 | -------------------------- | ------------ | ----------- |
@@ -71,8 +71,7 @@ pnpm lint         # Linter tout le code
 pnpm typecheck    # Vérifier les types TypeScript
 
 pnpm db:generate      # Générer le client Prisma
-pnpm db:migrate:init  # Créer la migration initiale (premier lancement)
-pnpm db:migrate       # Appliquer les migrations suivantes
+pnpm db:migrate       # Appliquer les migrations (et en créer une après un changement du schéma)
 pnpm db:seed          # Seeder la base de données
 pnpm db:studio    # Ouvrir Prisma Studio
 
@@ -94,6 +93,8 @@ vp_dietetic_center/
 │   ├── types/        # Types TypeScript partagés
 │   └── config/       # Configs ESLint, Prettier, TypeScript
 ├── infra/
+│   ├── bootstrap/    # Amorçage du projet GCP (APIs, secrets, comptes de service)
+│   ├── budget-cutoff/ # Coupure automatique si le budget est dépassé
 │   └── terraform/    # Infrastructure Google Cloud
 ├── docs/
 │   └── PLAN.md       # Plan directeur du projet
@@ -114,8 +115,9 @@ vp_dietetic_center/
 
 ## Contribution
 
-1. Créer une branche `feature/ma-fonctionnalite` depuis `develop`
-2. Suivre les conventions [Conventional Commits](https://www.conventionalcommits.org/)
-3. Ouvrir une PR vers `develop`
-4. La PR doit passer CI (lint + typecheck + tests + build)
-5. Review requise avant merge
+1. Créer une branche `feat/ma-fonctionnalite` (ou `fix/…`, `chore/…`, `docs/…`) depuis `staging`
+2. Suivre les conventions [Conventional Commits](https://www.conventionalcommits.org/), en minuscules
+3. Ouvrir une PR vers `staging` : la CI doit passer (lint + typecheck + tests + build)
+4. Le merge dans `staging` déploie sur staging ; le merge `staging` → `prod` déploie en production (approbation requise)
+
+Détails dans [docs/PLAN.md](docs/PLAN.md).

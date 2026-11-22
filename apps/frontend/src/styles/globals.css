@@ -58,6 +58,7 @@
   --color-brand-teal: #4dbfa8;
   --color-brand-pear: #d6e87c;
   --color-brand-ink: #1f3a2b;
+  --color-brand-blush: #f2a7a0;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

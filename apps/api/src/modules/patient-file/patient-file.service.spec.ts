@@ -108,6 +108,8 @@ describe('PatientFileService', () => {
     it('flags a report to the GP still to send', async () => {
       const brief = await service.getBrief(user as any, 'p1');
       expect(brief.gpReportToDo).toBe(true);
+      // Any draft counts, even if a later report was sent
+      expect(mockPrisma.gpReport.findFirst.mock.calls[0][0].orderBy[0]).toEqual({ status: 'asc' });
     });
   });
 

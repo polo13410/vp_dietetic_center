@@ -129,6 +129,81 @@ export interface UpdateUserDto {
   isActive?: boolean;
 }
 
+// ─── Settings (the signed-in user) ─────────────────────────────────────────────
+
+/** Appearance: LIGHT, DARK, or SYSTEM (follows the device). */
+export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM';
+
+/** GET /me */
+export interface MeDto {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  role: UserRole;
+  /** False for an account that only signs in with Google */
+  hasPassword: boolean;
+  googleLinked: boolean;
+  theme: Theme;
+}
+
+/** PATCH /me */
+export interface UpdateMeDto {
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+  theme?: Theme;
+}
+
+/** GET/PATCH /me/practice: printed on the invoices. Empty fields are null. */
+export interface PracticeDto {
+  practiceName: string | null;
+  address: string | null;
+  zipCode: string | null;
+  city: string | null;
+  /** 14 digits */
+  siret: string | null;
+  /** ADELI (9 digits) or RPPS (11 digits) */
+  adeliRpps: string | null;
+  vatMention: string | null;
+  invoiceFooter: string | null;
+}
+
+/** GET /me/formulas: offered ones first (in her order), then archived ones. */
+export interface FormulaDto {
+  id: string;
+  label: string;
+  /** Null: price still to fill in */
+  priceCents: number | null;
+  position: number;
+  /** Set: no longer offered for new sessions */
+  archivedAt: string | null;
+}
+
+export interface CreateFormulaDto {
+  label: string;
+  priceCents?: number | null;
+}
+
+export interface UpdateFormulaDto {
+  label?: string;
+  priceCents?: number | null;
+  /** false: offer an archived formula again */
+  archived?: boolean;
+}
+
+/** DELETE /me/formulas/:id: a formula used by sessions is archived instead of deleted. */
+export interface RemoveFormulaResult {
+  deleted: boolean;
+  formula: FormulaDto | null;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
 // ─── Patient ──────────────────────────────────────────────────────────────────
 
 export type BmiCategory = 'UNDERWEIGHT' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY' | 'MASSIVE_OBESITY';

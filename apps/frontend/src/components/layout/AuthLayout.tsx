@@ -1,17 +1,63 @@
+import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
 
+/** Signed-out pages: the logo and one centred card. */
 export function AuthLayout() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src="/logo_full_transparent.png" alt="VP Dietetic Center" className="h-16 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground mt-1">Espace praticienne</p>
+        <div className="mb-8 text-center">
+          <img src="/logo_full_transparent.png" alt="VP Dietetic Center" className="mx-auto h-20" />
+          <p className="mt-2 text-base text-muted-foreground">Espace praticienne</p>
         </div>
-        <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
+        <div className="rounded-xl border bg-card p-6 text-card-foreground shadow-sm sm:p-8">
           <Outlet />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Title and one-sentence explanation at the top of a signed-out card. */
+export function AuthTitle({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="mb-6 space-y-1">
+      <h1 className="text-xl font-semibold">{title}</h1>
+      {children && <p className="text-base text-muted-foreground">{children}</p>}
+    </div>
+  );
+}
+
+/** What went wrong, and how to fix it, above the form's button. */
+export function AuthError({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className="rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-base text-danger">
+      {children}
+    </p>
+  );
+}
+
+/** The end of a signed-out flow: an icon, what happened, and where to go next. */
+export function AuthDone({
+  icon: Icon,
+  title,
+  children,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+  action: ReactNode;
+}) {
+  return (
+    <div className="space-y-4 text-center">
+      <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-success-soft text-success" aria-hidden>
+        <Icon className="size-7" />
+      </span>
+      <h1 className="text-xl font-semibold">{title}</h1>
+      <p className="text-base text-muted-foreground">{children}</p>
+      {action}
     </div>
   );
 }

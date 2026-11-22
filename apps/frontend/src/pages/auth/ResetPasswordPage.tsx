@@ -1,20 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { z } from 'zod';
 
+import { AuthDone, AuthError, AuthTitle } from '../../components/layout/AuthLayout';
+import { Field } from '../../components/shared/Field';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import api from '../../lib/api';
 
 const schema = z
   .object({
-    password: z.string().min(8, 'Minimum 8 caractères'),
+    password: z.string().min(8, 'Choisissez au moins 8 caractères.'),
     confirm: z.string(),
   })
   .refine((d) => d.password === d.confirm, {
-    message: 'Les mots de passe ne correspondent pas',
+    message: 'Les deux mots de passe ne sont pas identiques.',
     path: ['confirm'],
   });
 
@@ -42,59 +45,47 @@ export default function ResetPasswordPage() {
       await api.post('/auth/reset-password', { token, password: data.password });
       setDone(true);
     } catch {
-      setError('root', { message: 'Lien invalide ou expiré. Faites une nouvelle demande.' });
+      setError('root', { message: 'Ce lien n’est plus valable. Demandez-en un nouveau.' });
     }
   };
 
   if (done) {
     return (
-      <div className="text-center">
-        <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-6 h-6 text-green-500" />
-        </div>
-        <h2 className="text-lg font-semibold mb-2">Mot de passe mis à jour</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
-        </p>
-        <Link to="/login" className="text-sm text-primary hover:underline">
-          Se connecter
-        </Link>
-      </div>
+      <AuthDone
+        icon={CheckCircle2}
+        title="Mot de passe changé"
+        action={
+          <Button asChild className="w-full">
+            <Link to="/login">Se connecter</Link>
+          </Button>
+        }
+      >
+        Vous pouvez vous connecter avec votre nouveau mot de passe.
+      </AuthDone>
     );
   }
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-1">Nouveau mot de passe</h2>
-      <p className="text-sm text-muted-foreground mb-6">Choisissez un mot de passe sécurisé.</p>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Nouveau mot de passe</label>
-          <input
-            type="password"
-            {...register('password')}
-            className="w-full px-3 py-2 text-sm border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-          {errors.password && (
-            <p className="text-xs text-destructive mt-1">{errors.password.message}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Confirmer le mot de passe</label>
-          <input
-            type="password"
-            {...register('confirm')}
-            className="w-full px-3 py-2 text-sm border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-          {errors.confirm && (
-            <p className="text-xs text-destructive mt-1">{errors.confirm.message}</p>
-          )}
-        </div>
+      <AuthTitle title="Nouveau mot de passe">Au moins 8 caractères, que vous n’utilisez pas ailleurs.</AuthTitle>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        <Field label="Nouveau mot de passe" error={errors.password?.message}>
+          <Input type="password" autoComplete="new-password" {...register('password')} />
+        </Field>
+        <Field label="Confirmez le mot de passe" error={errors.confirm?.message}>
+          <Input type="password" autoComplete="new-password" {...register('confirm')} />
+        </Field>
         {errors.root && (
-          <p className="text-xs text-destructive">{errors.root.message}</p>
+          <AuthError>
+            {errors.root.message}{' '}
+            <Link to="/forgot-password" className="font-medium underline">
+              Demander un lien
+            </Link>
+          </AuthError>
         )}
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Mettre à jour'}
+          {isSubmitting && <Loader2 className="animate-spin" aria-hidden />}
+          Changer le mot de passe
         </Button>
       </form>
     </div>

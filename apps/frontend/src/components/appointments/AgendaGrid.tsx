@@ -1,6 +1,6 @@
 import { format, isSameDay, isToday } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { CheckCircle2, PenLine, Phone, Video } from 'lucide-react';
+import { CheckCircle2, Phone, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -14,7 +14,7 @@ export interface AgendaAppointment {
   status: string;
   reason?: string | null;
   patient?: { id: string; firstName: string; lastName: string };
-  consultation?: { id: string; status: 'DRAFT' | 'FINALIZED' } | null;
+  consultation?: { id: string } | null;
 }
 
 const HOUR_PX = 56;
@@ -144,8 +144,7 @@ function AppointmentBlock({ appt, startHour }: { appt: AgendaAppointment; startH
       <div className="flex items-center gap-1">
         <span className="font-semibold tabular-nums">{format(start, 'HH:mm')}</span>
         {TypeIcon && <TypeIcon className="h-3 w-3 opacity-70" />}
-        {appt.consultation?.status === 'FINALIZED' && <CheckCircle2 className="ml-auto h-3 w-3" />}
-        {appt.consultation?.status === 'DRAFT' && <PenLine className="ml-auto h-3 w-3" />}
+        {appt.consultation && <CheckCircle2 className="ml-auto h-3 w-3" />}
       </div>
       <p className="truncate font-medium">
         {appt.patient?.firstName} {appt.patient?.lastName}

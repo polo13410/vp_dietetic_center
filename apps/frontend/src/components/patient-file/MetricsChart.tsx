@@ -53,14 +53,11 @@ export function MetricsChart({ measurements, events }: { measurements: Measureme
   }
 
   const unit = series === 'BMI' ? '' : METRICS[series].unit;
-  const scale = series !== 'BMI' && METRICS[series].scale;
   const values = data.map((d) => d.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const pad = Math.max((max - min) * 0.2, scale ? 1 : 1);
-  const domain: [number, number] = scale
-    ? [0, 10]
-    : [Math.floor(min - pad), Math.ceil(max + pad)];
+  const pad = Math.max((max - min) * 0.2, 1);
+  const domain: [number, number] = [Math.floor(min - pad), Math.ceil(max + pad)];
   const first = data[0]?.t ?? 0;
   const last = data[data.length - 1]?.t ?? 0;
   const visibleEvents = events.filter((e) => {
@@ -111,7 +108,7 @@ export function MetricsChart({ measurements, events }: { measurements: Measureme
               tick={{ fontSize: 11 }}
               className="text-muted-foreground"
             />
-            <YAxis domain={domain} tick={{ fontSize: 11 }} unit={unit && !scale ? ` ${unit}` : ''} width={64} />
+            <YAxis domain={domain} tick={{ fontSize: 11 }} unit={unit ? ` ${unit}` : ''} width={64} />
             <Tooltip
               labelFormatter={(t) => formatDate(new Date(Number(t)))}
               formatter={(v) => [`${Number(v).toLocaleString('fr-FR')}${unit ? ` ${unit}` : ''}`, series === 'BMI' ? 'IMC' : METRICS[series].label]}
@@ -144,7 +141,7 @@ export function MetricsChart({ measurements, events }: { measurements: Measureme
           {visibleEvents.map((e) => (
             <li key={e.id}>
               <span className="text-purple-500">◆</span> {formatDate(e.date)} · {e.title}{' '}
-              <span className="opacity-70">({EVENT_CATEGORIES[e.category]})</span>
+              {e.category && <span className="opacity-70">({EVENT_CATEGORIES[e.category]})</span>}
             </li>
           ))}
         </ul>

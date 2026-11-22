@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { patientRef } from './audit';
-import { formatDelta, formatMetric } from './patient-file';
+import { formatDelta, formatMetric, sessionName } from './patient-file';
 import { homePathFor } from './roles';
 import { formatDate, todayISO } from './utils';
 
 describe('measurement formatting', () => {
-  it('shows units, and scales out of 10', () => {
+  it('shows units', () => {
     expect(formatMetric('WEIGHT', 72.45)).toBe('72,5 kg');
-    expect(formatMetric('ENERGY', 7)).toBe('7/10');
+    expect(formatMetric('BODY_FAT', 21)).toBe('21 %');
+  });
+});
+
+describe('sessions', () => {
+  it('names the first session « Bilan », then « Suivi n »', () => {
+    expect(sessionName(0)).toBe('Bilan');
+    expect(sessionName(3)).toBe('Suivi 3');
   });
 
   it('shows the change with its sign, or = when unchanged', () => {

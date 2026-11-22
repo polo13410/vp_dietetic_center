@@ -8,8 +8,7 @@ import {
   Flag,
   History,
   Sparkles,
-  Target,
-  Utensils,
+  Stethoscope,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -17,11 +16,10 @@ import {
   type Brief,
   EVENT_CATEGORIES,
   formatDelta,
+  FILE_FIELDS,
   formatMetric,
-  GOAL_STATUSES,
   METRICS,
   type MetricSummary,
-  TOPICS,
   usePatientBrief,
 } from '../../lib/patient-file';
 import { cn, formatDate, formatDateTime } from '../../lib/utils';
@@ -32,7 +30,7 @@ import { BmiBadge } from './BmiBadge';
 
 /**
  * What to know before seeing the patient: alerts, why they came, how the last session went,
- * how their measurements moved, the goals to review and what happened in their life since.
+ * how their measurements moved, their medical file and what happened in their life since.
  */
 export function PatientBrief({ patientId, compact }: { patientId: string; compact?: boolean }) {
   const { data: brief, isLoading } = usePatientBrief(patientId);
@@ -45,12 +43,11 @@ export function PatientBrief({ patientId, compact }: { patientId: string; compac
         <Alerts brief={brief} />
         <FollowUp brief={brief} />
         <LastSession brief={brief} />
-        <OpenGoals brief={brief} />
       </div>
       <div className="space-y-4">
         <Measurements brief={brief} />
         <RecentEvents brief={brief} />
-        <CurrentTopics brief={brief} />
+        <MedicalFile brief={brief} />
         <OpenTasks brief={brief} />
       </div>
     </div>
@@ -77,26 +74,14 @@ function Empty({ children }: { children: ReactNode }) {
 }
 
 function Alerts({ brief }: { brief: Brief }) {
-  const { allergies, dietaryRestrictions } = brief.patient;
-  if (!allergies && !dietaryRestrictions) return null;
+  const allergies = brief.file.find((s) => s.field === 'ALLERGIES')?.current?.content;
+  if (!allergies) return null;
   return (
-    <div className="space-y-2">
-      {allergies && (
-        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            <strong>Allergies :</strong> {allergies}
-          </span>
-        </div>
-      )}
-      {dietaryRestrictions && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-          <Utensils className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            <strong>Régime :</strong> {dietaryRestrictions}
-          </span>
-        </div>
-      )}
+    <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        <strong>Allergies :</strong> {allergies}
+      </span>
     </div>
   );
 }
@@ -141,7 +126,8 @@ function LastSession({ brief }: { brief: Brief }) {
         <Empty>Première séance : rien d’enregistré pour l’instant.</Empty>
       ) : (
         <div className="space-y-3 text-sm">
-          {last.summary && <p className="whitespace-pre-line">{last.summary}</p>}
+          {last.habits && <p className="whitespace-pre-line">{last.habits}</p>}
+          {last.sessionWork && <p className="whitespace-pre-line">{last.sessionWork}</p>}
           {last.advice && (
             <div className="rounded-lg bg-muted/60 px-3 py-2">
               <p className="text-xs font-medium text-muted-foreground mb-0.5">Conseils donnés</p>
@@ -149,34 +135,6 @@ function LastSession({ brief }: { brief: Brief }) {
             </div>
           )}
         </div>
-      )}
-    </Section>
-  );
-}
-
-function OpenGoals({ brief }: { brief: Brief }) {
-  return (
-    <Section icon={<Target />} title="Objectifs à revoir">
-      {brief.openGoals.length === 0 ? (
-        <Empty>Aucun objectif en cours.</Empty>
-      ) : (
-        <ul className="space-y-2">
-          {brief.openGoals.map((goal) => {
-            const last = goal.reviews[0];
-            const status = GOAL_STATUSES[goal.status];
-            return (
-              <li key={goal.id} className="flex items-start justify-between gap-3 text-sm">
-                <div>
-                  <p>{goal.title}</p>
-                  {last?.comment && <p className="text-xs text-muted-foreground">« {last.comment} »</p>}
-                </div>
-                <Badge variant="outline" className={cn(status.className, 'shrink-0')}>
-                  {status.label}
-                </Badge>
-              </li>
-            );
-          })}
-        </ul>
       )}
     </Section>
   );
@@ -196,7 +154,7 @@ function Delta({ metric, from, label }: { metric: MetricSummary; from: { value: 
 }
 
 function Measurements({ brief }: { brief: Brief }) {
-  const { metrics, bmi } = brief;
+  const { metrics, bmi, bmr } = brief;
   return (
     <Section
       icon={<Sparkles />}
@@ -207,6 +165,11 @@ function Measurements({ brief }: { brief: Brief }) {
         <Empty>Aucune mesure pour l’instant.</Empty>
       ) : (
         <div className="grid grid-cols-2 gap-2">
+          {bmr && (
+            <p className="col-span-2 text-xs text-muted-foreground">
+              MB : {bmr.mj.toLocaleString('fr-FR')} MJ · {bmr.kcal.toLocaleString('fr-FR')} kcal par jour
+            </p>
+          )}
           {bmi.current && bmi.atStart && bmi.current.value !== bmi.atStart.value && (
             <div className="col-span-2 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs">
               <span className="text-muted-foreground">IMC au début du suivi</span>
@@ -248,10 +211,11 @@ function RecentEvents({ brief }: { brief: Brief }) {
                 <span className="w-20 shrink-0 text-xs text-muted-foreground pt-0.5">{formatDate(event.date)}</span>
                 <div className="flex-1">
                   <p>
-                    {event.title}{' '}
-                    <span className="text-xs text-muted-foreground">· {EVENT_CATEGORIES[event.category]}</span>
+                    {event.title}
+                    {event.category && (
+                      <span className="text-xs text-muted-foreground"> · {EVENT_CATEGORIES[event.category]}</span>
+                    )}
                   </p>
-                  {event.description && <p className="text-xs text-muted-foreground">{event.description}</p>}
                 </div>
                 {isNew && lastDate && (
                   <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
@@ -267,19 +231,20 @@ function RecentEvents({ brief }: { brief: Brief }) {
   );
 }
 
-function CurrentTopics({ brief }: { brief: Brief }) {
+function MedicalFile({ brief }: { brief: Brief }) {
+  const filled = brief.file.filter((s) => s.current?.content);
   return (
-    <Section icon={<Utensils />} title="Situation actuelle">
-      {brief.topics.length === 0 ? (
-        <Empty>Aucune thématique renseignée.</Empty>
+    <Section icon={<Stethoscope />} title="Dossier médical">
+      {filled.length === 0 ? (
+        <Empty>Dossier médical vide.</Empty>
       ) : (
         <dl className="space-y-2">
-          {brief.topics.map((note) => (
-            <div key={note.id} className="text-sm">
+          {filled.map(({ field, current }) => (
+            <div key={field} className="text-sm">
               <dt className="text-xs font-medium text-muted-foreground">
-                {TOPICS[note.topic].label} · {formatDate(note.createdAt)}
+                {FILE_FIELDS[field]} · {formatDate(current!.date)}
               </dt>
-              <dd className="whitespace-pre-line">{note.content}</dd>
+              <dd className="whitespace-pre-line">{current!.content}</dd>
             </div>
           ))}
         </dl>

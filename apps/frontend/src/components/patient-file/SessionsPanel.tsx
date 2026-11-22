@@ -1,14 +1,13 @@
 import { ChevronRight, Play } from 'lucide-react';
 import { Link } from 'react-router';
 
-import { useConsultations } from '../../lib/patient-file';
+import { PAYMENT_METHODS, sessionName, useConsultations } from '../../lib/patient-file';
 import { formatDate } from '../../lib/utils';
-import { StatusBadge } from '../shared/StatusBadge';
 import { Button } from '../ui/button';
 
 import { useStartSession } from './useStartSession';
 
-/** The patient's sessions, newest first, with what was recorded in each. */
+/** The patient's sessions, newest first: her follow-up sheet, with the computed figures. */
 export function SessionsPanel({ patientId }: { patientId: string }) {
   const { data: sessions = [] } = useConsultations(patientId);
   const start = useStartSession(patientId);
@@ -30,27 +29,30 @@ export function SessionsPanel({ patientId }: { patientId: string }) {
       ) : (
         <div className="space-y-2">
           {sessions.map((s) => {
-            const counts = s._count;
-            const parts = counts
-              ? [
-                  counts.measurements && `${counts.measurements} mesure${counts.measurements > 1 ? 's' : ''}`,
-                  counts.topicNotes && `${counts.topicNotes} thématique${counts.topicNotes > 1 ? 's' : ''}`,
-                  counts.lifeEvents && `${counts.lifeEvents} événement${counts.lifeEvents > 1 ? 's' : ''}`,
-                  counts.goals && `${counts.goals} objectif${counts.goals > 1 ? 's' : ''}`,
-                ].filter(Boolean)
-              : [];
+            const { weight, bmi, bmr } = s.figures;
+            const parts = [
+              s.formulaLabel,
+              PAYMENT_METHODS[s.paymentMethod],
+              weight !== null && `${weight.toLocaleString('fr-FR')} kg`,
+              bmi && `IMC ${bmi.value.toLocaleString('fr-FR')}`,
+              bmr && `MB ${bmr.mj.toLocaleString('fr-FR')} MJ · ${bmr.kcal.toLocaleString('fr-FR')} kcal`,
+            ].filter(Boolean);
             return (
               <Link
                 key={s.id}
                 to={`/consultations/${s.id}`}
                 className="flex items-center gap-4 bg-card rounded-lg border border-border p-3 hover:border-primary/30 transition-colors"
               >
-                <div className="w-20 shrink-0 text-sm font-medium">{formatDate(s.date)}</div>
+                <div className="w-20 shrink-0 text-sm">
+                  <p className="font-medium">{sessionName(s.sequence)}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(s.date)}</p>
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{s.summary || <span className="text-muted-foreground">Sans résumé</span>}</p>
+                  <p className="text-sm truncate">
+                    {s.sessionWork || <span className="text-muted-foreground">Rien d’écrit</span>}
+                  </p>
                   {parts.length > 0 && <p className="text-xs text-muted-foreground">{parts.join(' · ')}</p>}
                 </div>
-                <StatusBadge status={s.status} />
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
             );

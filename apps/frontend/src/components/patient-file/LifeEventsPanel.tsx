@@ -26,19 +26,17 @@ export function LifeEventForm({
 }) {
   const [date, setDate] = useState(todayISO);
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<LifeEventCategory>('OTHER');
-  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<LifeEventCategory | ''>('');
   const create = usePatientFileMutation(patientId, () => ({
     method: 'post',
     url: `/patients/${patientId}/life-events`,
-    body: { date, title, category, description: description || undefined, consultationId },
+    body: { date, title, category: category || undefined, consultationId },
   }));
 
   const submit = () =>
     create.mutate(undefined, {
       onSuccess: () => {
         setTitle('');
-        setDescription('');
         toast({ title: 'Événement ajouté' });
         onDone?.();
       },
@@ -58,21 +56,16 @@ export function LifeEventForm({
       <div className="grid grid-cols-[9rem_1fr] gap-2">
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value as LifeEventCategory)}
+          onChange={(e) => setCategory(e.target.value as LifeEventCategory | '')}
           className={fieldClass}
         >
+          <option value="">Sans catégorie</option>
           {(Object.keys(EVENT_CATEGORIES) as LifeEventCategory[]).map((c) => (
             <option key={c} value={c}>
               {EVENT_CATEGORIES[c]}
             </option>
           ))}
         </select>
-        <input
-          placeholder="Détails (facultatif)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className={fieldClass}
-        />
       </div>
       <div className="flex justify-end">
         <Button size="sm" onClick={submit} disabled={!title.trim() || create.isPending}>
@@ -115,19 +108,17 @@ export function LifeEventsPanel({ patientId }: { patientId: string }) {
               <span className="w-20 shrink-0 text-xs text-muted-foreground pt-0.5">{formatDate(e.date)}</span>
               <div className="flex-1">
                 <p>
-                  {e.title} <span className="text-xs text-muted-foreground">· {EVENT_CATEGORIES[e.category]}</span>
+                  {e.title}
+                  {e.category && <span className="text-xs text-muted-foreground"> · {EVENT_CATEGORIES[e.category]}</span>}
                 </p>
-                {e.description && <p className="text-xs text-muted-foreground">{e.description}</p>}
               </div>
-              {!e.consultationId && (
-                <button
-                  onClick={() => remove.mutate(e.id)}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                  title="Supprimer"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button
+                onClick={() => remove.mutate(e.id)}
+                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                title="Supprimer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </li>
           ))}
         </ul>

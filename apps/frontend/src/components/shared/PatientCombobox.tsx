@@ -112,7 +112,7 @@ export function PatientCombobox({
                   className="min-h-11 font-medium text-primary"
                 >
                   <UserPlus className="mr-2 h-4 w-4" />
-                  {search.trim() ? `Nouveau patient : ${search.trim()}` : 'Nouveau patient'}
+                  {search.trim() ? `Nouveau patient : ${search.trim()}` : 'Nouveau patient'}
                 </CommandItem>
               </CommandGroup>
             )}

@@ -136,7 +136,7 @@ export function SituationStep({ value, onChange }: StepProps<SituationDraft>) {
     <div className="grid gap-5 sm:grid-cols-2">
       <TextField
         label="Situation familiale"
-        hint="Par exemple : mariée, deux enfants"
+        hint="Par exemple : mariée, deux enfants"
         value={value.familySituation}
         onChange={set('familySituation')}
         className="sm:col-span-2"
@@ -211,7 +211,7 @@ function SummaryGroup({ title, onEdit, children }: { title: string; onEdit: () =
     <div className="space-y-2 rounded-xl border bg-background p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-lg font-medium">{title}</h3>
-        <Button type="button" variant="ghost" size="sm" onClick={onEdit} aria-label={`Modifier : ${title}`}>
+        <Button type="button" variant="ghost" size="sm" onClick={onEdit} aria-label={`Modifier : ${title}`}>
           Modifier
         </Button>
       </div>
@@ -227,7 +227,7 @@ function Lines({ items }: { items: [string, string][] }) {
     <dl className="space-y-1.5">
       {filled.map(([label, v]) => (
         <div key={label} className="flex flex-wrap gap-x-2">
-          <dt className="text-muted-foreground">{label} :</dt>
+          <dt className="text-muted-foreground">{label} :</dt>
           <dd className="whitespace-pre-line">{v.trim()}</dd>
         </div>
       ))}
@@ -258,20 +258,32 @@ export function SummaryStep({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
         <PearMascot className="h-24 shrink-0" />
         <div className="space-y-1">
           <p className="text-xl font-semibold">Le dossier de {name} est prêt.</p>
           <p className="text-base text-muted-foreground">
             {lacking.length > 0
-              ? `Il manque ${joinFrench(lacking)} pour calculer le MB. Vous pourrez l’ajouter dans le dossier ; le poids se prend au bilan.`
-              : 'Tout est là pour calculer l’IMC et le MB : le poids se prend au bilan.'}
+              ? `Il manque ${joinFrench(lacking)} pour calculer le MB. Vous pourrez l’ajouter dans le dossier. Le poids se prend au bilan.`
+              : 'Tout est là pour calculer l’IMC et le MB. Le poids se prend au bilan.'}
           </p>
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
+            <Button variant="outline" size="lg" asChild>
+              <Link to={`/patients/${patientId}`}>
+                <FolderOpen />
+                Ouvrir le dossier
+              </Link>
+            </Button>
+            <Button size="lg" onClick={onStartSession} disabled={starting}>
+              {starting ? <Loader2 className="animate-spin" /> : <ClipboardPlus />}
+              Démarrer le bilan
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <SummaryGroup title="Qui est-ce ?" onEdit={() => onEdit(0)}>
+        <SummaryGroup title="Qui est‑ce ?" onEdit={() => onEdit(0)}>
           <p className="text-base font-medium">{name}</p>
           {identityLine(identity).map((line) => (
             <p key={line} className="text-base">
@@ -309,18 +321,6 @@ export function SummaryStep({
         </SummaryGroup>
       </div>
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button variant="outline" size="lg" asChild>
-          <Link to={`/patients/${patientId}`}>
-            <FolderOpen />
-            Ouvrir le dossier
-          </Link>
-        </Button>
-        <Button size="lg" onClick={onStartSession} disabled={starting}>
-          {starting ? <Loader2 className="animate-spin" /> : <ClipboardPlus />}
-          Démarrer le bilan
-        </Button>
-      </div>
     </div>
   );
 }

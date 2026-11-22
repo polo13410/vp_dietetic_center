@@ -59,7 +59,7 @@ function OtherPage() {
 const type = (label: RegExp | string, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
-const heading = (name: string) => screen.findByRole('heading', { name });
+const heading = (name: string | RegExp) => screen.findByRole('heading', { name });
 
 async function createClaire() {
   type(/^Prénom/, ' Claire ');
@@ -202,7 +202,7 @@ describe('PatientNewPage (new patient wizard)', () => {
     renderWizard();
     await createClaire();
     click('Retour');
-    await heading('Qui est-ce ?');
+    await heading(/^Qui est.ce/);
     type(/^Prénom/, 'Clara');
     click('Enregistrer et continuer');
     await heading('Le joindre');

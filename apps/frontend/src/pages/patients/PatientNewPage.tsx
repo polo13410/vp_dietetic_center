@@ -56,12 +56,12 @@ const EMPTY: Drafts = {
 };
 
 const STEPS: { label: string; description: string; icon: LucideIcon }[] = [
-  { label: 'Qui est-ce ?', description: 'Le prénom et le nom suffisent pour créer le dossier.', icon: UserRound },
+  { label: 'Qui est‑ce ?', description: 'Le prénom et le nom suffisent pour créer le dossier.', icon: UserRound },
   { label: 'Le joindre', description: 'Pour les rendez-vous et les factures.', icon: Phone },
   { label: 'Sa situation', description: 'Ce qui aide à comprendre son quotidien.', icon: Users },
   {
     label: 'Dossier médical',
-    description: 'Remplissez ce que vous savez déjà : le reste se complète au bilan.',
+    description: 'Remplissez ce que vous savez déjà : le reste se complète au bilan.',
     icon: HeartPulse,
   },
   { label: 'C’est prêt', description: 'Voici ce qui est enregistré.', icon: CircleCheck },
@@ -231,7 +231,7 @@ export default function PatientNewPage() {
         title="Nouveau patient"
         subtitle={
           name
-            ? `Le dossier de ${name} est créé. La suite est facultative : chaque étape peut être passée.`
+            ? `Le dossier de ${name} est créé. La suite est facultative : chaque étape peut être passée.`
             : 'En cinq petites étapes. Seuls le prénom et le nom sont obligatoires.'
         }
         back={{ to: '/patients', label: 'Patients' }}
@@ -261,7 +261,7 @@ export default function PatientNewPage() {
             onStepClick={patientId ? (index) => void leave(index, 'back') : undefined}
           />
           <p className="sr-only" aria-live="polite">
-            {`Étape ${step + 1} sur ${STEPS.length} : ${meta.label}`}
+            {`Étape ${step + 1} sur ${STEPS.length} : ${meta.label}`}
           </p>
 
           <Section icon={meta.icon} area="patients" title={meta.label} description={meta.description}>

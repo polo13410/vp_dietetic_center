@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import { cn, formatTime } from '../../lib/utils';
+import { Card } from '../ui/card';
 
 export interface AgendaAppointment {
   id: string;
@@ -67,7 +68,7 @@ export function AgendaGrid({
   const now = useNow();
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+    <Card className="overflow-x-auto">
       <div className="min-w-[640px]">
         {/* Day headers */}
         <div className="grid border-b border-border" style={{ gridTemplateColumns: COLUMNS(days.length) }}>
@@ -136,7 +137,7 @@ export function AgendaGrid({
           })}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 

@@ -2,13 +2,14 @@ import { Link } from 'react-router';
 
 import { EmptyState } from '../components/shared/EmptyState';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 
 /** An address that leads nowhere: say so kindly and offer the way home. */
 export default function NotFoundPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <h1 className="sr-only">Page introuvable</h1>
-      <div className="w-full max-w-md rounded-xl border bg-card shadow-sm">
+      <Card className="w-full max-w-md">
         <EmptyState
           illustration="pear"
           title="Cette page n’existe pas."
@@ -19,7 +20,7 @@ export default function NotFoundPage() {
             </Button>
           }
         />
-      </div>
+      </Card>
     </div>
   );
 }

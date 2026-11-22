@@ -2,6 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
 
+import { Card } from '../ui/card';
+
 /** Signed-out pages: the logo and one centred card. */
 export function AuthLayout() {
   return (
@@ -11,9 +13,9 @@ export function AuthLayout() {
           <img src="/logo_full_transparent.png" alt="VP Dietetic Center" className="mx-auto h-20" />
           <p className="mt-2 text-base text-muted-foreground">Espace praticienne</p>
         </div>
-        <div className="rounded-xl border bg-card p-6 text-card-foreground shadow-sm sm:p-8">
+        <Card className="p-6 sm:p-8">
           <Outlet />
-        </div>
+        </Card>
       </div>
     </div>
   );

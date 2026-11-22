@@ -24,6 +24,8 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  /* Veil behind dialogs and the sidebar opened over the page (used with an opacity: bg-scrim/60) */
+  --color-scrim: hsl(var(--scrim));
 
   /* Semantic tones (badges, alerts): strong colour for text/icons, soft colour for backgrounds */
   --color-success: hsl(var(--success));
@@ -87,6 +89,7 @@
     --border: 92.3 17.3% 85.3%; /* #D9E0D3 */
     --input: 104.2 8.4% 55.9%; /* #8A9885 */
     --ring: 106.9 47% 32.5%; /* #3D7A2C */
+    --scrim: 150 22% 8%; /* #101914 */
 
     --success: 128.8 44.4% 33.1%; /* #2F7A3A */
     --success-soft: 116.5 41.5% 92%; /* #E3F3E2 */
@@ -137,6 +140,7 @@
     --border: 144 14.9% 19.8%; /* #2B3A31 */
     --input: 141 8.6% 45.5%; /* #6A7E71 */
     --ring: 100 44.1% 58.6%; /* #86C467 */
+    --scrim: 0 0% 0%; /* #000000 */
 
     --success: 125.5 42.2% 64.7%; /* #7FCB86 */
     --success-soft: 143.6 37.8% 14.5%; /* #173322 */

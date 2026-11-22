@@ -33,6 +33,7 @@ Les variables sont dans `apps/frontend/src/styles/globals.css` (`:root` pour le 
 | `--border`               | `#D9E0D3` | `#2B3A31` | Bordures de cartes et séparateurs                         |
 | `--input`                | `#8A9885` | `#6A7E71` | Bordure des champs (3:1 sur la carte)                     |
 | `--ring`                 | `#3D7A2C` | `#86C467` | Anneau de focus clavier                                   |
+| `--scrim`                | `#101914` | `#000000` | Voile derrière une fenêtre ou la barre latérale ouverte par-dessus la page, toujours avec une opacité (`bg-scrim/60`) |
 
 Couleurs du logo, **décoratives uniquement** (illustrations, mascotte, jamais pour du texte) : `--brand-leaf` `#7DAA4F`, `--brand-teal` `#4DBFA8`, `--brand-pear` `#D6E87C`, `--brand-ink` `#1F3A2B`, `--brand-blush` `#F2A7A0` (joues de la mascotte). Classes : `fill-brand-pear`, `stroke-brand-ink`…
 

@@ -91,7 +91,7 @@ export function Sidebar() {
       {drawerOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40"
+            className="fixed inset-0 z-40 bg-scrim/40"
             aria-hidden
             onClick={() => setDrawerOpen(false)}
           />

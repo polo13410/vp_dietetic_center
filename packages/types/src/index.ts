@@ -475,20 +475,13 @@ export interface DashboardAppointmentDto extends AppointmentDto {
 }
 
 export interface DashboardSummary {
+  /** Today's appointments, earliest first, with their session if it was started */
   todayAppointments: DashboardAppointmentDto[];
-  /** Next appointment still to see (or started less than an hour ago) */
-  nextAppointment: DashboardAppointmentDto | null;
-  stats: {
-    todayCount: number;
-    todayRemaining: number;
-    weekAppointmentCount: number;
-    /** Current patients seen in the last 90 days or with an appointment booked */
-    followedPatientCount: number;
-  };
-  /** Current patients with nothing booked and not seen for 6 weeks */
+  /** Current patients with nothing booked and no session for 6 weeks */
   followUps: {
     patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName' | 'phone' | 'email'>;
-    lastSeenAt: string | null;
+    /** Date of the last session, null if there never was one */
+    lastSessionAt: string | null;
     daysSince: number | null;
   }[];
   tasks: TaskDto[];

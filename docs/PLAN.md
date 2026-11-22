@@ -184,7 +184,7 @@ Sur push vers `staging` ou `prod` : build des images modifiées (API, frontend),
    - origine ajoutée au client OAuth ;
    - comptes créés avec `create-user.cjs` ;
    - merge `staging` → `prod`.
-3. **Fonctionnalités métier** restantes (à définir avec la praticienne).
+3. **Refonte métier et UX** : dossier calqué sur la façon de travailler de la praticienne, facturation, paramètres réels, création guidée, charte visuelle. Plan et lots dans [REFONTE.md](REFONTE.md).
 4. **Qualité** :
    - couverture de tests du frontend très faible (seuils ~4-7 %, à remonter au fil des ajouts) ;
    - les tests Playwright datent de l'ancienne interface (pages notes) et ne tournent pas en CI.

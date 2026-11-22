@@ -20,6 +20,7 @@ import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
 import { Audited } from '../audit/audited.decorator';
 
 import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
@@ -151,6 +152,24 @@ export class AuthController {
   @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.authService.resetPassword(dto.token, dto.password);
+  }
+
+  @Post('change-password')
+  @Audited({ action: AuditAction.UPDATE, entity: 'password' })
+  @Throttle(SIGN_IN_LIMIT)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Changer son mot de passe (ferme ses autres sessions)' })
+  async changePassword(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    await this.authService.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+      req.cookies[REFRESH_COOKIE],
+    );
   }
 
   @Get('me')

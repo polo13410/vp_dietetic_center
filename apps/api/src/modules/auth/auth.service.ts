@@ -38,7 +38,8 @@ export class AuthService {
       );
     }
 
-    const isValid = await bcrypt.compare(password, user.passwordHash);
+    // A Google-only account has no password to check
+    const isValid = !!user.passwordHash && (await bcrypt.compare(password, user.passwordHash));
 
     if (!isValid) {
       // Increment login attempts
@@ -227,6 +228,44 @@ export class AuthService {
     // A new password ends every open session (e.g. a stolen one)
     await this.prisma.refreshToken.updateMany({
       where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Changes the password of a signed-in user after checking the current one, then ends her other
+   * sessions (the one making the change, identified by its refresh token, stays open).
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    currentRefreshToken?: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Ce compte se connecte avec Google : il n’a pas de mot de passe à changer.',
+      );
+    }
+    // 400, not 401: a wrong password here must not look like an expired session
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new BadRequestException('Le mot de passe actuel n’est pas le bon.');
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('Le nouveau mot de passe doit être différent de l’actuel.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await bcrypt.hash(newPassword, 12) },
+    });
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(currentRefreshToken ? { tokenHash: { not: hashToken(currentRefreshToken) } } : {}),
+      },
       data: { revokedAt: new Date() },
     });
   }

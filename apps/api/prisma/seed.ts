@@ -5,7 +5,8 @@
  * Martine Roux is the test case of docs/REFONTE.md § 3.1: woman, 56, 1.59 m, 79 → 78.2 →
  * 76.5 kg (BMI 31.25, BMR 5.86 / 5.83 / 5.77 MJ, 1 400.3 / 1 393.5 / 1 378.9 kcal).
  * Past sessions are invoiced through the app's own rules, except the two latest (« à facturer »);
- * one invoice was corrected (credit note + new invoice).
+ * one invoice was corrected (credit note + new invoice). Martine has a report to her GP sent after
+ * the bilan, and a draft pre-filled today by the app.
  * Dates are relative to today, so the dashboard always has something to show.
  * Re-running the seed rebuilds the demo patients from scratch.
  */
@@ -27,6 +28,7 @@ import bcrypt from 'bcryptjs';
 
 import { PatientAccessService } from '../src/common/access/patient-access.service';
 import { InvoicesService } from '../src/modules/invoices/invoices.service';
+import { GpReportsService } from '../src/modules/patient-file/gp-reports.service';
 
 const prisma = new PrismaClient();
 
@@ -162,6 +164,36 @@ async function seedInvoices(practitionerId: string) {
     await prisma.consultation.update({ where: { id: s.id }, data: { paymentMethod: PaymentMethod.CHECK } });
   }
   if (toCorrect) await invoices.correct(user, toCorrect, at(0, 9));
+}
+
+/**
+ * Martine's reports to her GP: the first one, sent after the bilan, and today's draft, pre-filled
+ * from her file by the app (lot 10), so the recap says « Compte rendu : à faire ».
+ */
+async function seedGpReports(patientId: string, practitionerId: string) {
+  const sentOn = at(-57);
+  await prisma.gpReport.create({
+    data: {
+      patientId,
+      authorId: practitionerId,
+      date: dayOf(sentOn),
+      status: GpReportStatus.SENT,
+      sentAt: at(-57, 18),
+      content: [
+        'Dr Laurent Garnier',
+        `Aix-en-Provence, le ${sentOn.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+        'Objet : bilan diététique de Mme Martine Roux',
+        'Docteur,',
+        'J’ai reçu Mme Martine Roux, 56 ans, pour un bilan diététique. Elle souhaite perdre le poids pris depuis la ménopause (79 kg, IMC 31,25) et améliorer son bilan lipidique.',
+        'Nous avons convenu d’un suivi mensuel, centré sur le rythme des repas et le grignotage lié au stress au travail.',
+        'Je vous tiendrai informé de son évolution.',
+        'Je vous prie d’agréer, Docteur, l’expression de mes salutations distinguées.',
+        'Valérie Perrot\nDiététicienne nutritionniste',
+      ].join('\n\n'),
+    },
+  });
+  const reports = new GpReportsService(prisma as any, new PatientAccessService(prisma as any));
+  await reports.create({ id: practitionerId, role: UserRole.PRATICIENNE }, patientId, {});
 }
 
 /** A past appointment and its session (a row of her follow-up sheet), with what was recorded. */
@@ -323,16 +355,7 @@ async function main() {
       file: { PHYSICAL_ACTIVITY: 'Marche 30 minutes trois fois par semaine, aquagym le mardi.' },
     },
   ]);
-  await prisma.gpReport.create({
-    data: {
-      patientId: PATIENT_IDS.martine,
-      authorId: pract.id,
-      date: dayOf(at(-1)),
-      status: GpReportStatus.DRAFT,
-      content:
-        'Cher confrère,\n\nJe vois Mme Martine Roux, 56 ans, depuis deux mois pour une perte de poids. Son poids est passé de 79 kg (IMC 31,25) à 76,5 kg.\n\nBien confraternellement,\nValérie Perrot',
-    },
-  });
+  await seedGpReports(PATIENT_IDS.martine, pract.id);
 
   await patient(PATIENT_IDS.marie, {
     firstName: 'Marie',

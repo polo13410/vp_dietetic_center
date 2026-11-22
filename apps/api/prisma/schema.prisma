@@ -15,6 +15,13 @@ enum UserRole {
   ASSISTANTE
 }
 
+/// Appearance chosen in the settings. SYSTEM follows the device (light or dark).
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
 enum Sex {
   F
   M
@@ -120,9 +127,11 @@ enum AuditAction {
 model User {
   id                     String    @id @default(uuid()) @map("id")
   email                  String    @unique
-  passwordHash           String    @map("password_hash")
+  /// Null for an account that only signs in with Google
+  passwordHash           String?   @map("password_hash")
   firstName              String    @map("first_name")
   lastName               String    @map("last_name")
+  phone                  String?
   role                   UserRole  @default(ASSISTANTE)
   googleId               String?   @unique @map("google_id")
   avatarUrl              String?   @map("avatar_url")
@@ -137,6 +146,7 @@ model User {
 
   // Relations
   preferences   UserPreferences?
+  practice      PractitionerProfile?
   refreshTokens RefreshToken[]
   patients      Patient[]        @relation("PractitionerPatients")
   appointments  Appointment[]    @relation("PractitionerAppointments")
@@ -151,18 +161,40 @@ model User {
 }
 
 model UserPreferences {
-  id                 String   @id @default(uuid())
-  userId             String   @unique @map("user_id")
-  language           String   @default("fr")
-  timezone           String   @default("Europe/Paris")
-  defaultView        String   @default("day") @map("default_view")
-  emailNotifications Boolean  @default(true) @map("email_notifications")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  theme     Theme    @default(SYSTEM)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
+}
+
+/// The practice of a practitioner, printed on her invoices (lot 5). Edited in the settings.
+model PractitionerProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  /// Name printed on the invoices ("Valérie Pera, diététicienne")
+  practiceName  String?  @map("practice_name")
+  address       String?
+  zipCode       String?  @map("zip_code")
+  city          String?
+  /// 14 digits, Luhn checked
+  siret         String?
+  /// ADELI (9 digits) or RPPS (11 digits)
+  adeliRpps     String?  @map("adeli_rpps")
+  /// VAT mention, typed by the practitioner (e.g. "TVA non applicable, art. 261-4-1° du CGI")
+  vatMention    String?  @map("vat_mention") @db.Text
+  /// Free text at the bottom of the invoices
+  invoiceFooter String?  @map("invoice_footer") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("practitioner_profile")
 }
 
 model RefreshToken {

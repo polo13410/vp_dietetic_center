@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateAge, cn, formatDate, formatDateTime, getInitials } from './utils';
+import {
+  ageInYears,
+  calculateAge,
+  cn,
+  formatDate,
+  formatDateTime,
+  formatLongDate,
+  formatNumber,
+  formatTime,
+  getInitials,
+} from './utils';
 
 describe('cn', () => {
   it('merges class names', () => {
@@ -57,5 +67,34 @@ describe('calculateAge', () => {
     tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
     const result = calculateAge(tenYearsAgo.toISOString());
     expect(result).toBe('10 ans');
+  });
+});
+
+describe('ageInYears', () => {
+  it('counts whole years on the given day', () => {
+    const now = new Date(2026, 10, 22);
+    expect(ageInYears('1970-08-24', now)).toBe(56);
+    expect(ageInYears('1970-12-24', now)).toBe(55);
+    expect(ageInYears(null, now)).toBeNull();
+  });
+});
+
+describe('formatLongDate and formatTime', () => {
+  it('writes dates and times the French way', () => {
+    expect(formatLongDate('2024-03-12T10:00:00')).toBe('12 mars 2024');
+    expect(formatLongDate(null)).toBe('—');
+    expect(formatTime(new Date(2026, 2, 12, 14, 5))).toBe('14 h 05');
+  });
+
+  it('drops the year of the current year when short', () => {
+    const thisYear = new Date(new Date().getFullYear(), 2, 12);
+    expect(formatLongDate(thisYear, true)).toBe('12 mars');
+  });
+});
+
+describe('formatNumber', () => {
+  it('uses the French decimal comma', () => {
+    expect(formatNumber(31.25)).toBe('31,25');
+    expect(formatNumber(1400.34, 1).replace(/\s/g, ' ')).toBe('1 400,3');
   });
 });

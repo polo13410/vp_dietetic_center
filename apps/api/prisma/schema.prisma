@@ -85,6 +85,12 @@ enum LifeEventCategory {
   OTHER
 }
 
+/// INVOICE: "facture" (2026-0001). CREDIT_NOTE: "avoir" (A-2026-0001), cancels an invoice.
+enum InvoiceType {
+  INVOICE
+  CREDIT_NOTE
+}
+
 enum GpReportStatus {
   DRAFT
   SENT
@@ -148,14 +154,15 @@ model User {
   preferences   UserPreferences?
   practice      PractitionerProfile?
   refreshTokens RefreshToken[]
-  patients      Patient[]        @relation("PractitionerPatients")
-  appointments  Appointment[]    @relation("PractitionerAppointments")
-  consultations Consultation[]   @relation("PractitionerConsultations")
-  documents     Document[]       @relation("UploaderDocuments")
-  tasks         Task[]           @relation("AssignedTasks")
+  patients      Patient[]            @relation("PractitionerPatients")
+  appointments  Appointment[]        @relation("PractitionerAppointments")
+  consultations Consultation[]       @relation("PractitionerConsultations")
+  documents     Document[]           @relation("UploaderDocuments")
+  tasks         Task[]               @relation("AssignedTasks")
   auditLogs     AuditLog[]
   formulas      Formula[]
-  gpReports     GpReport[]       @relation("AuthorGpReports")
+  gpReports     GpReport[]           @relation("AuthorGpReports")
+  invoices      Invoice[]            @relation("PractitionerInvoices")
 
   @@map("user")
 }
@@ -251,6 +258,7 @@ model Patient {
   documents     Document[]
   tasks         Task[]
   consents      Consent[]
+  invoices      Invoice[]
 
   @@map("patient")
 }
@@ -345,6 +353,7 @@ model Consultation {
   measurements Measurement[]
   fileEntries  FileEntry[]
   lifeEvents   LifeEvent[]
+  invoices     Invoice[]
 
   @@index([patientId, date])
   @@map("consultation")
@@ -421,6 +430,79 @@ model GpReport {
 
   @@index([patientId, date])
   @@map("gp_report")
+}
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+/// An invoice or a credit note (docs/REFONTE.md lot 5). Issued only when the practitioner asks,
+/// never changed nor deleted afterwards (legal rule): a mistake is cancelled by a credit note,
+/// then a new invoice replaces it. It keeps a copy of the practice, the patient and the session
+/// at the time of issue, so deleting the session or the patient leaves it whole (kept 10 years).
+model Invoice {
+  id             String        @id @default(uuid())
+  practitionerId String        @map("practitioner_id")
+  /// Null once the patient is erased: the copies below remain
+  patientId      String?       @map("patient_id")
+  /// Null once the session is deleted
+  consultationId String?       @map("consultation_id")
+  type           InvoiceType
+  /// Numbering: continuous per practitioner, per year (Europe/Paris) and per type, without gaps
+  year           Int
+  sequence       Int
+  /// "2026-0001" (invoice) or "A-2026-0001" (credit note)
+  number         String
+  issuedAt       DateTime      @map("issued_at")
+  /// Negative for a credit note
+  amountCents    Int           @map("amount_cents")
+  paymentMethod  PaymentMethod @map("payment_method")
+
+  // The service, copied from the session
+  serviceLabel String   @map("service_label")
+  serviceDate  DateTime @map("service_date")
+
+  // The practice, copied from the settings
+  practiceName    String  @map("practice_name")
+  practiceAddress String? @map("practice_address")
+  practiceZipCode String? @map("practice_zip_code")
+  practiceCity    String? @map("practice_city")
+  siret           String?
+  adeliRpps       String? @map("adeli_rpps")
+  vatMention      String? @map("vat_mention") @db.Text
+  invoiceFooter   String? @map("invoice_footer") @db.Text
+
+  // The patient, copied from the file
+  patientFirstName String  @map("patient_first_name")
+  patientLastName  String  @map("patient_last_name")
+  patientAddress   String? @map("patient_address")
+  patientZipCode   String? @map("patient_zip_code")
+  patientCity      String? @map("patient_city")
+
+  /// Invoices only: set when a credit note cancels it
+  cancelledAt  DateTime? @map("cancelled_at")
+  cancelReason String?   @map("cancel_reason")
+  /// Invoices only: the credit note that cancels it
+  creditNoteId String?   @unique @map("credit_note_id")
+  /// Invoices only: the invoice issued in its place ("remplace la n° 2026-0012")
+  replacedById String?   @unique @map("replaced_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  practitioner User          @relation("PractitionerInvoices", fields: [practitionerId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  creditNote   Invoice?      @relation("InvoiceCreditNote", fields: [creditNoteId], references: [id])
+  /// Credit notes only: the invoice it cancels
+  cancels      Invoice?      @relation("InvoiceCreditNote")
+  replacedBy   Invoice?      @relation("InvoiceReplacement", fields: [replacedById], references: [id])
+  /// The invoice this one replaces
+  replaces     Invoice?      @relation("InvoiceReplacement")
+
+  @@unique([practitionerId, type, year, sequence])
+  @@unique([practitionerId, number])
+  @@index([practitionerId, issuedAt])
+  @@index([patientId])
+  @@index([consultationId])
+  @@map("invoice")
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
 import api from '../../lib/api';
+import { calculateAge } from '../../lib/utils';
 
 export default function PatientEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,22 +39,20 @@ export default function PatientEditPage() {
   const defaultValues: Partial<PatientFormData> = {
     firstName: patient.firstName,
     lastName: patient.lastName,
-    dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split('T')[0] : undefined,
+    sex: patient.sex ?? '',
+    // An estimated birth date (only the age was known) is edited as an age
+    dateOfBirth: patient.dateOfBirth && !patient.birthDateEstimated ? patient.dateOfBirth.split('T')[0] : undefined,
+    age: patient.birthDateEstimated ? calculateAge(patient.dateOfBirth).replace(' ans', '') : '',
     email: patient.email ?? '',
     phone: patient.phone ?? '',
     address: patient.address ?? '',
     city: patient.city ?? '',
     zipCode: patient.zipCode ?? '',
+    familySituation: patient.familySituation ?? '',
+    profession: patient.profession ?? '',
+    gpName: patient.gpName ?? '',
     referralSource: patient.referralSource ?? '',
-    privateNote: patient.privateNote ?? '',
     consultationReason: patient.consultationReason ?? '',
-    allergies: patient.allergies ?? '',
-    dietaryRestrictions: patient.dietaryRestrictions ?? '',
-    status: patient.status,
-    emergencyContactName: patient.emergencyContactName ?? '',
-    emergencyContactPhone: patient.emergencyContactPhone ?? '',
-    emergencyContactRelationship: patient.emergencyContactRelationship ?? '',
-    tagIds: patient.tags?.map((t: { id: string }) => t.id) ?? [],
   };
 
   return (
@@ -72,7 +71,6 @@ export default function PatientEditPage() {
         onSubmit={(data) => mutate(data)}
         isPending={isPending}
         submitLabel="Enregistrer"
-        showStatus
       />
 
       <div className="flex justify-start mt-4">

@@ -10,7 +10,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', marginBottom: 4 },
   label: { width: 120, color: '#666', fontSize: 9 },
   value: { flex: 1 },
-  badge: { fontSize: 9, padding: '2 6', borderRadius: 4, backgroundColor: '#f0f0f0', alignSelf: 'flex-start' },
   grid: { flexDirection: 'row', gap: 20 },
   gridCol: { flex: 1 },
   tableHeader: { flexDirection: 'row', backgroundColor: '#f5f5f5', padding: '4 8', marginBottom: 2 },
@@ -40,7 +39,6 @@ export function PatientPdfDocument({ patient, appointments, sessions }: PatientP
           <Text style={styles.subtitle}>
             Fiche patient — Generee le {new Date().toLocaleDateString('fr-FR')}
           </Text>
-          <Text style={[styles.badge, { marginTop: 6 }]}>{patient.status}</Text>
         </View>
 
         {/* Identity */}
@@ -54,20 +52,18 @@ export function PatientPdfDocument({ patient, appointments, sessions }: PatientP
             </View>
             <View style={styles.gridCol}>
               <InfoRow label="Adresse" value={[patient.address, patient.zipCode, patient.city].filter(Boolean).join(', ')} />
-              <InfoRow label="Source" value={patient.referralSource} />
+              <InfoRow label="Adressé par" value={patient.referralSource} />
             </View>
           </View>
         </View>
 
-        {/* Emergency Contact */}
-        {(patient.emergencyContactName || patient.emergencyContactPhone) && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Contact d'urgence</Text>
-            <InfoRow label="Nom" value={patient.emergencyContactName} />
-            <InfoRow label="Telephone" value={patient.emergencyContactPhone} />
-            <InfoRow label="Lien" value={patient.emergencyContactRelationship} />
-          </View>
-        )}
+        {/* Situation */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Situation</Text>
+          <InfoRow label="Situation familiale" value={patient.familySituation} />
+          <InfoRow label="Profession" value={patient.profession} />
+          <InfoRow label="Médecin traitant" value={patient.gpName} />
+        </View>
 
         {/* Recent Appointments */}
         {appointments.length > 0 && (
@@ -97,17 +93,9 @@ export function PatientPdfDocument({ patient, appointments, sessions }: PatientP
             {sessions.slice(0, 10).map((s: any) => (
               <View key={s.id} style={[styles.row, { marginBottom: 6 }]}>
                 <Text style={[styles.label, { width: 80 }]}>{formatDate(s.date)}</Text>
-                <Text style={{ flex: 1 }}>{s.summary || 'Sans résumé'}</Text>
+                <Text style={{ flex: 1 }}>{s.sessionWork || 'Rien d’écrit'}</Text>
               </View>
             ))}
-          </View>
-        )}
-
-        {/* Private Note */}
-        {patient.privateNote && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Note privee praticienne</Text>
-            <Text>{patient.privateNote}</Text>
           </View>
         )}
 

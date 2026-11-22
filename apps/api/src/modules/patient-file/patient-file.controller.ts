@@ -54,8 +54,13 @@ export class PatientFileController {
   @Get('brief')
   @Audited({ action: AuditAction.READ, entity: 'patient', patientId: 'param:patientId', entityId: 'param:patientId' })
   @ApiOperation({ summary: 'Résumé du patient avant une séance' })
-  brief(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
-    return this.file.getBrief(user, patientId);
+  brief(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    // The « Rappel » of a session: the summary as it was before it
+    @Query('before', new ParseUUIDPipe({ optional: true })) before?: string,
+  ) {
+    return this.file.getBrief(user, patientId, before);
   }
 
   // ─── Sessions ────────────────────────────────────────────────────────────────

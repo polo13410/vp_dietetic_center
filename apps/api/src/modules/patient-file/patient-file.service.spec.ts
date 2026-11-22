@@ -105,6 +105,36 @@ describe('PatientFileService', () => {
       expect(brief.firstConsultationAt).toEqual(d('2026-10-01'));
     });
 
+    it('gives the summary as it was before a session, for its « Rappel »', async () => {
+      mockPrisma.consultation.findMany.mockResolvedValue([
+        { id: 'c3', date: d('2026-11-22'), advice: null },
+        { id: 'c2', date: d('2026-11-01'), advice: 'Collation à 16 h' },
+        { id: 'c1', date: d('2026-10-01'), advice: 'Petit-déjeuner' },
+      ]);
+      mockPrisma.measurement.findMany.mockResolvedValue([
+        { type: 'HEIGHT', value: dec(159), measuredAt: d('2026-10-01'), consultationId: null },
+        { type: 'WEIGHT', value: dec(79), measuredAt: d('2026-11-01'), consultationId: 'c2' },
+        { type: 'WEIGHT', value: dec(78.2), measuredAt: d('2026-11-22'), consultationId: 'c3' },
+      ]);
+
+      const brief = await service.getBrief(user as any, 'p1', 'c3');
+
+      expect(brief.lastConsultation?.id).toBe('c2');
+      expect(brief.consultationCount).toBe(2);
+      expect(brief.metrics.find((m) => m.type === 'WEIGHT')!.latest.value).toBe(79);
+      expect(brief.bmi.current).toEqual({ value: 31.25, category: 'OBESITY' });
+    });
+
+    it('leaves out the later sessions when an old one is reopened', async () => {
+      const brief = await service.getBrief(user as any, 'p1', 'c1');
+      expect(brief.lastConsultation).toBeNull();
+      expect(brief.consultationCount).toBe(0);
+    });
+
+    it('refuses a session that is not the patient’s', async () => {
+      await expect(service.getBrief(user as any, 'p1', 'other')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
     it('flags a report to the GP still to send', async () => {
       const brief = await service.getBrief(user as any, 'p1');
       expect(brief.gpReportToDo).toBe(true);

@@ -44,15 +44,20 @@ export class PatientFileService {
 
   // ─── Summary before a session ────────────────────────────────────────────────
 
-  async getBrief(user: AccessUser, patientId: string) {
+  /**
+   * With `beforeSessionId`, the summary as it was before that session (the « Rappel » beside it):
+   * that session and later ones are left out, with the measurements taken in them, so its own
+   * weight and texts are not shown as « the last session ».
+   */
+  async getBrief(user: AccessUser, patientId: string, beforeSessionId?: string) {
     await this.access.assertPatient(user, patientId);
     const now = new Date();
 
     const [
       patient,
-      consultations,
+      allConsultations,
       nextAppointment,
-      measurements,
+      allMeasurements,
       file,
       recentEvents,
       openTasks,
@@ -90,7 +95,7 @@ export class PatientFileService {
       this.prisma.measurement.findMany({
         where: { patientId },
         orderBy: [{ measuredAt: 'asc' }, { createdAt: 'asc' }],
-        select: { type: true, value: true, measuredAt: true },
+        select: { type: true, value: true, measuredAt: true, consultationId: true },
       }),
       this.currentFile(patientId),
       this.prisma.lifeEvent.findMany({
@@ -110,6 +115,17 @@ export class PatientFileService {
         select: { id: true, date: true, status: true, sentAt: true },
       }),
     ]);
+
+    let consultations = allConsultations;
+    let measurements = allMeasurements;
+    if (beforeSessionId) {
+      // Latest first: the session, then the earlier ones
+      const index = allConsultations.findIndex((c) => c.id === beforeSessionId);
+      if (index === -1) throw new NotFoundException('Séance introuvable');
+      const leftOut = new Set(allConsultations.slice(0, index + 1).map((c) => c.id));
+      consultations = allConsultations.slice(index + 1);
+      measurements = allMeasurements.filter((m) => !m.consultationId || !leftOut.has(m.consultationId));
+    }
 
     const lastConsultation = consultations[0] ?? null;
     const metrics = this.summarizeMetrics(measurements);

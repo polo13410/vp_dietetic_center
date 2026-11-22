@@ -1,5 +1,5 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PatientStatus, UserRole } from '@prisma/client';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PatientAccessService } from '../../common/access/patient-access.service';
@@ -28,7 +28,7 @@ describe('PatientsService', () => {
     it('returns paginated patients for practitioner', async () => {
       mockPrisma.patient.count.mockResolvedValue(1);
       mockPrisma.patient.findMany.mockResolvedValue([
-        { id: 'p1', firstName: 'Marie', lastName: 'Dupont', tags: [], appointments: [] },
+        { id: 'p1', firstName: 'Marie', lastName: 'Dupont', appointments: [] },
       ]);
 
       const result = await service.findAll(user as any, { page: 1, limit: 20 });
@@ -38,6 +38,17 @@ describe('PatientsService', () => {
       expect(mockPrisma.patient.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 20, skip: 0 }),
       );
+      // Current patients only by default
+      expect(mockPrisma.patient.findMany.mock.calls[0][0].where.archivedAt).toBeNull();
+    });
+
+    it('lists archived patients apart', async () => {
+      mockPrisma.patient.count.mockResolvedValue(0);
+      mockPrisma.patient.findMany.mockResolvedValue([]);
+
+      await service.findAll(user as any, { archived: true });
+
+      expect(mockPrisma.patient.findMany.mock.calls[0][0].where.archivedAt).toEqual({ not: null });
     });
 
     it('filters by search term', async () => {
@@ -74,12 +85,11 @@ describe('PatientsService', () => {
       mockPrisma.patient.findUnique.mockResolvedValue({
         id: 'p1',
         practitionerId: user.id,
-        tags: [{ tag: { id: 't1', name: 'Tag1', color: '#000' } }],
-        _count: { appointments: 3, notes: 1, documents: 0, tasks: 2 },
+        _count: { appointments: 3, consultations: 1, documents: 0, tasks: 2 },
       });
 
       const result = await service.findOne('p1', user as any);
-      expect(result.tags).toEqual([{ id: 't1', name: 'Tag1', color: '#000' }]);
+      expect(result).toHaveProperty('bmi', null);
       // The ownership check needs practitionerId; without it every non-admin got a 403
       expect(mockPrisma.patient.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -97,47 +107,124 @@ describe('PatientsService', () => {
       mockPrisma.patient.findUnique.mockResolvedValue({
         id: 'p1',
         practitionerId: 'other-user',
-        tags: [],
       });
       await expect(service.findOne('p1', user as any)).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('create', () => {
-    it('creates patient with tags', async () => {
-      mockPrisma.patient.create.mockResolvedValue({ id: 'p1', firstName: 'Marie', tags: [] });
+    it("creates the patient for the practitioner, with her sheet's fields", async () => {
+      mockPrisma.patient.create.mockResolvedValue({ id: 'p1' });
 
       await service.create(
-        { firstName: 'Marie', lastName: 'Dupont', tagIds: ['t1', 't2'] },
+        {
+          firstName: 'Marie',
+          lastName: 'Dupont',
+          sex: 'F',
+          dateOfBirth: '1970-06-15',
+          familySituation: 'Mariée, deux enfants',
+          profession: 'Infirmière',
+          gpName: 'Dr Martin',
+        },
         user as any,
       );
 
-      expect(mockPrisma.patient.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            practitionerId: user.id,
-            tags: { create: expect.arrayContaining([expect.objectContaining({ tag: { connect: { id: 't1' } } })]) },
-          }),
-        }),
-      );
+      expect(mockPrisma.patient.create.mock.calls[0][0].data).toEqual({
+        firstName: 'Marie',
+        lastName: 'Dupont',
+        sex: 'F',
+        dateOfBirth: new Date('1970-06-15'),
+        birthDateEstimated: false,
+        familySituation: 'Mariée, deux enfants',
+        profession: 'Infirmière',
+        gpName: 'Dr Martin',
+        practitionerId: user.id,
+      });
+    });
+
+    it('stores an estimated birth year when only the age is known', async () => {
+      vi.useFakeTimers({ now: new Date('2026-11-22T10:00:00Z') });
+      mockPrisma.patient.create.mockResolvedValue({ id: 'p1' });
+
+      await service.create({ firstName: 'Marie', lastName: 'Dupont', age: 56 }, user as any);
+
+      expect(mockPrisma.patient.create.mock.calls[0][0].data).toMatchObject({
+        dateOfBirth: new Date('1970-01-01T00:00:00Z'),
+        birthDateEstimated: true,
+      });
+      vi.useRealTimers();
+    });
+
+    it('refuses both a birth date and an age', async () => {
+      await expect(
+        service.create(
+          { firstName: 'M', lastName: 'D', dateOfBirth: '1970-06-15', age: 56 },
+          user as any,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('update', () => {
+    it('clears an estimated birth date when the real one is given', async () => {
+      mockPrisma.patient.findUnique.mockResolvedValue({ id: 'p1', practitionerId: user.id });
+      mockPrisma.patient.update.mockResolvedValue({});
+
+      await service.update('p1', { dateOfBirth: '1970-06-15' }, user as any);
+
+      expect(mockPrisma.patient.update.mock.calls[0][0].data).toEqual({
+        dateOfBirth: new Date('1970-06-15'),
+        birthDateEstimated: false,
+      });
+    });
+
+    it('can remove the birth date', async () => {
+      mockPrisma.patient.findUnique.mockResolvedValue({ id: 'p1', practitionerId: user.id });
+      mockPrisma.patient.update.mockResolvedValue({});
+
+      await service.update('p1', { dateOfBirth: null }, user as any);
+
+      expect(mockPrisma.patient.update.mock.calls[0][0].data).toEqual({
+        dateOfBirth: null,
+        birthDateEstimated: false,
+      });
+    });
+  });
+
+  describe('archive', () => {
+    it('archives, keeping the first archiving date', async () => {
+      const archivedAt = new Date('2026-01-01');
+      mockPrisma.patient.findUnique.mockResolvedValue({ id: 'p1', practitionerId: user.id, archivedAt });
+      mockPrisma.patient.update.mockResolvedValue({});
+
+      await service.setArchived('p1', true, user as any);
+
+      expect(mockPrisma.patient.update.mock.calls[0][0].data).toEqual({ archivedAt });
+    });
+
+    it('archives and unarchives', async () => {
+      mockPrisma.patient.findUnique.mockResolvedValue({ id: 'p1', practitionerId: user.id, archivedAt: null });
+      mockPrisma.patient.update.mockResolvedValue({});
+
+      await service.setArchived('p1', true, user as any);
+      await service.setArchived('p1', false, user as any);
+
+      expect(mockPrisma.patient.update.mock.calls[0][0].data).toEqual({ archivedAt: expect.any(Date) });
+      expect(mockPrisma.patient.update.mock.calls[1][0].data).toEqual({ archivedAt: null });
     });
   });
 
   describe('remove', () => {
-    it('soft deletes by setting deletedAt and ARCHIVED status', async () => {
+    it('soft deletes by setting deletedAt', async () => {
       mockPrisma.patient.findUnique.mockResolvedValue({ id: 'p1', practitionerId: user.id });
       mockPrisma.patient.update.mockResolvedValue({});
 
       await service.remove('p1', user as any);
 
-      expect(mockPrisma.patient.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            deletedAt: expect.any(Date),
-            status: PatientStatus.ARCHIVED,
-          }),
-        }),
-      );
+      expect(mockPrisma.patient.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { deletedAt: expect.any(Date) },
+      });
     });
   });
 
@@ -146,13 +233,11 @@ describe('PatientsService', () => {
     const patientRow = {
       id: 'p1',
       practitionerId: 'pract-1',
-      privateNote: 'secret',
-      allergies: 'arachides',
-      tags: [],
+      consultationReason: 'Perte de poids',
       appointments: [],
     };
 
-    it('lists all patients without the private note', async () => {
+    it('lists all patients without clinical fields', async () => {
       mockPrisma.patient.count.mockResolvedValue(1);
       mockPrisma.patient.findMany.mockResolvedValue([patientRow]);
 
@@ -160,7 +245,7 @@ describe('PatientsService', () => {
 
       const call = mockPrisma.patient.findMany.mock.calls[0][0];
       expect(call.where.practitionerId).toBeUndefined();
-      expect(result.data[0]).not.toHaveProperty('privateNote');
+      expect(result.data[0]).not.toHaveProperty('consultationReason');
       expect(result.data[0]).toHaveProperty('id', 'p1');
     });
 
@@ -169,8 +254,8 @@ describe('PatientsService', () => {
 
       const result = await service.findOne('p1', assistant as any);
 
-      expect(result).not.toHaveProperty('privateNote');
-      expect(result).not.toHaveProperty('allergies');
+      expect(result).not.toHaveProperty('consultationReason');
+      expect(result).not.toHaveProperty('bmi');
     });
 
     it('keeps clinical fields for the owning practitioner', async () => {
@@ -179,8 +264,7 @@ describe('PatientsService', () => {
 
       const result = await service.findOne('p1', owner as any);
 
-      expect(result).toHaveProperty('privateNote', 'secret');
-      expect(result).toHaveProperty('allergies', 'arachides');
+      expect(result).toHaveProperty('consultationReason', 'Perte de poids');
     });
 
     it('cannot update or archive a patient', async () => {
@@ -189,17 +273,10 @@ describe('PatientsService', () => {
         ForbiddenException,
       );
       await expect(service.remove('p1', assistant as any)).rejects.toThrow(ForbiddenException);
+      await expect(service.setArchived('p1', true, assistant as any)).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.patient.update).not.toHaveBeenCalled();
-    });
-
-  });
-
-  describe('findAllTags', () => {
-    it('returns all tags ordered by name', async () => {
-      mockPrisma.tag.findMany.mockResolvedValue([{ id: 't1', name: 'A' }]);
-      const result = await service.findAllTags();
-      expect(result).toHaveLength(1);
-      expect(mockPrisma.tag.findMany).toHaveBeenCalledWith({ orderBy: { name: 'asc' } });
     });
   });
 });

@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PatientStatus, User } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, User } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { estimatedBirthDate } from '../patient-file/calculations';
 import { PatientFileService } from '../patient-file/patient-file.service';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -15,38 +16,26 @@ const PATIENT_SELECT = {
   practitionerId: true,
   firstName: true,
   lastName: true,
+  sex: true,
   dateOfBirth: true,
+  birthDateEstimated: true,
   email: true,
   phone: true,
   address: true,
   city: true,
   zipCode: true,
-  status: true,
-  privateNote: true,
+  familySituation: true,
+  profession: true,
+  gpName: true,
   consultationReason: true,
-  allergies: true,
-  dietaryRestrictions: true,
-  emergencyContactName: true,
-  emergencyContactPhone: true,
-  emergencyContactRelationship: true,
   referralSource: true,
+  archivedAt: true,
   createdAt: true,
   updatedAt: true,
-  tags: {
-    select: {
-      tag: { select: { id: true, name: true, color: true } },
-    },
-  },
-};
+} satisfies Prisma.PatientSelect;
 
 /** Profile fields that are health data, hidden from record-only access. */
-const CLINICAL_FIELDS = [
-  'privateNote',
-  'consultationReason',
-  'allergies',
-  'dietaryRestrictions',
-  'bmi',
-] as const;
+const CLINICAL_FIELDS = ['consultationReason', 'bmi'] as const;
 
 @Injectable()
 export class PatientsService {
@@ -58,14 +47,13 @@ export class PatientsService {
   ) {}
 
   async findAll(user: User, query: PatientQueryDto) {
-    const { page = 1, limit = 20, search, status, tagId } = query;
+    const { page = 1, limit = 20, search, archived = false } = query;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.PatientWhereInput = {
       deletedAt: null,
+      archivedAt: archived ? { not: null } : null,
       ...this.access.patientScope(user, 'record'),
-      ...(status ? { status } : {}),
-      ...(tagId ? { tags: { some: { tagId } } } : {}),
       ...(search
         ? {
             OR: [
@@ -103,14 +91,9 @@ export class PatientsService {
     );
 
     return {
-      data: data.map((p) =>
+      data: data.map(({ appointments, ...p }) =>
         this.redact(
-          {
-            ...p,
-            tags: p.tags.map((pt: any) => pt.tag),
-            lastAppointmentAt: p.appointments[0]?.startAt ?? null,
-            bmi: bmi.get(p.id) ?? null,
-          },
+          { ...p, lastAppointmentAt: appointments[0]?.startAt ?? null, bmi: bmi.get(p.id) ?? null },
           user,
         ),
       ),
@@ -142,27 +125,13 @@ export class PatientsService {
       ? ((await this.file.bmiFor([patient.id])).get(patient.id) ?? null)
       : null;
 
-    return this.redact(
-      { ...patient, tags: patient.tags.map((pt: any) => pt.tag), bmi },
-      user,
-    );
+    return this.redact({ ...patient, bmi }, user);
   }
 
   async create(dto: CreatePatientDto, user: User) {
-    const { tagIds, emergencyContact, ...data } = dto;
-
+    const { age, dateOfBirth, ...data } = dto;
     return this.prisma.patient.create({
-      data: {
-        ...data,
-        practitionerId: user.id,
-        emergencyContactName: emergencyContact?.name,
-        emergencyContactPhone: emergencyContact?.phone,
-        emergencyContactRelationship: emergencyContact?.relationship,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-        tags: tagIds?.length
-          ? { create: tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })) }
-          : undefined,
-      },
+      data: { ...data, ...birthDate(dateOfBirth, age), practitionerId: user.id },
       select: PATIENT_SELECT,
     });
   }
@@ -171,25 +140,21 @@ export class PatientsService {
     const patient = await this.findOneRaw(id);
     this.access.assertOwner(user, patient.practitionerId);
 
-    const { tagIds, emergencyContact, ...data } = dto;
-
+    const { age, dateOfBirth, ...data } = dto;
     return this.prisma.patient.update({
       where: { id },
-      data: {
-        ...data,
-        emergencyContactName: emergencyContact?.name,
-        emergencyContactPhone: emergencyContact?.phone,
-        emergencyContactRelationship: emergencyContact?.relationship,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-        ...(tagIds !== undefined
-          ? {
-              tags: {
-                deleteMany: {},
-                create: tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })),
-              },
-            }
-          : {}),
-      },
+      data: { ...data, ...birthDate(dateOfBirth, age) },
+      select: PATIENT_SELECT,
+    });
+  }
+
+  /** Archived patients leave the lists and the dashboard; their file stays as it is. */
+  async setArchived(id: string, archived: boolean, user: User) {
+    const patient = await this.findOneRaw(id);
+    this.access.assertOwner(user, patient.practitionerId);
+    return this.prisma.patient.update({
+      where: { id },
+      data: { archivedAt: archived ? (patient.archivedAt ?? new Date()) : null },
       select: PATIENT_SELECT,
     });
   }
@@ -200,7 +165,7 @@ export class PatientsService {
 
     return this.prisma.patient.update({
       where: { id },
-      data: { deletedAt: new Date(), status: PatientStatus.ARCHIVED },
+      data: { deletedAt: new Date() },
     });
   }
 
@@ -208,10 +173,6 @@ export class PatientsService {
   async accessLog(id: string, user: AccessUser) {
     await this.access.assertPatient(user, id);
     return this.audit.forPatient(id);
-  }
-
-  async findAllTags() {
-    return this.prisma.tag.findMany({ orderBy: { name: 'asc' } });
   }
 
   private async findOneRaw(id: string) {
@@ -229,4 +190,19 @@ export class PatientsService {
     for (const field of CLINICAL_FIELDS) delete record[field];
     return record as Omit<T, (typeof CLINICAL_FIELDS)[number]>;
   }
+}
+
+/**
+ * The birth date to store: the given date, or an estimated one from a declared age
+ * (docs/REFONTE.md § 3.1). Nothing when neither is given; null clears it.
+ */
+export function birthDate(dateOfBirth?: string | null, age?: number | null) {
+  const hasAge = age !== undefined && age !== null;
+  if (hasAge && dateOfBirth) {
+    throw new BadRequestException("Indiquez la date de naissance ou l'âge, pas les deux");
+  }
+  if (hasAge) return { dateOfBirth: estimatedBirthDate(age), birthDateEstimated: true };
+  if (dateOfBirth === null) return { dateOfBirth: null, birthDateEstimated: false };
+  if (dateOfBirth) return { dateOfBirth: new Date(dateOfBirth), birthDateEstimated: false };
+  return {};
 }

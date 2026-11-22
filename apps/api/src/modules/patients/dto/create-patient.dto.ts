@@ -1,31 +1,45 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Sex } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsDateString,
   IsEmail,
-  IsObject,
+  IsEnum,
+  IsInt,
   IsOptional,
   IsString,
-  IsUUID,
+  Max,
   MaxLength,
-  ValidateNested,
+  Min,
+  ValidateIf,
 } from 'class-validator';
-
-class EmergencyContactDto {
-  @IsString() name: string;
-  @IsString() phone: string;
-  @IsOptional() @IsString() relationship?: string;
-}
 
 export class CreatePatientDto {
   @IsString() firstName: string;
   @IsString() lastName: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ enum: Sex, nullable: true })
+  @IsOptional()
+  @IsEnum(Sex)
+  sex?: Sex | null;
+
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsDateString()
-  dateOfBirth?: string;
+  dateOfBirth?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Âge déclaré, quand la date de naissance est inconnue : enregistre une année de naissance estimée. Exclusif avec dateOfBirth.',
+    minimum: 0,
+    maximum: 120,
+  })
+  @ValidateIf((dto: CreatePatientDto) => dto.age !== undefined && dto.age !== null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  age?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -52,7 +66,25 @@ export class CreatePatientDto {
   @IsString()
   zipCode?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Situation familiale' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  familySituation?: string;
+
+  @ApiPropertyOptional({ description: 'Profession' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  profession?: string;
+
+  @ApiPropertyOptional({ description: 'Médecin traitant' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  gpName?: string;
+
+  @ApiPropertyOptional({ description: 'Adressé par' })
   @IsOptional()
   @IsString()
   referralSource?: string;
@@ -62,34 +94,4 @@ export class CreatePatientDto {
   @IsString()
   @MaxLength(5000)
   consultationReason?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  allergies?: string;
-
-  @ApiPropertyOptional({ description: 'Régime particulier : végétarien, halal, sans gluten…' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  dietaryRestrictions?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => EmergencyContactDto)
-  emergencyContact?: EmergencyContactDto;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  privateNote?: string;
-
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsUUID(undefined, { each: true })
-  tagIds?: string[];
 }

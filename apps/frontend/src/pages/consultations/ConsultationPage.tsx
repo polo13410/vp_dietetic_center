@@ -1,89 +1,173 @@
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Check, Flag, Heart, PanelLeftClose, PanelLeftOpen, Ruler, Trash2, X } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Check, MoreHorizontal, Play, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
+import { RecallPanel } from '../../components/consultations/RecallPanel';
+import { SessionTextField } from '../../components/consultations/SessionInputs';
+import {
+  AversionsAndTastes,
+  SessionFurther,
+  SessionHeaderFields,
+  WeightSection,
+} from '../../components/consultations/SessionSections';
+import {
+  isJustStarted,
+  type PatientRouteState,
+  panelRemembered,
+  rememberPanel,
+} from '../../components/consultations/session-route';
 import { SessionInvoice } from '../../components/invoices/SessionInvoice';
-import { FileSectionEditor } from '../../components/patient-file/FilePanel';
-import { fieldClass, LifeEventForm } from '../../components/patient-file/LifeEventsPanel';
-import { MeasurementsForm } from '../../components/patient-file/MeasurementsForm';
 import { PatientRecap } from '../../components/patient-file/PatientRecap';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { PageHeader } from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
+import { useMediaQuery } from '../../hooks/use-media-query';
+import { useKeepFieldVisible } from '../../hooks/useKeepFieldVisible';
+import { apiErrorMessage } from '../../hooks/useMe';
 import api from '../../lib/api';
 import { useSessionInvoices } from '../../lib/invoices';
-import {
-  type Consultation,
-  EVENT_CATEGORIES,
-  FILE_FIELDS,
-  type FileField,
-  formatMetric,
-  METRICS,
-  sessionName,
-  useConsultation,
-  useFileSections,
-  useInvalidatePatientFile,
-  useMeasurements,
-  usePatientFileMutation,
-} from '../../lib/patient-file';
-import { cn, formatDate, formatDateTime } from '../../lib/utils';
+import { type Consultation, sessionName, useConsultation, useInvalidatePatientFile } from '../../lib/patient-file';
+import { cn, formatLongDate } from '../../lib/utils';
+
+/** iPad landscape and wider: the « Rappel » pushes the séance; narrower, it goes over it. */
+const PUSH_PANEL = '(min-width: 1024px)';
 
 /**
- * A session with the patient: one row of her follow-up sheet. The summary of the file stays on
- * the left; on the right, the session itself. Nothing is locked: a past session is corrected
- * like today's. (Temporary screen: lot 7 rebuilds it.)
+ * A séance: one row of her follow-up sheet, in two times. Time 1, « Avant de commencer », when a
+ * séance has just been started: the patient's summary in big, and « Commencer la séance ». Time 2:
+ * the summary slides into the narrow « Rappel » panel and the séance's fields come, in the order
+ * of her sheet, saved as she types. A reopened séance goes straight to time 2, panel closed, and
+ * is corrected like today's.
  */
 export default function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session, isLoading } = useConsultation(id);
-  const [briefOpen, setBriefOpen] = useState(true);
 
   if (isLoading) return <LoadingSpinner />;
-  if (!session) return <p className="text-muted-foreground">Séance introuvable</p>;
+  if (!session) return <p className="text-base text-muted-foreground">Cette séance est introuvable.</p>;
+  return <SessionScreen key={session.id} session={session} />;
+}
+
+function SessionScreen({ session }: { session: Consultation }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const drawer = !useMediaQuery(PUSH_PANEL);
+  const [started, setStarted] = useState(() => !isJustStarted(location.state, session.id));
+  const [entering, setEntering] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const start = () => {
+    // Beside the séance (iPad landscape, computer) the panel stays as she left it last time; over
+    // it (iPad portrait), it slides away and waits behind its handle
+    setPanelOpen(!drawer && panelRemembered());
+    setEntering(true);
+    setStarted(true);
+    // « Back » or a reload now lands on the séance, not on time 1 again
+    navigate(location.pathname, { replace: true, state: null });
+    const main = rootRef.current?.closest('main');
+    if (main && typeof main.scrollTo === 'function') main.scrollTo({ top: 0 });
+  };
+
+  const changePanel = (open: boolean) => {
+    setPanelOpen(open);
+    if (!drawer) rememberPanel(open);
+  };
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
-      <Header session={session} />
+    <div ref={rootRef}>
+      {started ? (
+        <>
+          <SessionTitle session={session} />
+          <div className="flex items-stretch gap-4 lg:gap-6">
+            <RecallPanel
+              patientId={session.patientId}
+              sessionId={session.id}
+              open={panelOpen}
+              onOpenChange={changePanel}
+              drawer={drawer}
+              // The page's root exists since time 1 (the row's ref is not attached yet when the panel measures)
+              enterFrom={entering ? rootRef : undefined}
+            />
+            <SessionFields session={session} entering={entering} />
+          </div>
+        </>
+      ) : (
+        <BeforeStarting session={session} onStart={start} />
+      )}
+    </div>
+  );
+}
 
-      <div className={cn('grid gap-5', briefOpen && 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]')}>
-        {briefOpen && (
-          <aside className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Résumé du dossier</h2>
-              <Button size="sm" variant="ghost" onClick={() => setBriefOpen(false)} title="Masquer le résumé">
-                <PanelLeftClose className="h-4 w-4" />
-              </Button>
-            </div>
-            <PatientRecap patientId={session.patientId} size="panel" />
-          </aside>
-        )}
+const patientName = (session: Consultation) =>
+  session.patient ? `${session.patient.firstName} ${session.patient.lastName}` : '';
 
-        <div className="space-y-4">
-          {!briefOpen && (
-            <Button size="sm" variant="outline" onClick={() => setBriefOpen(true)}>
-              <PanelLeftOpen className="h-4 w-4" /> Afficher le résumé du dossier
-            </Button>
-          )}
-          <MeasurementsBlock session={session} />
-          <Report session={session} />
-          <AversionsAndTastes session={session} />
-          <EventsBlock session={session} />
-          <SessionInvoice session={session} />
-        </div>
+// ─── Time 1: before starting ──────────────────────────────────────────────────
+
+function BeforeStarting({ session, onStart }: { session: Consultation; onStart: () => void }) {
+  return (
+    <div>
+      <PageHeader
+        area="patients"
+        back={{ to: `/patients/${session.patientId}`, label: `Dossier de ${patientName(session)}` }}
+        title="Avant de commencer"
+        subtitle={`${sessionName(session.sequence)} · ${patientName(session)}`}
+      />
+      <PatientRecap patientId={session.patientId} size="page" beforeSessionId={session.id} />
+      <div className="sticky bottom-4 z-10 mt-8 flex justify-center">
+        <Button size="lg" className="h-14 px-10 text-lg shadow-lg" onClick={onStart}>
+          <Play aria-hidden /> Commencer la séance
+        </Button>
       </div>
     </div>
   );
 }
 
-// ─── Header & actions ─────────────────────────────────────────────────────────
+// ─── Time 2: the séance ───────────────────────────────────────────────────────
 
-function Header({ session }: { session: Consultation }) {
+function SessionTitle({ session }: { session: Consultation }) {
+  const navigate = useNavigate();
+  const finish = () =>
+    navigate(`/patients/${session.patientId}`, { state: { endedSession: session.id } satisfies PatientRouteState });
+
+  return (
+    <PageHeader
+      area="patients"
+      className="mb-4 sm:mb-6"
+      back={{ to: `/patients/${session.patientId}`, label: `Dossier de ${patientName(session)}` }}
+      title={
+        <span className="flex flex-wrap items-baseline gap-x-3">
+          {sessionName(session.sequence)}
+          <span className="text-lg font-normal text-muted-foreground">{patientName(session)}</span>
+        </span>
+      }
+      subtitle={formatLongDate(session.date)}
+      actions={
+        <>
+          <Button onClick={finish}>
+            <Check aria-hidden /> Terminer la séance
+          </Button>
+          <SessionMenu session={session} />
+        </>
+      }
+    />
+  );
+}
+
+/** Secondary actions: delete the séance (with its invoice cancelled by a credit note first). */
+function SessionMenu({ session }: { session: Consultation }) {
   const navigate = useNavigate();
   const invalidate = useInvalidatePatientFile();
   const [confirm, setConfirm] = useState(false);
-  const patient = session.patient!;
   const invoice = useSessionInvoices(session.id).data?.current;
 
   const remove = useMutation({
@@ -93,229 +177,96 @@ function Header({ session }: { session: Consultation }) {
       toast({ title: 'Séance supprimée' });
       navigate(`/patients/${session.patientId}`);
     },
+    onError: (error) =>
+      toast({ title: apiErrorMessage(error, 'La séance n’a pas pu être supprimée. Réessayez.'), variant: 'destructive' }),
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Link to={`/patients/${patient.id}`} className="text-muted-foreground hover:text-foreground" title="Dossier du patient">
-        <ArrowLeft className="w-4 h-4" />
-      </Link>
-      <div className="flex-1 min-w-0">
-        <h1 className="text-xl font-semibold truncate">
-          {sessionName(session.sequence)} · {patient.firstName} {patient.lastName}
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          {session.appointment ? formatDateTime(session.appointment.startAt) : formatDate(session.date)}
-          {session.formulaLabel && ` · ${session.formulaLabel}`}
-          {session.priceCents !== null && ` · ${(session.priceCents / 100).toLocaleString('fr-FR')} €`}
-        </p>
-      </div>
-      <Button variant="ghost" size="sm" onClick={() => setConfirm(true)}>
-        <Trash2 className="h-4 w-4" /> Supprimer la séance
-      </Button>
-
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="Plus d’actions">
+            <MoreHorizontal aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setConfirm(true)}>
+            <Trash2 aria-hidden /> Supprimer la séance
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
-        title="Supprimer cette séance ?"
+        title={`Supprimer cette séance (${sessionName(session.sequence)}) ?`}
         description={
           (invoice
             ? `La facture n° ${invoice.number} sera annulée par un avoir ; la facture et l’avoir restent dans vos factures. `
             : '') +
           'La séance et ses mesures seront supprimées. Ce qui a été écrit dans le dossier médical est conservé.'
         }
-        confirmLabel="Supprimer"
+        confirmLabel="Supprimer la séance"
         variant="destructive"
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
+    </>
+  );
+}
+
+/** Her columns, in the order of her sheet. */
+function SessionFields({ session, entering }: { session: Consultation; entering: boolean }) {
+  const { ref, keyboardInset } = useKeepFieldVisible<HTMLDivElement>();
+  const previousAdvice = session.sequence > 0 ? session.previousAdvice : null;
+
+  return (
+    <div
+      ref={ref}
+      // Its blocks lay out by its own width (the « Rappel » open or closed), not the screen's
+      className={cn('@container min-w-0 flex-1 space-y-6', entering && 'motion-safe:animate-session-enter')}
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
+    >
+      <SessionHeaderFields session={session} />
+      <WeightSection session={session} />
+      <SessionTextField
+        session={session}
+        field="habits"
+        label="Habitudes et évolution"
+        placeholder="Ce que le patient rapporte depuis la dernière fois"
+        before={
+          previousAdvice && (
+            <div className="rounded-lg border-l-4 border-area-patients bg-muted px-4 py-3">
+              <p className="text-sm font-medium text-muted-foreground">Conseils donnés à la dernière séance</p>
+              <p className="whitespace-pre-line leading-relaxed">{previousAdvice}</p>
+            </div>
+          )
+        }
+      />
+      <SessionTextField
+        session={session}
+        field="sessionWork"
+        label="Travail en consultation"
+        placeholder="Ce qui a été travaillé pendant la séance"
+      />
+      <AversionsAndTastes session={session} />
+      <SessionTextField
+        session={session}
+        field="advice"
+        label="Conseils diététiques"
+        placeholder="Ce que vous lui conseillez pour la suite"
+      />
+      <SessionFurther session={session} />
+      <IssuedInvoice session={session} />
     </div>
   );
 }
 
-function Block({ icon, title, children, aside }: { icon: ReactNode; title: string; children: ReactNode; aside?: ReactNode }) {
-  return (
-    <section className="bg-card rounded-xl border border-border p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <span className="text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
-          {title}
-        </h2>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function RemoveButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="text-muted-foreground hover:text-destructive" title="Retirer">
-      <X className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-
-// ─── Report ───────────────────────────────────────────────────────────────────
-
-type Texts = { habits: string; sessionWork: string; advice: string };
-
-/** Her columns of the follow-up sheet, saved when leaving each field. */
-function Report({ session }: { session: Consultation }) {
-  const invalidate = useInvalidatePatientFile();
-  const saved: Texts = {
-    habits: session.habits ?? '',
-    sessionWork: session.sessionWork ?? '',
-    advice: session.advice ?? '',
-  };
-  const [texts, setTexts] = useState<Texts>(saved);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
-  useEffect(() => {
-    setTexts({ habits: session.habits ?? '', sessionWork: session.sessionWork ?? '', advice: session.advice ?? '' });
-  }, [session.habits, session.sessionWork, session.advice]);
-
-  const save = useMutation({
-    mutationFn: (body: Partial<Texts>) =>
-      api.patch(`/consultations/${session.id}`, body),
-    onSuccess: () => {
-      setSavedAt(new Date());
-      invalidate(session.patientId);
-    },
-    onError: () => toast({ title: 'Enregistrement impossible', variant: 'destructive' }),
-  });
-
-  const field = (key: keyof Texts, label: string, rows: number, placeholder: string) => (
-    <label className="block">
-      <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
-      <textarea
-        rows={rows}
-        value={texts[key]}
-        onChange={(e) => setTexts((t) => ({ ...t, [key]: e.target.value }))}
-        onBlur={() => texts[key] !== saved[key] && save.mutate({ [key]: texts[key] })}
-        placeholder={placeholder}
-        className={`${fieldClass} resize-y`}
-      />
-    </label>
-  );
-
-  return (
-    <Block
-      icon={<Check />}
-      title="Séance"
-      aside={
-        <span className="text-xs text-muted-foreground">
-          {save.isPending ? 'Enregistrement…' : savedAt ? `Enregistré à ${formatDate(savedAt, 'HH:mm')}` : ''}
-        </span>
-      }
-    >
-      {session.previousAdvice && (
-        <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
-          <p className="text-xs font-medium text-muted-foreground mb-0.5">Conseils de la séance précédente</p>
-          <p className="whitespace-pre-line">{session.previousAdvice}</p>
-        </div>
-      )}
-      {field('habits', 'Habitudes et évolution', 4, 'Ce que le patient rapporte depuis la dernière fois')}
-      {field('sessionWork', 'Travail en consultation', 4, 'Ce qui a été travaillé pendant la séance')}
-      {field('advice', 'Conseils diététiques', 3, 'Ce que vous lui avez conseillé pour la suite')}
-    </Block>
-  );
-}
-
-// ─── Measurements ─────────────────────────────────────────────────────────────
-
-const MISSING_LABELS = { weight: 'le poids', height: 'la taille', sex: 'le sexe', age: "l'âge" } as const;
-
-function MeasurementsBlock({ session }: { session: Consultation }) {
-  const { data: all = [] } = useMeasurements(session.patientId);
-  const remove = usePatientFileMutation(session.patientId, (id: string) => ({
-    method: 'delete',
-    url: `/patients/${session.patientId}/measurements/${id}`,
-  }));
-  const taken = session.measurements ?? [];
-  const { bmi, bmr, missing } = session.figures;
-  const { sincePrevious, sinceFirst } = session.weightChange;
-  const kg = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString('fr-FR')} kg`;
-
-  return (
-    <Block icon={<Ruler />} title="Poids et mesures">
-      {taken.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {taken.map((m) => (
-            <span key={m.id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-sm">
-              {formatMetric(m.type, m.value)}
-              <span className="text-xs text-muted-foreground">{METRICS[m.type].label.toLowerCase()}</span>
-              <RemoveButton onClick={() => remove.mutate(m.id)} />
-            </span>
-          ))}
-        </div>
-      )}
-      <p className="text-sm text-muted-foreground">
-        {bmi && <>IMC {bmi.value.toLocaleString('fr-FR')}</>}
-        {bmr && (
-          <>
-            {' '}
-            · MB {bmr.mj.toLocaleString('fr-FR')} MJ · {bmr.kcal.toLocaleString('fr-FR')} kcal
-          </>
-        )}
-        {sincePrevious !== null && <> · {kg(sincePrevious)} depuis la dernière séance</>}
-        {sinceFirst !== null && <> · {kg(sinceFirst)} depuis le bilan</>}
-        {missing.length > 0 && (
-          <> {bmi || bmr ? '· ' : ''}Pour calculer l’IMC et le MB, ajoutez {missing.map((m) => MISSING_LABELS[m]).join(', ')}.</>
-        )}
-      </p>
-      <MeasurementsForm
-        patientId={session.patientId}
-        consultationId={session.id}
-        needsHeight={!all.some((m) => m.type === 'HEIGHT')}
-      />
-    </Block>
-  );
-}
-
-// ─── Aversions and tastes ─────────────────────────────────────────────────────
-
-const SESSION_FIELDS: FileField[] = ['AVERSIONS', 'TASTES'];
-
-/** The patient's aversions and tastes (sections of the file), completed during the session. */
-function AversionsAndTastes({ session }: { session: Consultation }) {
-  const { data: sections = [] } = useFileSections(session.patientId);
-  return (
-    <Block icon={<Heart />} title="Aversions · Goûts">
-      {SESSION_FIELDS.map((field) => (
-        <div key={field}>
-          <p className="text-xs font-medium text-muted-foreground mb-1">{FILE_FIELDS[field]}</p>
-          <FileSectionEditor
-            patientId={session.patientId}
-            field={field}
-            current={sections.find((s) => s.field === field)?.current?.content ?? ''}
-            consultationId={session.id}
-          />
-        </div>
-      ))}
-    </Block>
-  );
-}
-
-// ─── Life events ──────────────────────────────────────────────────────────────
-
-function EventsBlock({ session }: { session: Consultation }) {
-  const events = session.lifeEvents ?? [];
-  const remove = usePatientFileMutation(session.patientId, (id: string) => ({
-    method: 'delete',
-    url: `/patients/${session.patientId}/life-events/${id}`,
-  }));
-  return (
-    <Block icon={<Flag />} title="Faits marquants">
-      {events.map((e) => (
-        <div key={e.id} className="flex items-start justify-between gap-3 text-sm">
-          <span>
-            <span className="text-xs text-muted-foreground">{formatDate(e.date)}</span> · {e.title}
-            {e.category && <span className="text-xs text-muted-foreground"> ({EVENT_CATEGORIES[e.category]})</span>}
-          </span>
-          <RemoveButton onClick={() => remove.mutate(e.id)} />
-        </div>
-      ))}
-      <LifeEventForm patientId={session.patientId} consultationId={session.id} />
-    </Block>
-  );
+/**
+ * The séance's invoice once there is one (download, correct, cancel; a banner when the séance no
+ * longer matches it). Before, « Faire la facture » is offered by « Terminer la séance ».
+ */
+function IssuedInvoice({ session }: { session: Consultation }) {
+  const { data } = useSessionInvoices(session.id);
+  if (!data?.current && !data?.history.length) return null;
+  return <SessionInvoice session={session} />;
 }

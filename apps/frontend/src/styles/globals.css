@@ -60,6 +60,15 @@
   --color-brand-ink: #1f3a2b;
   --color-brand-blush: #f2a7a0;
 
+  /* The séance's fields arriving while the « Rappel » slides left (use with motion-safe:) */
+  --animate-session-enter: session-enter 300ms ease-out 80ms both;
+  @keyframes session-enter {
+    from {
+      opacity: 0;
+      transform: translateX(2rem);
+    }
+  }
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

@@ -9,25 +9,20 @@ import { apiGet, PATIENT_ID, renderWithProviders, sessions } from '../../test/pa
 import { PatientInvoices } from './PatientInvoices';
 import { SessionInvoice } from './SessionInvoice';
 
-vi.mock('../../lib/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('../../lib/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 
 /** « Suivi 2 » of the test patient: 50 €, not paid yet */
 const session = sessions[0];
-const formulas = [
-  { id: 'f', label: 'Suivi', priceCents: 5000, position: 1, archivedAt: null },
-  { id: 'b', label: 'Bilan', priceCents: 6000, position: 0, archivedAt: null },
-];
 
 function mockSession(state: SessionInvoicesDto) {
   vi.mocked(api.get).mockImplementation(
-    apiGet({ [`/consultations/${session.id}/invoices`]: state, '/me/formulas': formulas }) as never,
+    apiGet({ [`/consultations/${session.id}/invoices`]: state }) as never,
   );
 }
 
 describe('SessionInvoice', () => {
   beforeEach(() => {
     vi.mocked(api.post).mockReset();
-    vi.mocked(api.patch).mockReset();
   });
 
   it('issues the invoice of a session not invoiced yet (« Faire la facture »)', async () => {
@@ -45,24 +40,6 @@ describe('SessionInvoice', () => {
     renderWithProviders(<SessionInvoice session={{ ...session, formulaId: null, formulaLabel: null, priceCents: null }} />);
     expect(await screen.findByText('Choisissez la formule de la séance (avec son prix) pour faire la facture.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Faire la facture' })).toBeDisabled();
-  });
-
-  it('saves what is invoiced: payment method, formula, day', async () => {
-    mockSession({ current: null, mismatches: [], history: [] });
-    vi.mocked(api.patch).mockResolvedValue({ data: {} });
-    renderWithProviders(<SessionInvoice session={session} />);
-    await screen.findByRole('option', { name: 'Bilan · 60,00 €' });
-
-    fireEvent.change(screen.getByLabelText('Moyen de paiement'), { target: { value: 'CARD' } });
-    await waitFor(() => expect(api.patch).toHaveBeenLastCalledWith(`/consultations/${session.id}`, { paymentMethod: 'CARD' }));
-    fireEvent.change(screen.getByLabelText('Formule'), { target: { value: 'b' } });
-    await waitFor(() => expect(api.patch).toHaveBeenLastCalledWith(`/consultations/${session.id}`, { formulaId: 'b' }));
-    fireEvent.change(screen.getByLabelText('Date de la séance'), { target: { value: '2026-11-16' } });
-    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(3));
-    const { date } = vi.mocked(api.patch).mock.lastCall![1] as { date: string };
-    // Same time of day, another day
-    expect(new Date(date).getDate()).toBe(16);
-    expect(new Date(date).getHours()).toBe(new Date(session.date).getHours());
   });
 
   it('says when the invoice no longer matches the session, and corrects it', async () => {

@@ -1,9 +1,7 @@
-import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle, Download, FilePen, Receipt, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { apiErrorMessage, useFormulas } from '../../hooks/useMe';
-import api from '../../lib/api';
+import { apiErrorMessage } from '../../hooks/useMe';
 import { formatAmount, formatLongDay } from '../../lib/invoice-document';
 import {
   downloadInvoicePdf,
@@ -15,15 +13,8 @@ import {
   useIssueInvoice,
   useSessionInvoices,
 } from '../../lib/invoices';
-import {
-  type Consultation,
-  PAYMENT_METHODS,
-  type PaymentMethod,
-  useInvalidatePatientFile,
-} from '../../lib/patient-file';
-import { fieldClass } from '../patient-file/LifeEventsPanel';
+import type { Consultation } from '../../lib/patient-file';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
-import { Field } from '../shared/Field';
 import { Section } from '../shared/Section';
 import { Button } from '../ui/button';
 import { toast } from '../ui/toaster';
@@ -32,10 +23,9 @@ import { CancelInvoiceDialog } from './CancelInvoiceDialog';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
 
 /**
- * The session's invoice: what will be invoiced (date, formula, payment, editable at any time),
- * then « Faire la facture ». Once issued: download, correct (credit note + new invoice) or cancel.
+ * The session's invoice: « Faire la facture » with what the séance's header line says (date,
+ * formula, payment). Once issued: download, correct (credit note + new invoice) or cancel.
  * When the session no longer matches its invoice, a banner says so and offers the correction.
- * Self-contained so the session screen (lot 7) can place it where it wants.
  */
 export function SessionInvoice({ session }: { session: Consultation }) {
   const { data, isLoading } = useSessionInvoices(session.id);
@@ -44,7 +34,6 @@ export function SessionInvoice({ session }: { session: Consultation }) {
   return (
     <Section icon={Receipt} area="invoices" title="Facture">
       <div className="space-y-5">
-        <BillingFields session={session} />
         {isLoading ? null : current ? (
           <IssuedInvoice invoice={current} mismatches={data?.mismatches ?? []} />
         ) : (
@@ -53,81 +42,6 @@ export function SessionInvoice({ session }: { session: Consultation }) {
         {data && data.history.length > 0 && <History invoices={data.history} />}
       </div>
     </Section>
-  );
-}
-
-// ─── What is invoiced ─────────────────────────────────────────────────────────
-
-/** "2026-11-20" in local time, for a date input. */
-const dayValue = (iso: string) => {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-function BillingFields({ session }: { session: Consultation }) {
-  const invalidate = useInvalidatePatientFile();
-  const { data: formulas = [] } = useFormulas();
-  const offered = formulas.filter((f) => !f.archivedAt);
-  const save = useMutation({
-    mutationFn: (body: { date?: string; formulaId?: string | null; paymentMethod?: PaymentMethod }) =>
-      api.patch(`/consultations/${session.id}`, body),
-    onSuccess: () => invalidate(session.patientId),
-    onError: (error) =>
-      toast({ title: apiErrorMessage(error, 'Le changement n’a pas été enregistré. Réessayez.'), variant: 'destructive' }),
-  });
-
-  const changeDay = (day: string) => {
-    if (!day) return;
-    // Keeps the session's time, changes its day
-    const previous = new Date(session.date);
-    const [year, month, date] = day.split('-').map(Number);
-    const next = new Date(previous);
-    next.setFullYear(year, month - 1, date);
-    save.mutate({ date: next.toISOString() });
-  };
-
-  return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-4">
-      <Field label="Date de la séance">
-        <input
-          type="date"
-          className={fieldClass}
-          value={dayValue(session.date)}
-          onChange={(e) => changeDay(e.target.value)}
-        />
-      </Field>
-      <Field label="Formule">
-        <select
-          className={fieldClass}
-          value={session.formulaId ?? ''}
-          onChange={(e) => save.mutate({ formulaId: e.target.value || null })}
-        >
-          <option value="">Choisir…</option>
-          {session.formulaId && !offered.some((f) => f.id === session.formulaId) && (
-            <option value={session.formulaId}>{session.formulaLabel}</option>
-          )}
-          {offered.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-              {f.priceCents !== null && ` · ${formatAmount(f.priceCents)}`}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Moyen de paiement">
-        <select
-          className={fieldClass}
-          value={session.paymentMethod}
-          onChange={(e) => save.mutate({ paymentMethod: e.target.value as PaymentMethod })}
-        >
-          {(Object.keys(PAYMENT_METHODS) as PaymentMethod[]).map((m) => (
-            <option key={m} value={m}>
-              {PAYMENT_METHODS[m]}
-            </option>
-          ))}
-        </select>
-      </Field>
-    </div>
   );
 }
 

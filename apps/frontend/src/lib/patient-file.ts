@@ -260,10 +260,19 @@ export function useFileSections(patientId: string | undefined) {
   });
 }
 
-export function usePatientBrief(patientId: string | undefined) {
+/**
+ * The summary before a session. With `beforeSessionId`, as it was before that session (its
+ * « Rappel »): the session itself and later ones are left out.
+ */
+export function usePatientBrief(patientId: string | undefined, beforeSessionId?: string) {
   return useQuery({
-    queryKey: [...fileKey(patientId ?? ''), 'brief'],
-    queryFn: async () => (await api.get<Brief>(`/patients/${patientId}/brief`)).data,
+    queryKey: [...fileKey(patientId ?? ''), 'brief', ...(beforeSessionId ? [beforeSessionId] : [])],
+    queryFn: async () =>
+      (
+        await api.get<Brief>(`/patients/${patientId}/brief`, {
+          params: beforeSessionId ? { before: beforeSessionId } : undefined,
+        })
+      ).data,
     enabled: !!patientId,
   });
 }

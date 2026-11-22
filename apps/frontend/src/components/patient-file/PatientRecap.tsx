@@ -56,6 +56,8 @@ interface PatientRecapProps {
   onOpenFile?: () => void;
   /** Extra content under the summary, page size only (« Pour aller plus loin ») */
   children?: ReactNode;
+  /** Beside a session: the summary as it was before it (its own weight and texts left out) */
+  beforeSessionId?: string;
 }
 
 /**
@@ -63,8 +65,15 @@ interface PatientRecapProps {
  * allergies, identity and contact, key figures with the weight curve, the last session's advice,
  * aversions and tastes.
  */
-export function PatientRecap({ patientId, size = 'page', editable, onOpenFile, children }: PatientRecapProps) {
-  const { data: brief, isLoading } = usePatientBrief(patientId);
+export function PatientRecap({
+  patientId,
+  size = 'page',
+  editable,
+  onOpenFile,
+  children,
+  beforeSessionId,
+}: PatientRecapProps) {
+  const { data: brief, isLoading } = usePatientBrief(patientId, beforeSessionId);
   const [editing, setEditing] = useState(false);
   if (isLoading) return <LoadingSpinner />;
   if (!brief) return null;

@@ -3,6 +3,7 @@ import { AppointmentStatus, MetricType, Prisma } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { InvoicesService } from '../invoices/invoices.service';
 
 import { SessionInSeries, sessionSeries } from './calculations';
 import { CreateConsultationDto, UpdateConsultationDto } from './dto/consultation.dto';
@@ -35,6 +36,7 @@ export class ConsultationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: PatientAccessService,
+    private readonly invoices: InvoicesService,
   ) {}
 
   /** The follow-up sheet, latest session first. */
@@ -123,13 +125,12 @@ export class ConsultationsService {
   /**
    * Deletes a session and its measurements (its weight is part of the row). Medical file
    * versions and life events written during it stay in the file, no longer linked to it.
+   * An invoiced session has its invoice cancelled by a credit note first; both stay in the
+   * invoices with their copies.
    */
   async remove(user: AccessUser, id: string) {
-    const { patientId } = await this.ofUser(user, id);
-    await this.prisma.$transaction([
-      this.prisma.measurement.deleteMany({ where: { consultationId: id } }),
-      this.prisma.consultation.delete({ where: { id } }),
-    ]);
+    const { patientId, practitionerId } = await this.ofUser(user, id);
+    await this.invoices.deleteSession(practitionerId, id);
     return { patientId };
   }
 

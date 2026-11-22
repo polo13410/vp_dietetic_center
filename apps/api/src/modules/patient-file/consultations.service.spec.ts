@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createMockUser, mockAccess, mockPrisma } from '../../test/setup';
+import { InvoicesService } from '../invoices/invoices.service';
 
 import { ConsultationsService } from './consultations.service';
 
@@ -23,7 +24,11 @@ describe('ConsultationsService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new ConsultationsService(mockPrisma as any, mockAccess as any);
+    service = new ConsultationsService(
+      mockPrisma as any,
+      mockAccess as any,
+      new InvoicesService(mockPrisma as any, mockAccess as any),
+    );
     // The test patient of docs/REFONTE.md § 3.1: woman, 56, 1.59 m
     mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ sex: 'F', dateOfBirth: d('1970-01-01') });
     mockPrisma.measurement.findFirst.mockResolvedValue({ value: new Prisma.Decimal(159) });
@@ -219,6 +224,7 @@ describe('ConsultationsService', () => {
   describe('remove', () => {
     it('deletes the session and its measurements', async () => {
       mockPrisma.consultation.findUnique.mockResolvedValue(session);
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
 
       await expect(service.remove(user as any, 'c1')).resolves.toEqual({ patientId: 'p1' });
 

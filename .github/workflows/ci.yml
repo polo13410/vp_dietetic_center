@@ -14,6 +14,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # Empty database: the migrations are applied to it, then the database tests run on it
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: vp_test
+          POSTGRES_USER: vp_user
+          POSTGRES_PASSWORD: vp_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vp_user -d vp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://vp_user:vp_password@localhost:5432/vp_test
+
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
@@ -33,6 +52,11 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Apply the migrations to an empty database
+        run: pnpm --filter @vp/api exec prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
 
       - name: Run tests with coverage
         run: |

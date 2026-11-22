@@ -36,32 +36,52 @@ Les utilisatrices sont des soignantes, pas des informaticiennes. Elles se perden
 2. **Rien n'est verrouillé.** Tout ce qui a été saisi reste modifiable et supprimable (avec confirmation pour supprimer). La traçabilité est assurée par le journal d'accès existant, pas par des verrous. Seule exception : une facture émise (obligation légale, voir lot 5).
 3. **Enregistrement automatique** des textes et des valeurs, avec un indicateur visible (« Enregistré à 14 h 32 »). Pas de bouton « Enregistrer » à chercher, sauf dans les assistants de création.
 4. **Une action principale par écran**, en gros bouton coloré. Les actions secondaires sont plus discrètes.
-5. **Le plus utile d'abord, le reste replié.** Les mesures complémentaires (tour de taille, masse grasse…) restent disponibles dans une section « Pour aller plus loin » repliée : Valérie les découvrira peut-être, mais elles ne doivent pas encombrer.
-8. **Sa feuille montre ce qu'elle fait, pas tout ce dont elle a besoin.** Numbers l'a obligée à aller au plus simple. Il faut distinguer « ce n'est pas utile pour elle » de « ce n'est pas là parce que l'outil ne le permettait pas ». C'est sur le second point que l'app doit faire mieux que le tableur (voir § 2.1).
+5. **Le plus utile d'abord, le reste replié.** Les mesures complémentaires (tour de taille, masse grasse…) et les faits marquants restent disponibles dans une section « Pour aller plus loin » repliée : Valérie les découvrira peut-être, mais ils ne doivent pas encombrer.
+6. **iPad et ordinateur.** iPad (paysage surtout, portrait toléré) pendant la consultation, ordinateur pour l'administratif. Cibles tactiles ≥ 44 px, rien qui ne marche qu'au survol (pas d'info uniquement en `title`), le clavier virtuel ne doit pas masquer le champ actif.
+7. **Des états vides qui guident** : illustration ou icône colorée + une phrase + le bouton qui fait avancer (« Aucune séance pour l'instant — Démarrer le bilan »).
+8. **Sa feuille montre ce qu'elle fait, pas tout ce dont elle a besoin.** Numbers l'a obligée à aller au plus simple : il faut distinguer « pas utile pour elle » de « pas possible avec le tableur ». Mais l'inverse est aussi vrai : beaucoup de choses qu'un logiciel « complet » proposerait ne correspondent pas à sa pratique. **Test pour tout ajout : il prolonge un geste qu'elle fait déjà, sans lui demander une saisie de plus.** Un ajout qui demande de remplir, noter ou classer en plus de ce qu'elle fait aujourd'hui n'entre pas dans cette refonte ; il attend son retour (§ 5).
 
 ### 2.1 Ce que le tableur ne lui permettait pas
 
-| Dans sa feuille                                                        | Limite du tableur                                                       | Ce que l'app apporte                                                                                      |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Une cellule par sujet du dossier (santé, psy, activité…)                | On écrase ou on allonge la cellule : on perd quand et comment ça a changé | **Chaque champ du dossier garde son historique daté** ; on voit la valeur actuelle et on peut remonter le temps |
-| Poids, IMC, MB recopiés à chaque ligne                                  | Pas de courbe, les écarts se calculent de tête                           | **Courbe de poids** et écarts (depuis la dernière séance, depuis le bilan) affichés tout de suite          |
-| « Conseils diététiques » écrits à chaque séance                        | Rien ne les rappelle à la séance suivante                                | **Retour sur les conseils** : au début de la séance, les conseils de la fois précédente avec « Appliqué / En partie / Pas appliqué » (remplace les objectifs actuels) |
-| Aversions et goûts dans des colonnes de séance (souvent vides)          | Éparpillés sur les lignes, impossibles à retrouver                       | **Une liste par patient** (« Aime » / « N'aime pas ») alimentée depuis les séances, visible au moment de donner des conseils |
-| Faits notés dans le texte (« retiré il y a 2 mois par le docteur M », « resto gastro samedi ») | Noyés dans les cellules                                    | **Faits marquants** datés, ajoutés en une ligne, affichés sur la courbe de poids (événements de vie actuels, simplifiés) |
-| « Compte rendu : À faire »                                              | Elle doit tout recouper (feuille, notes papier) et rédiger à la main      | **Compte rendu au médecin pré-rempli** à partir du dossier, qu'elle relit et complète (lot 10)            |
-| Onglet facture avec un total                                            | Pas de vraie facture, pas de numérotation                                | **Une facture par séance** et un récapitulatif par période (lot 5)                                        |
-6. **iPad et ordinateur.** iPad (paysage surtout, portrait toléré) pendant la consultation, ordinateur pour l'administratif. Cibles tactiles ≥ 44 px, rien qui ne marche qu'au survol (pas d'info uniquement en `title`), le clavier virtuel ne doit pas masquer le champ actif.
-7. **Des états vides qui guident** : illustration ou icône colorée + une phrase + le bouton qui fait avancer (« Aucune séance pour l'instant — Démarrer le bilan »).
+Gardé, parce que ça ne lui demande rien de plus :
+
+| Dans sa feuille                                                  | Limite du tableur                                                          | Ce que l'app apporte                                                                                       |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Une cellule par rubrique du dossier (santé, psy, activité…)      | On écrase ou on allonge la cellule : on perd quand et comment ça a changé   | **Historique daté automatique** de chaque rubrique : elle modifie le texte comme avant, l'app garde les versions |
+| Poids, IMC, MB recopiés à chaque ligne                           | Pas de courbe, les écarts se calculent de tête                              | **Calculs automatiques, courbe de poids** et écarts (depuis la dernière séance, depuis le bilan)            |
+| « Conseils diététiques » écrits à chaque séance                  | Il faut remonter la feuille pour relire ceux de la dernière fois            | **Les conseils de la dernière séance affichés** en haut de la nouvelle, là où elle fait le point             |
+| Aversions et goûts dans des colonnes de séance (souvent vides)   | Éparpillés sur les lignes, impossibles à retrouver d'un coup d'œil          | **Une rubrique « Aversions » et une « Goûts » par patient** (texte libre avec historique), modifiables depuis la séance |
+| « Compte rendu : À faire »                                       | Elle doit tout recouper (feuille, notes papier) et rédiger à la main         | **Compte rendu au médecin pré-rempli** avec ses données, qu'elle relit et complète (lot 10)               |
+| Onglet facture avec un total                                     | Pas de vraie facture, pas de numérotation                                   | **Une facture par séance** et un récapitulatif par période (lot 5)                                         |
+
+Écarté, parce que ça ajoute de la saisie ou ne correspond pas à sa pratique :
+
+| Idée                                                             | Pourquoi on ne la fait pas                                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Objectifs suivis avec un statut à chaque séance (existant)       | Elle fait le point en racontant (« Habitudes et évolution »), pas en cochant des cases. Supprimés.                   |
+| Note « appliqué / en partie / pas appliqué » sur les conseils    | Un conseil en contient plusieurs, une note globale ne dirait rien. On affiche les conseils, elle écrit le retour.    |
+| Aliments aimés / pas aimés en étiquettes                         | Elle écrit des phrases (« n'aime pas les légumes cuits, sauf en soupe »). Texte libre.                              |
+| Thématiques génériques (sommeil, digestion…), échelles 1–10       | Pas son vocabulaire ni sa méthode. Supprimées.                                                                      |
+| Contact d'urgence, régime particulier, note privée, tags, statuts | Pas utiles en cabinet de diététique libéral, et le RGPD demande de ne collecter que le nécessaire. Supprimés.        |
+| Faits marquants mis en avant dans la séance                      | Elle les écrit déjà dans ses textes. Gardés seulement en « Pour aller plus loin », pour annoter la courbe si elle veut. |
 
 ## 3. Contrats partagés
 
 ### 3.1 Calculs (API, jamais stockés)
 
-- **IMC** = poids (kg) / taille (m)². Catégories inchangées (`apps/api/src/modules/patient-file/bmi.ts`).
-- **MB (formule de Black et al.)**, en MJ/jour : `k × poids^0,48 × taille(m)^0,50 × âge^-0,13`, avec `k = 0,963` (femme) ou `1,083` (homme). C'est la « constante » de sa feuille (affichée arrondie à 0,96).
-- **MB en kcal/jour** = MB (MJ) × 1000 / 4,185 (c'est le facteur qu'utilise sa feuille, vérifié sur ses chiffres).
-- Âge = âge du patient à la date de la séance. Taille = dernière taille connue.
-- Si sexe, date de naissance ou taille manquent : pas de calcul, et l'interface dit ce qui manque (« Ajoutez la taille pour calculer l'IMC »).
+Formules confirmées sur sa feuille Numbers (2026-11-22) :
+
+| Valeur        | Formule Numbers                                          | Dans l'app                                              |
+| ------------- | -------------------------------------------------------- | ------------------------------------------------------- |
+| Constante     | `=SI(Sexe="F";0,963;1,083)`                              | `k = 0,963` (F) ou `1,083` (M) ; affichée « 0,96 »      |
+| IMC           | `=Poids÷PUISSANCE(Taille;2)`                             | poids (kg) / taille (m)²                                |
+| MB (MJ/jour)  | `=Constante×PUISSANCE(Poids;0,48)×PUISSANCE(Taille;0,5)×PUISSANCE(Âge;−0,13)` | formule de Black et al., taille en mètres |
+| MB (kcal/jour)| `=(MB MJ÷4,185)×1000`                                    | MB (MJ) × 1000 / 4,185                                  |
+
+- Catégories d'IMC inchangées (`apps/api/src/modules/patient-file/bmi.ts`).
+- Âge : dans sa feuille, c'est un nombre saisi une fois au bilan. Dans l'app, il est calculé depuis la date de naissance, à la date de chaque séance (plus juste sur un suivi long). Si elle ne connaît que l'âge, le champ « date de naissance » permet de saisir « âge : 56 » à la place ; l'app enregistre alors l'année de naissance estimée et l'indique (« 56 ans, âge déclaré »).
+- Taille = dernière taille connue.
+- Si sexe, âge ou taille manquent : pas de calcul, et l'interface dit ce qui manque (« Ajoutez la taille pour calculer l'IMC »).
 - **Cas de test obligatoire** (tiré de sa feuille) : femme, 56 ans, 1,59 m, 79 kg → IMC 31,25 · MB 5,86 MJ · 1 400,3 kcal. Puis 78,2 kg → 5,83 MJ · 1 393,5 kcal ; 76,5 kg → 5,77 MJ · 1 378,9 kcal.
 
 ### 3.2 Modèle de données cible
@@ -76,10 +96,11 @@ La prod n'existe pas encore et le staging ne contient aucune donnée réelle : *
 | `familySituation`         | Situation familiale           | texte                       |
 | `profession`              | Profession                    | texte court                 |
 | `gpName`                  | Médecin traitant              | texte court                 |
+| `birthDateEstimated`      | (âge déclaré, voir § 3.1)     | booléen                     |
 | `archivedAt`              | (patient archivé)             | date, remplace `status`     |
 
-Garder : identité, contact, adresse, `dietaryRestrictions`, `consultationReason`, contact d'urgence, `privateNote`, `referralSource`, consentements.
-Supprimer : `status` (+ enum `PatientStatus`), `Tag`, `PatientTag`, et `allergies` (passe dans le dossier médical ci-dessous).
+Garder : identité, contact, adresse (facultative, utile sur les factures), `consultationReason` (motif), `referralSource` (adressé par), consentements.
+Supprimer : `status` (+ enum `PatientStatus`), `Tag`, `PatientTag`, contact d'urgence (3 champs), `dietaryRestrictions`, `privateNote`, et `allergies` (passe dans le dossier médical ci-dessous).
 La **taille** reste une mesure `HEIGHT` (table `Measurement`), saisie depuis le dossier.
 
 **Dossier médical avec historique** — reprend le mécanisme des thématiques actuelles (`TopicNote`), mais avec **ses** rubriques. Renommer le modèle en `FileEntry` et l'enum en `FileField` :
@@ -94,15 +115,17 @@ La **taille** reste une mesure `HEIGHT` (table `Measurement`), saisie depuis le 
 | `ALLERGIES`                  | Allergies                     |
 | `BLOOD_GLUCOSE`              | Glycémie                      |
 | `CHOLESTEROL_TRIGLYCERIDES`  | Cholestérol et triglycérides  |
+| `AVERSIONS`                  | Aversions                     |
+| `TASTES`                     | Goûts                         |
 
 - Une entrée = (patient, rubrique, texte, date, séance facultative). La valeur actuelle d'une rubrique est sa dernière entrée.
 - Pour elle, c'est un simple champ de texte qu'elle modifie. L'app fait le reste : une modification **le même jour** (ou dans la même séance) met à jour l'entrée du jour ; une modification **un autre jour** crée une nouvelle version. Sous le champ : « Modifié le 12 mars · voir l'historique ».
 - Une version de l'historique peut être corrigée ou supprimée (principe 2).
 - Glycémie et cholestérol restent du texte libre (valeur + date du bilan sanguin) ; l'historique suffit à suivre leur évolution. Un vrai graphique des analyses est une question à poser à Valérie (§ 5).
 
-**Préférences alimentaires** — nouveau modèle `FoodPreference` : patient, `kind` (`LIKE` / `DISLIKE`), aliment (texte court), note facultative, séance où c'est apparu (facultatif), date. Saisie en étiquettes (« + ajouter un aliment ») depuis la séance ou le dossier ; liste unique par patient, retirable.
+Aversions et goûts sont des rubriques comme les autres : un texte libre par patient, avec historique, modifiable depuis le dossier ou depuis la séance (l'entrée est alors liée à la séance).
 
-**Faits marquants** — le modèle `LifeEvent` est gardé mais simplifié dans l'interface : date + une ligne de texte ; la catégorie devient facultative.
+**Faits marquants** — le modèle `LifeEvent` est gardé mais simplifié : date + une ligne de texte, catégorie facultative. Uniquement dans « Pour aller plus loin » ; s'il y en a, ils annotent la courbe de poids.
 
 **Compte rendu au médecin** — nouveau modèle `GpReport` : patient, date, texte, `status` (`DRAFT` / `SENT`), `sentAt`. Plusieurs comptes rendus possibles dans la vie d'un dossier. Voir lot 10.
 
@@ -117,17 +140,15 @@ La **taille** reste une mesure `HEIGHT` (table `Measurement`), saisie depuis le 
 | `habits`              | Habitudes et évolution     | texte                                                                |
 | `sessionWork`         | Travail en consultation    | texte (remplace `summary`)                                           |
 | `advice`              | Conseils diététiques       | existant                                                             |
-| `adviceFollowUp`      | Retour sur les conseils de la séance précédente | enum `APPLIED` / `PARTLY` / `NOT_APPLIED`, facultatif |
-| `adviceFollowUpNote`  | (commentaire du retour)    | texte, facultatif                                                    |
 
-Aversions et goûts ne sont plus des colonnes de séance : ils alimentent `FoodPreference` (lié à la séance où ils sont apparus).
+Aversions et goûts ne sont plus des colonnes de séance : ce sont des rubriques du dossier (ci-dessus), modifiables depuis la séance.
 
 Le **poids** de la séance reste une mesure `WEIGHT` liée à la séance (`consultationId`), ce qui garde les graphiques existants. L'API renvoie pour chaque séance : poids, IMC, MB (MJ), MB (kcal), et l'écart avec la séance précédente.
 Supprimer : `status`, `finalizedAt`, enum `ConsultationStatus`, et toute la logique de verrouillage (`assertDraftSession`, contrôles `FINALIZED` dans `patient-file.service.ts` et `consultations.service.ts`, route `/finalize`). Créer une séance depuis un rendez-vous passe ce rendez-vous à `COMPLETED`.
 
 **Thématiques** (`TopicNote`, `PatientTopic`) : leurs rubriques génériques (alimentation, sommeil, digestion…) disparaissent, mais leur mécanisme d'historique est réutilisé pour le dossier médical (ci-dessus).
 
-**Objectifs** (`Goal`, `GoalReview`) : supprimés, remplacés par le retour sur les conseils (`adviceFollowUp`), qui part de ce qu'elle écrit déjà.
+**Objectifs** (`Goal`, `GoalReview`) : supprimés. À la place, chaque séance affiche les conseils de la séance précédente ; son retour s'écrit dans « Habitudes et évolution », comme aujourd'hui.
 
 **Gardé en « Pour aller plus loin »** (replié dans l'interface) : mesures complémentaires (tour de taille, hanches, masse grasse, masse musculaire). Les échelles 1–10 (énergie, sommeil, stress, faim) sont supprimées.
 
@@ -162,6 +183,7 @@ Lot 2  Modèle de données + API ──────┼─► Lot 3 Paramètres �
                                      │                        └► Lot 10 Compte rendu médecin (après lot 3)
                                      └─► Lot 8 Accueil + pages restantes
 Lot 9  Nettoyage, tests de bout en bout, documentation (à la fin)
+Lot 11 Recette avec Valérie, puis ajustements (après le lot 9)
 ```
 
 Lots 1 et 2 peuvent avancer en parallèle : le lot 1 ne touche que `components/ui`, `components/layout`, les styles et de nouveaux composants partagés ; le lot 2 que l'API, Prisma, `packages/types` et les adaptations minimales du frontend pour que tout compile.
@@ -189,7 +211,8 @@ Chaque lot : une branche depuis `staging`, une PR vers `staging`, CI verte, test
 - Appliquer § 3.1 et § 3.2 : schéma Prisma, une migration, DTO, services, contrôleurs, `packages/types`, seed.
 - Fonctions de calcul IMC/MB pures et testées avec le cas de test de § 3.1.
 - Supprimer : verrouillage et finalisation des séances, rubriques génériques des thématiques, objectifs, échelles 1–10, notifications, tags, statut patient (remplacé par archiver/désarchiver).
-- Créer : `FileEntry` (historique du dossier, avec la règle « même jour = mise à jour, autre jour = nouvelle version »), `FoodPreference`, `GpReport` (modèle et CRUD seulement, l'écran est au lot 10), et pour chaque séance le rappel des conseils de la séance précédente.
+- Créer : `FileEntry` (historique du dossier, avec la règle « même jour = mise à jour, autre jour = nouvelle version »), `GpReport` (modèle et CRUD seulement, l'écran est au lot 10), la saisie de l'âge à la place de la date de naissance (§ 3.1), et pour chaque séance les conseils de la séance précédente dans la réponse de l'API.
+- Supprimer aussi les champs patient listés en § 3.2 (contact d'urgence, régime particulier, note privée).
 - Côté frontend, seulement le nécessaire pour compiler et ne pas casser : retirer les écrans et appels des fonctions supprimées, renommer `summary` → `sessionWork`. Les vrais écrans arrivent aux lots 4 à 7.
 - Garder le contrôle d'accès (`PatientAccessService`) et l'audit (`@Audited`) sur toutes les nouvelles routes.
 - Fini quand : migration appliquée sur une base vide, seed OK, tests API verts avec seuils de couverture tenus, une séance « finalisée » n'existe plus nulle part dans le code.
@@ -219,7 +242,7 @@ Reprendre `apps/frontend/src/pages/patients/PatientDetailPage.tsx` sur le modèl
 
 | Onglet            | Contenu                                                                                                                       |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Récapitulatif     | Carte identité (âge, téléphone cliquable, e-mail, situation familiale, profession, médecin traitant + dernier compte rendu), chiffres clés (poids actuel, IMC, MB, écart depuis le bilan), courbe de poids avec les faits marquants, dernière séance en bref (conseils donnés), « Aime / N'aime pas », allergies bien visibles |
+| Récapitulatif     | Carte identité (âge, téléphone cliquable, e-mail, situation familiale, profession, médecin traitant + dernier compte rendu), chiffres clés (poids actuel, IMC, MB, écart depuis le bilan), courbe de poids avec les faits marquants, dernière séance en bref (conseils donnés), aversions et goûts, allergies bien visibles |
 | Dossier médical   | Ses rubriques (§ 3.2) dans son ordre, modifiables sur place avec enregistrement automatique et historique par rubrique ; taille et sexe ici |
 | Suivi             | Tableau des séances comme sa feuille : n° (Bilan, Suivi 1, 2…), date, formule, paiement, poids, IMC, MB MJ, MB kcal ; une ligne se déplie pour lire les textes ; toucher une ligne ouvre la séance. Bouton « Nouvelle séance » |
 | Factures          | Liste des factures du patient + total (lot 5 ; onglet masqué tant que le lot 5 n'est pas livré)                                   |
@@ -260,7 +283,7 @@ Contexte : une facture par séance. Les paiements se font hors de l'app ; l'app 
 
 Remplacer le formulaire en une colonne (`PatientForm.tsx`, `PatientNewPage.tsx`) par un assistant en étapes, avec la barre d'étapes visible en haut :
 
-1. **Qui est-ce ?** — prénom, nom (obligatoires, marqués « obligatoire ») ; sexe et date de naissance (marqués « pour calculer le MB »). Le patient est **créé à la fin de cette étape** : rien n'est perdu si elle s'arrête là.
+1. **Qui est-ce ?** — prénom, nom (obligatoires, marqués « obligatoire ») ; sexe et date de naissance, ou âge s'il n'est pas connu (marqués « pour calculer le MB »). Le patient est **créé à la fin de cette étape** : rien n'est perdu si elle s'arrête là.
 2. **Le joindre** — téléphone, e-mail, adresse.
 3. **Sa situation** — situation familiale, profession, médecin traitant, adressé par.
 4. **Dossier médical** — taille, ses champs (§ 3.2), allergies.
@@ -276,7 +299,7 @@ Remplacer le formulaire en une colonne (`PatientForm.tsx`, `PatientNewPage.tsx`)
 Pendant une consultation la conversation saute d'un sujet à l'autre : la saisie n'est donc **pas** un assistant en étapes mais une seule page, dans l'ordre de sa feuille. En revanche, **se remémorer l'histoire du patient avant de commencer** est un moment à part, crucial, qui mérite son propre écran. D'où deux temps :
 
 **Temps 1 — « Avant de commencer »** (en pleine page)
-- S'affiche quand on démarre une nouvelle séance. Contenu : le récapitulatif du lot 4 en grand et lisible : histoire (motif, dossier médical), courbe de poids avec faits marquants, dernière séance (travail fait, conseils donnés), « Aime / N'aime pas », allergies.
+- S'affiche quand on démarre une nouvelle séance. Contenu : le récapitulatif du lot 4 en grand et lisible : histoire (motif, dossier médical), courbe de poids, dernière séance (travail fait, conseils donnés), aversions et goûts, allergies.
 - Un seul gros bouton : **« Commencer la séance »**.
 
 **Temps 2 — la séance**
@@ -287,13 +310,13 @@ Pendant une consultation la conversation saute d'un sujet à l'autre : la saisie
 
 **Champs de la séance**, dans l'ordre :
   1. Ligne d'en-tête : date (aujourd'hui), formule (pré-remplie : « Bilan » pour la première séance, « Suivi » ensuite), moyen de paiement (pré-rempli avec le dernier utilisé pour ce patient). Numéro affiché : « Bilan », « Suivi 3 »…
-  2. **Retour sur les conseils** de la séance précédente : le texte de ces conseils, trois gros boutons « Appliqué / En partie / Pas appliqué » et un commentaire facultatif. Absent pour un bilan.
-  3. Poids → IMC, MB MJ et MB kcal calculés aussitôt, en grandes tuiles, avec l'écart depuis la dernière séance et depuis le bilan.
-  4. Habitudes et évolution · Travail en consultation — grandes zones de texte qui s'agrandissent avec le contenu.
-  5. Aime / N'aime pas — étiquettes ajoutées en un geste, liste du patient déjà affichée.
-  6. Conseils diététiques — grande zone de texte.
-  7. Fait marquant — « + Ajouter un fait marquant » (date + une ligne).
-  8. « Pour aller plus loin » replié : mesures complémentaires, et les rubriques du dossier médical modifiables sans quitter la séance.
+  2. Poids → IMC, MB MJ et MB kcal calculés aussitôt, en grandes tuiles, avec l'écart depuis la dernière séance et depuis le bilan.
+  3. **Habitudes et évolution**, avec juste au-dessus, en encadré discret, les conseils donnés à la séance précédente (absent pour un bilan) : c'est là qu'elle fait le point.
+  4. Travail en consultation.
+  5. Aversions · Goûts — les rubriques du patient, déjà remplies avec ce qu'on sait, qu'elle complète.
+  6. Conseils diététiques.
+  7. « Pour aller plus loin » replié : mesures complémentaires, fait marquant, autres rubriques du dossier médical modifiables sans quitter la séance.
+- Les zones de texte sont grandes et s'agrandissent avec le contenu.
 - Enregistrement automatique partout, indicateur visible.
 - Plus de « Finaliser » ni « Abandonner » : un bouton **« Terminer la séance »** ramène à la fiche et propose, dans une petite fenêtre, les deux suites naturelles : « Faire la facture » et « Prendre le prochain rendez-vous ». « Supprimer la séance » est dans un menu secondaire, avec confirmation (si elle est facturée, voir le tableau des erreurs du lot 5).
 - Une séance passée se rouvre et se modifie exactement comme une séance du jour.
@@ -315,7 +338,7 @@ Contexte : c'est la tâche qu'elle redoute. Elle doit recouper sa feuille, ses n
   - suivi : date du bilan, nombre de séances, date de la dernière ;
   - évolution : poids et IMC au bilan → aujourd'hui, écart, MB actuel ;
   - éléments du dossier : valeur actuelle des rubriques renseignées (santé, antécédents, activité, glycémie…) ;
-  - conseils donnés : ceux des dernières séances, avec le retour (appliqué / en partie / pas appliqué) ;
+  - travail mené et conseils donnés : ceux des dernières séances ;
   - formule de politesse et signature.
 - Elle modifie librement le texte ; enregistrement automatique. Le brouillon est enregistré en base (`GpReport`) et retrouvable dans la fiche.
 - Export PDF sur papier à en-tête du cabinet, puis « Marquer comme envoyé » (date d'envoi).
@@ -336,9 +359,18 @@ Contexte : c'est la tâche qu'elle redoute. Elle doit recouper sa feuille, ses n
 
 ---
 
+### Lot 11 — Recette avec Valérie
+
+La refonte fait des choix sur sa pratique (§ 2.1) : c'est elle qui les valide.
+
+- Préparer sur staging un compte de démonstration avec deux ou trois patients fictifs réalistes (dont celui du cas de test), sur son iPad.
+- Lui faire dérouler sans aide, en la regardant : créer un patient, préparer puis mener un bilan, faire la facture, corriger un tarif, rouvrir une ancienne séance, rédiger un compte rendu. Noter où elle hésite, cherche ou se trompe.
+- Lui poser les questions du § 5 qui restent ouvertes, et revoir avec elle le tableau « Écarté » du § 2.1 : ce qu'elle réclame entre dans un lot d'ajustements.
+- Livrable : une liste d'ajustements classés (bloquant / gênant / confort), qui devient le plan suivant.
+
 ## 5. À valider avec Valérie
 
-Ces points ne bloquent pas le démarrage mais peuvent ajuster les lots concernés.
+Ces points ne bloquent pas le démarrage mais peuvent ajuster les lots concernés. Ceux qui restent ouverts sont posés pendant la recette (lot 11).
 
 Déjà tranché : le « Compte rendu : À faire » est bien celui au médecin traitant (lot 10). Elle n'utilise pas Doctolib : l'agenda de l'app est son seul agenda et reste central.
 
@@ -349,15 +381,13 @@ Déjà tranché : le « Compte rendu : À faire » est bien celui au médecin tr
 1. Qu'écrivez-vous sur papier pendant la séance qui n'arrive jamais dans la feuille ?
 2. Avant une séance, qu'est-ce qui vous prend du temps à retrouver ?
 3. Les lignes « Suivi 4 » à « Suivi 10 » déjà prêtes, avec « Non » en formule : prévoyez-vous un nombre de séances, ou vendez-vous des forfaits (bilan + N suivis) ? Si oui, l'app pourrait suivre les séances restantes d'un forfait.
-4. Aime / N'aime pas en étiquettes (lot 7) : est-ce que ça vous convient, ou préférez-vous écrire des phrases ?
-5. Glycémie, cholestérol : aimeriez-vous voir leur évolution en graphique, comme le poids ?
-6. Remettez-vous des documents aux patients (plans alimentaires, menus, fiches conseils) ? Une bibliothèque de documents types pourrait les envoyer ou les imprimer en un geste.
-7. Le retour sur les conseils (« appliqué / en partie / pas appliqué ») correspond-il à votre façon de faire le point en début de séance ?
+4. Glycémie, cholestérol : aimeriez-vous voir leur évolution en graphique, comme le poids ?
+5. Remettez-vous des documents aux patients (plans alimentaires, menus, fiches conseils) ? Une bibliothèque de documents types pourrait les envoyer ou les imprimer en un geste.
+6. Connaissez-vous la date de naissance de vos patients, ou seulement leur âge ?
 
 **Pratique et facturation** :
 
-8. Moyens de paiement : espèces, chèque, carte, virement — en manque-t-il ?
-9. Mention TVA, numérotation, avoir ou simple annulation : à vérifier avec son comptable.
-10. Envoi de la facture par e-mail au patient : utile ? (pas prévu ici ; Brevo est déjà branché, ce serait un petit lot de plus.)
-11. Jours de consultation : travaille-t-elle le samedi ou le dimanche ? (le lot 0 affiche les 7 jours dans tous les cas.)
-12. Calculs : confirmer sur sa feuille Numbers les formules exactes. D'après ses chiffres : Black et al. avec k = 0,963, kcal = MJ × 1000 / 4,185, et l'âge reste-t-il celui du bilan ou change-t-il à chaque séance ?
+7. Moyens de paiement : espèces, chèque, carte, virement — en manque-t-il ?
+8. Mention TVA, numérotation, avoir ou simple annulation : à vérifier avec son comptable.
+9. Envoi de la facture par e-mail au patient : utile ? (pas prévu ici ; Brevo est déjà branché, ce serait un petit lot de plus.)
+10. Jours de consultation : travaille-t-elle le samedi ou le dimanche ? (le lot 0 affiche les 7 jours dans tous les cas.)

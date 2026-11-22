@@ -18,57 +18,82 @@ describe('DashboardService', () => {
     vi.setSystemTime(NOW);
     service = new DashboardService(mockPrisma as any, new PatientAccessService(mockPrisma as any));
     mockPrisma.appointment.findMany.mockResolvedValue([
-      { id: 'a1', status: 'COMPLETED', startAt: at('2026-11-20T09:00:00') },
-      { id: 'a2', status: 'CONFIRMED', startAt: at('2026-11-20T14:00:00') },
-      { id: 'a3', status: 'CANCELLED', startAt: at('2026-11-20T16:00:00') },
+      { id: 'a1', status: 'COMPLETED', startAt: at('2026-11-20T09:00:00'), consultation: { id: 'c1' } },
+      { id: 'a2', status: 'CONFIRMED', startAt: at('2026-11-20T14:00:00'), consultation: null },
     ]);
-    mockPrisma.appointment.findFirst.mockResolvedValue({ id: 'a2' });
-    mockPrisma.appointment.count.mockResolvedValue(9);
-    mockPrisma.patient.count.mockResolvedValue(12);
-    mockPrisma.task.findMany.mockResolvedValue([]);
+    mockPrisma.task.findMany.mockResolvedValue([{ id: 't1' }]);
     mockPrisma.patient.findMany.mockResolvedValue([
-      { id: 'p1', firstName: 'A', lastName: 'Seen 50 days ago', appointments: [{ startAt: at('2026-10-01T11:00:00') }] },
-      { id: 'p2', firstName: 'B', lastName: 'Never seen', appointments: [] },
-      { id: 'p3', firstName: 'C', lastName: 'Seen 80 days ago', appointments: [{ startAt: at('2026-09-01T11:00:00') }] },
+      { id: 'p1', firstName: 'A', lastName: 'Session 50 days ago', consultations: [{ date: at('2026-10-01T11:00:00') }] },
+      { id: 'p2', firstName: 'B', lastName: 'No session', consultations: [] },
+      { id: 'p3', firstName: 'C', lastName: 'Session 80 days ago', consultations: [{ date: at('2026-09-01T11:00:00') }] },
     ]);
   });
 
   afterEach(() => vi.useRealTimers());
 
-  it("counts today's appointments, the remaining ones and the week", async () => {
-    const { stats, nextAppointment } = await service.getSummary(user as any);
-    expect(stats).toEqual({
-      todayCount: 2, // cancelled ones do not count
-      todayRemaining: 1,
-      weekAppointmentCount: 9,
-      followedPatientCount: 12,
-    });
-    expect(nextAppointment).toEqual({ id: 'a2' });
+  it('returns the four sections’ data and nothing left from dropped features', async () => {
+    const summary = await service.getSummary(user as any);
+    expect(Object.keys(summary).sort()).toEqual(['followUps', 'tasks', 'todayAppointments']);
+    expect(summary.tasks).toEqual([{ id: 't1' }]);
+  });
+
+  it("lists today's appointments with their session, from midnight to midnight", async () => {
+    const { todayAppointments } = await service.getSummary(user as any);
+    expect(todayAppointments.map((a) => a.id)).toEqual(['a1', 'a2']);
+    const query = mockPrisma.appointment.findMany.mock.calls[0][0];
+    expect(query.where.startAt).toEqual({ gte: at('2026-11-20T00:00:00'), lt: at('2026-11-21T00:00:00') });
+    expect(query.include.consultation).toEqual({ select: { id: true } });
+    expect(query.orderBy).toEqual({ startAt: 'asc' });
   });
 
   it("only looks at the practitioner's own current patients", async () => {
     await service.getSummary(user as any);
     expect(mockPrisma.appointment.findMany.mock.calls[0][0].where.practitionerId).toBe(user.id);
-    expect(mockPrisma.patient.count.mock.calls[0][0].where).toMatchObject({
+    expect(mockPrisma.patient.findMany.mock.calls[0][0].where).toMatchObject({
       practitionerId: user.id,
       archivedAt: null,
+      deletedAt: null,
     });
   });
 
-  it('lists patients to follow up: never seen first, then the longest without a visit', async () => {
+  it('lists patients to follow up: no session first, then the longest without a session', async () => {
     const { followUps } = await service.getSummary(user as any);
     expect(followUps.map((f) => f.patient.id)).toEqual(['p2', 'p3', 'p1']);
-    expect(followUps[1].daysSince).toBe(80);
-    expect(followUps[0].lastSeenAt).toBeNull();
-    // Only patients with nothing booked and no visit in the last 6 weeks are asked for
+    expect(followUps[0]).toMatchObject({ lastSessionAt: null, daysSince: null });
+    expect(followUps[1]).toMatchObject({ lastSessionAt: at('2026-09-01T11:00:00'), daysSince: 80 });
+  });
+
+  it('asks only for patients with no session in 6 weeks and nothing booked', async () => {
+    await service.getSummary(user as any);
     const where = mockPrisma.patient.findMany.mock.calls[0][0].where;
-    expect(where.appointments.none.OR).toHaveLength(2);
+    const sixWeeksAgo = new Date(NOW.getTime() - 42 * 24 * 3600 * 1000);
+    expect(where.consultations).toEqual({ none: { date: { gte: sixWeeksAgo } } });
+    expect(where.appointments).toEqual({
+      none: { startAt: { gte: NOW }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
+    });
+    // A patient created this week has had no time for a session yet
+    expect(where.createdAt).toEqual({ lt: sixWeeksAgo });
+  });
+
+  it('keeps at most 10 patients to follow up', async () => {
+    mockPrisma.patient.findMany.mockResolvedValue(
+      Array.from({ length: 14 }, (_, i) => ({ id: `p${i}`, firstName: 'X', lastName: 'Y', consultations: [] })),
+    );
+    const { followUps } = await service.getSummary(user as any);
+    expect(followUps).toHaveLength(10);
+  });
+
+  it('lists the open tasks assigned to or created by the user', async () => {
+    await service.getSummary(user as any);
+    const where = mockPrisma.task.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([{ assignedToId: user.id }, { createdById: user.id }]);
+    expect(where.status).toEqual({ in: ['PENDING', 'IN_PROGRESS'] });
   });
 
   it('gives admins nothing', async () => {
     const admin = createMockUser({ id: 'admin-1', role: 'ADMIN' });
     await service.getSummary(admin as any);
     expect(mockPrisma.appointment.findMany.mock.calls[0][0].where.id).toEqual({ in: [] });
-    expect(mockPrisma.patient.count.mock.calls[0][0].where.id).toEqual({ in: [] });
+    expect(mockPrisma.patient.findMany.mock.calls[0][0].where.id).toEqual({ in: [] });
   });
 });

@@ -1,477 +1,200 @@
-# Plan Directeur — VP Dietetic Center
+# Plan directeur — VP Dietetic Center
 
-> **Document de référence pour tous les agents et développeurs travaillant sur ce projet.**
-> Version : 1.0 | Date : 2026-04-02 | Statut : Actif
-
----
-
-## 1. Vision produit
-
-Application web métier destinée à une **psycho-nutritionniste** pour gérer l'intégralité de son activité :
-patients, rendez-vous, notes cliniques, suivi psycho-nutritionnel, documents, tâches administratives et reporting.
-
-**Valeur clé** : vitesse d'usage quotidien, ergonomie praticienne, données patients fiables et sécurisées, architecture conforme RGPD/données de santé.
+> Référence pour toute personne (ou agent) qui travaille sur le projet : ce que fait l'app, comment elle est construite et déployée, ce qui reste à faire.
+> Mis à jour le 2026-11-22.
 
 ---
 
-## 2. Architecture globale
+## 1. Produit
+
+Application web pour une **diététicienne / psycho-nutritionniste** : suivre ses patients d'une séance à l'autre, préparer chaque rendez-vous en un coup d'œil, et garder un dossier fiable et protégé (données de santé, RGPD).
+
+### Rôles
+
+| Rôle          | Ce qu'il fait                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------- |
+| `ADMIN`       | Gère l'application et les comptes, consulte le journal d'accès. **Ne voit aucune donnée patient.** |
+| `PRATICIENNE` | Travaille avec **ses** patients uniquement (dossier, rendez-vous, séances, documents, tâches).    |
+| `ASSISTANTE`  | Existe dans le code (lecture du dossier + rendez-vous) mais n'est pas utilisé ni proposé à la création de compte. |
+
+Le contrôle d'accès est centralisé dans `PatientAccessService` (API) : chaque requête sur un patient vérifie qu'il appartient à la praticienne connectée.
+
+### Navigation
+
+- **Praticienne** : Tableau de bord · Patients · Rendez-vous · Paramètres
+- **Admin** : Utilisateurs · Journal d'accès · Paramètres
+
+Les notes, tâches et documents n'ont pas de page à eux : ils vivent dans le dossier du patient.
+
+### Dossier patient
+
+| Élément                | Contenu                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| Profil                 | Identité, contact, description générale, statut (actif, inactif, archivé), étiquettes, consentements      |
+| Mesures                | Poids, taille, tour de taille/hanches, masse grasse/musculaire, énergie, sommeil, stress, faim — avec historique et graphiques |
+| IMC                    | Calculé par l'API (kg/m²), jamais stocké. Catégories : < 18,5 maigreur · < 25 normal · < 30 surpoids · < 40 obésité · ≥ 40 obésité massive |
+| Thèmes                 | Alimentation, activité, sommeil, émotions, digestion, santé, vie — chaque note s'ajoute à l'historique du thème |
+| Événements de vie      | Faits marquants datés, affichés sur les graphiques de mesures                                            |
+| Objectifs              | Objectifs suivis et revus à chaque séance (en cours, atteint, abandonné…)                                 |
+| Séances                | Une séance est ouverte depuis un rendez-vous : brouillon → finalisée. Finaliser verrouille les saisies et passe le rendez-vous à « terminé » |
+| Documents              | Fichiers (PDF, images, documents bureautiques — liste blanche de formats, 10 Mo max), aperçu dans le navigateur |
+| Tâches                 | Tâches liées au patient                                                                                   |
+| Historique des accès   | Qui a consulté ou modifié le dossier                                                                     |
+
+Avant une séance, le **brief** rassemble l'essentiel : dernières mesures et évolution, objectifs en cours, derniers événements, thèmes récents.
+
+### Tableau de bord et agenda
+
+- Tableau de bord : prochain patient avec son brief, rendez-vous du jour, nombre de patients suivis, patients sans séance depuis 6 semaines.
+- Rendez-vous : agenda semaine / jour / liste sur une grille horaire, création et modification depuis l'agenda.
+
+### Décisions produit
+
+- Pas de rappels de rendez-vous aux patients pour l'instant. Seuls les e-mails de réinitialisation de mot de passe sont envoyés.
+- Plusieurs praticiennes possibles, chacune ne voit que ses patients.
+- Budget d'hébergement visé : 16 CHF/mois maximum.
+
+---
+
+## 2. Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        GitHub                               │
-│   monorepo (Turborepo + pnpm workspaces)                    │
-│   apps/api  |  apps/frontend  |  packages/*                 │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ GitHub Actions CI/CD
-          ┌────────────────┴────────────────┐
-          ▼                                 ▼
-┌──────────────────┐             ┌──────────────────┐
-│  Cloud Run API   │             │ Cloud Run Frontend│
-│  (NestJS + Node) │             │  (Nginx + React)  │
-│  :3000           │             │  :80              │
-└────────┬─────────┘             └──────────────────┘
-         │                              │
-         ├──► Cloud SQL (PostgreSQL 15) │
-         ├──► Cloud Storage (fichiers)  │
-         ├──► Secret Manager (secrets)  │
-         └──► Cloud Logging/Monitoring  │
-                                        │
-              Artifact Registry ◄───────┘
-              (images Docker)
+Navigateur
+   │  https://staging.app.dietetiquecenter.fr  (même origine pour l'app et l'API)
+   ▼
+Firebase Hosting ──(rewrite **)──► Cloud Run « frontend » (nginx + build React)
+                                       │  /api/* → ajoute l'en-tête secret X-Proxy-Token
+                                       ▼
+                                  Cloud Run « api » (NestJS)
+                                       ├──► Cloud SQL PostgreSQL 15 (instance partagée, une base par env)
+                                       ├──► Cloud Storage (documents patients)
+                                       ├──► Secret Manager (secrets)
+                                       └──► Brevo SMTP (e-mails)
 ```
+
+- **Même origine** : le navigateur ne parle qu'à l'app. nginx relaie `/api` vers l'API, donc pas de CORS et un cookie de session first-party.
+- **API fermée** : l'API refuse (403) toute requête sans le bon `X-Proxy-Token`, sauf `/api/v1/health`. Seul le frontend connaît ce secret.
+- **Firebase Hosting** sert le domaine personnalisé et le certificat (Cloud Run ne mappe pas de domaine en europe-west9, et un load balancer coûterait plus que le reste du projet). Il ne transmet que le cookie `__session`, d'où son nom.
+- **Mise à l'échelle à zéro** pour les deux services Cloud Run.
+- Région : **europe-west9 (Paris)**. Fuseau de l'API : `Europe/Paris`.
 
 ### Environnements
 
-| Env     | Branche      | Déploiement     | Base de données   |
-| ------- | ------------ | --------------- | ----------------- |
-| local   | any          | docker-compose  | PostgreSQL local  |
-| dev     | develop      | automatique     | Cloud SQL dev     |
-| staging | develop→main | automatique     | Cloud SQL staging |
-| prod    | main         | manuel approuvé | Cloud SQL prod    |
+| Env     | Branche   | Adresse                                   | État                 |
+| ------- | --------- | ----------------------------------------- | -------------------- |
+| local   | toutes    | http://localhost:5173 (docker compose)    | —                    |
+| staging | `staging` | https://staging.app.dietetiquecenter.fr   | En ligne             |
+| prod    | `prod`    | https://app.dietetiquecenter.fr           | **Pas encore créée** |
+
+Le domaine `dietetiquecenter.fr` est chez LWS (site vitrine actuel). Les enregistrements DNS de l'app et de Brevo y sont ajoutés à la main ; `terraform output dns_records` donne ceux de l'app.
 
 ---
 
-## 3. Stack technique
+## 3. Stack
 
-### Frontend — `apps/frontend`
+| Partie      | Outils                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| Frontend    | React 19, Vite, TypeScript, React Router, TanStack Query, zustand, React Hook Form + zod, Tailwind CSS 4, shadcn/ui (Radix), Recharts, date-fns |
+| API         | Node.js 24, NestJS 11, Prisma 6, PostgreSQL 15, Passport (JWT, Google), class-validator, helmet, throttler, pino, Swagger, nodemailer |
+| Tests       | Vitest (API et frontend), Playwright (scaffold, hors CI)                                                 |
+| Monorepo    | pnpm workspaces + Turborepo ; `packages/types` (types partagés), `packages/config` (ESLint, Prettier, TS) |
+| Infra       | Terraform (`infra/terraform`), script d'amorçage (`infra/bootstrap`), coupure budgétaire (`infra/budget-cutoff`) |
+| CI/CD       | GitHub Actions (`ci.yml`, `cd.yml`)                                                                      |
 
-| Outil           | Version | Usage                 |
-| --------------- | ------- | --------------------- |
-| React           | 19.x    | UI framework          |
-| TypeScript      | 5.x     | Typage                |
-| Vite            | 6.x     | Build/Dev server      |
-| React Router    | 7.x     | Routing               |
-| TanStack Query  | 5.x     | Server state          |
-| React Hook Form | 7.x     | Formulaires           |
-| Zod             | 3.x     | Validation schémas    |
-| Tailwind CSS    | 4.x     | Styles                |
-| Shadcn/ui       | latest  | Composants (Radix UI) |
-| Recharts        | 2.x     | Graphiques            |
-| date-fns        | 3.x     | Dates                 |
-| Vitest          | 3.x     | Tests unitaires       |
-| Playwright      | latest  | Tests E2E (scaffold)  |
+---
 
-### Backend — `apps/api`
+## 4. Modèle de données
 
-| Outil             | Version | Usage                   |
-| ----------------- | ------- | ----------------------- |
-| Node.js           | 24.x    | Runtime                 |
-| NestJS            | 11.x    | Framework               |
-| TypeScript        | 5.x     | Typage                  |
-| Prisma            | 6.x     | ORM                     |
-| PostgreSQL        | 15.x    | Base de données         |
-| Passport.js       | 0.7.x   | Auth stratégies         |
-| JWT               | -       | Access + Refresh tokens |
-| bcrypt            | -       | Hashing passwords       |
-| class-validator   | -       | Validation DTO          |
-| class-transformer | -       | Transformation DTO      |
-| nestjs-throttler  | -       | Rate limiting           |
-| helmet            | -       | Headers sécurité        |
-| pino              | -       | Logs structurés         |
-| Swagger/OpenAPI   | -       | Documentation API       |
-| Vitest            | 3.x     | Tests                   |
+```
+User ─── rôle, préférences, sessions (RefreshToken)
+Patient ─── appartient à une praticienne ; statut, étiquettes (Tag), consentements (Consent)
+ ├── Appointment ─── rendez-vous (type, statut)
+ │    └── Consultation ─── séance liée au rendez-vous (DRAFT → FINALIZED)
+ ├── Measurement ─── une valeur par type (MetricType) et par date, liée ou non à une séance
+ ├── TopicNote ─── note sur un thème (PatientTopic)
+ ├── LifeEvent ─── événement de vie (LifeEventCategory)
+ ├── Goal ─── objectif ; GoalReview ─── revue à chaque séance
+ ├── Document ─── fichier dans Cloud Storage (patients/<id>/<uuid>.<ext>)
+ └── Task
+Notification ─── notifications in-app
+AuditLog ─── qui, quoi, quand, sur quel patient
+```
 
-### Packages partagés — `packages/`
+Les saisies faites pendant une séance finalisée sont verrouillées. Supprimer un brouillon de séance remet les objectifs dans leur état d'avant.
 
-- `packages/types` — Types TypeScript partagés (DTOs, enums, interfaces)
-- `packages/config` — Configs ESLint, Prettier, TypeScript base
+---
+
+## 5. Authentification et sécurité
+
+- **Connexion** : e-mail + mot de passe, ou Google. 5 échecs bloquent le compte 15 minutes.
+- **Jetons** : jeton d'accès de 15 minutes, gardé en mémoire uniquement. Session de **10 heures** depuis la connexion (une journée de travail) dans le cookie httpOnly `__session` (chemin `/api/v1/auth`). Chaque rafraîchissement fait tourner le jeton sans prolonger la session.
+- **Mot de passe oublié** : jeton stocké haché (sha256), valable 1 heure ; une réinitialisation ferme toutes les sessions.
+- **Limites de débit** : 300 requêtes/min par IP, 10/min sur la connexion, Google, mot de passe oublié et réinitialisation.
+- **Journal d'accès** : décorateur `@Audited` + intercepteur global ; consultation et modification des dossiers, connexions. Visible par l'admin (page Journal d'accès) et sur chaque dossier.
+- **En-têtes** : helmet côté API ; CSP, X-Frame-Options, nosniff côté nginx. Les réponses `/api` sont `no-store`.
+- **Secrets** : uniquement dans Secret Manager (prod/staging) ou `.env` (local). Aucune clé de compte de service (interdit par une règle d'organisation). Tous les secrets ont été renouvelés le 2026-11-20 après l'incident du 16 octobre.
+- **RGPD** : minimisation, consentements tracés, accès réservé à la praticienne du patient, journal des accès.
+
+---
+
+## 6. Déploiement et façon de travailler
+
+### Branches et PR
+
+- Une branche par sujet (`feat/…`, `fix/…`, `chore/…`, `docs/…`) depuis `staging`, PR vers `staging`.
+- La CI (lint, types, tests avec seuils de couverture, build) doit passer avant le merge.
+- Fusionner `staging` dans `prod` déploie en production (l'environnement GitHub `production` demande une approbation).
+- Plusieurs PR fusionnées à la suite : ajouter `[skip ci]` au message de merge de toutes sauf la dernière, pour ne lancer qu'un déploiement.
+- Commits : [Conventional Commits](https://www.conventionalcommits.org/) en minuscules (`feat(patients): …`), vérifiés par commitlint.
+
+### CD (`cd.yml`)
+
+Sur push vers `staging` ou `prod` : build des images modifiées (API, frontend), push dans Artifact Registry, migrations Prisma (job Cloud Run), puis déploiement des services. Authentification à GCP par Workload Identity Federation (pas de clé).
 
 ### Infrastructure
 
-| Outil     | Usage                  |
-| --------- | ---------------------- |
-| Terraform | IaC Google Cloud       |
-| Docker    | Containerisation       |
-| Turborepo | Orchestration monorepo |
-| pnpm      | Gestion dépendances    |
+- Terraform est appliqué **en local par le propriétaire** (pas depuis la CI) ; la CD ne fait que déployer des images. Détails : [infra/terraform/README.md](../infra/terraform/README.md).
+- `infra/bootstrap/bootstrap.sh` crée ce que Terraform suppose déjà là (APIs, secrets, comptes de service, WIF).
+- Créer un compte sur un environnement : `apps/api/prisma/create-user.cjs`, lancé via le job de migration (voir le README Terraform).
 
 ---
 
-## 4. Modèle de données (Prisma)
+## 7. Où en est le projet
 
-### Entités principales
+### Fait
 
-```
-User ──────────────────── rôles : admin | praticienne | assistante
-Patient ──────────────── lié à User (praticienne), soft-delete
-Appointment ──────────── lié Patient + User, statuts multiples
-ClinicalNote ─────────── lié Patient + Appointment (optionnel)
-NutritionalProfile ───── 1:1 avec Patient
-NutritionalEntry ─────── journal quotidien lié Patient
-Document ─────────────── lié Patient, stocké Cloud Storage
-Task ─────────────────── lié Patient (optionnel) + User
-AuditLog ─────────────── toutes les actions sensibles
-Consent ──────────────── RGPD : consentements patients
-UserPreferences ─────── 1:1 avec User
-Tag ──────────────────── tags configurables, ManyToMany Patient
-```
+- Rôles et navigation séparés admin / praticienne.
+- Dossier patient complet : mesures, IMC, thèmes, événements, objectifs, séances, brief.
+- Tableau de bord et agenda semaine / jour / liste.
+- Documents dans Cloud Storage avec aperçu.
+- Journal d'accès.
+- E-mails via Brevo.
+- API accessible uniquement par le frontend.
+- Domaine personnalisé pour staging.
+- Région Paris, coupure budgétaire.
+- Dépendances sans vulnérabilité connue.
 
-### Règles métier clés
+### À faire
 
-- Soft delete sur Patient (statut : ACTIVE | INACTIVE | ARCHIVED | DELETED)
-- Notes cliniques : brouillon → finalisé (verrouillé après finalisation)
-- Audit log : toute action CREATE/UPDATE/DELETE sur entités sensibles
-- Consentements stockés avec date, version et preuve (texte signé)
-
----
-
-## 5. API REST — Conventions
-
-### Versioning
-
-Toutes les routes préfixées `/api/v1/`
-
-### Endpoints principaux
-
-```
-POST   /api/v1/auth/login
-POST   /api/v1/auth/logout
-POST   /api/v1/auth/refresh
-POST   /api/v1/auth/forgot-password
-POST   /api/v1/auth/reset-password
-
-GET    /api/v1/users
-POST   /api/v1/users
-GET    /api/v1/users/:id
-PATCH  /api/v1/users/:id
-DELETE /api/v1/users/:id
-
-GET    /api/v1/patients          ?page&limit&search&status&tag
-POST   /api/v1/patients
-GET    /api/v1/patients/:id
-PATCH  /api/v1/patients/:id
-DELETE /api/v1/patients/:id      (soft delete)
-GET    /api/v1/patients/:id/timeline
-
-GET    /api/v1/appointments      ?page&limit&patientId&status&from&to
-POST   /api/v1/appointments
-GET    /api/v1/appointments/:id
-PATCH  /api/v1/appointments/:id
-DELETE /api/v1/appointments/:id
-
-GET    /api/v1/notes             ?patientId&appointmentId&status
-POST   /api/v1/notes
-GET    /api/v1/notes/:id
-PATCH  /api/v1/notes/:id
-DELETE /api/v1/notes/:id
-POST   /api/v1/notes/:id/finalize
-
-GET    /api/v1/documents         ?patientId
-POST   /api/v1/documents/upload
-GET    /api/v1/documents/:id
-DELETE /api/v1/documents/:id
-GET    /api/v1/documents/:id/download
-
-GET    /api/v1/tasks             ?patientId&status&dueDate
-POST   /api/v1/tasks
-PATCH  /api/v1/tasks/:id
-DELETE /api/v1/tasks/:id
-
-GET    /api/v1/nutritional/profile/:patientId
-PATCH  /api/v1/nutritional/profile/:patientId
-GET    /api/v1/nutritional/entries?patientId&from&to
-POST   /api/v1/nutritional/entries
-
-GET    /api/v1/search?q=         (recherche globale)
-GET    /api/v1/dashboard/summary (métriques dashboard)
-
-GET    /api/v1/reports/activity
-GET    /api/v1/reports/patients
-GET    /api/v1/reports/export    ?format=csv|pdf
-
-GET    /api/v1/audit-logs        (admin only)
-
-GET    /api/v1/health
-```
+1. **Rotation du secret du client OAuth** Google (côté propriétaire ; l'app n'utilise que l'identifiant client, rien à changer dans le code).
+2. **Mise en production** :
+   - `ENVS=prod` pour le bootstrap ;
+   - `terraform apply` avec `env=prod` ;
+   - CNAME `app.dietetiquecenter.fr` → `vp-dietetic-prod.web.app` chez LWS ;
+   - origine ajoutée au client OAuth ;
+   - comptes créés avec `create-user.cjs` ;
+   - merge `staging` → `prod`.
+3. **Fonctionnalités métier** restantes (à définir avec la praticienne).
+4. **Qualité** :
+   - couverture de tests du frontend très faible (seuils ~4-7 %, à remonter au fil des ajouts) ;
+   - les tests Playwright datent de l'ancienne interface (pages notes) et ne tournent pas en CI.
+5. **Plus tard** :
+   - refaire le site vitrine en site statique sur un bucket ;
+   - quitter LWS pour le domaine ;
+   - rappels de rendez-vous si besoin.
 
 ---
 
-## 6. Authentification & Sécurité
+## 8. Variables d'environnement
 
-### Flux JWT
-
-1. `POST /auth/login` → access_token (15min) + refresh_token httpOnly cookie (7j)
-2. Client utilise access_token dans header `Authorization: Bearer ...`
-3. Sur 401, client appelle `POST /auth/refresh` avec cookie
-4. Nouveau access_token émis
-
-### Rôles & Permissions
-
-```
-ADMIN        → tout + gestion utilisateurs + audit logs
-PRATICIENNE  → ses patients + rendez-vous + notes + documents + tâches
-ASSISTANTE   → lecture patients + gestion rendez-vous + tâches administratives
-```
-
-### Mesures de sécurité
-
-- Helmet (headers HTTP sécurisés)
-- Rate limiting : 100 req/15min global, 5 req/min sur auth
-- Même origine pour l'app et l'API (pas de CORS)
-- Validation stricte tous les inputs (class-validator)
-- Pas d'exposition d'IDs séquentiels (UUIDs v7)
-- Audit log automatique via intercepteur NestJS
-- Refresh tokens rotés et révocables
-- Bcrypt rounds=12 pour mots de passe
-- Secrets jamais en clair dans le code (Secret Manager / .env)
-
-### RGPD / Données de santé
-
-- Minimisation des données collectées
-- Consentements versionnés et traçables
-- Export données patient (droit d'accès)
-- Anonymisation/suppression sur demande
-- Politique de rétention configurable (default: 5 ans données inactives)
-- Logs d'accès aux dossiers patients
-- Architecture préparée pour hébergement données de santé FR
-
----
-
-## 7. Structure du monorepo
-
-```
-vp_dietetic_center/
-├── apps/
-│   ├── api/                    # Backend NestJS
-│   │   ├── src/
-│   │   │   ├── modules/
-│   │   │   │   ├── auth/
-│   │   │   │   ├── users/
-│   │   │   │   ├── patients/
-│   │   │   │   ├── appointments/
-│   │   │   │   ├── notes/
-│   │   │   │   ├── documents/
-│   │   │   │   ├── tasks/
-│   │   │   │   ├── nutritional/
-│   │   │   │   ├── search/
-│   │   │   │   ├── reports/
-│   │   │   │   └── audit/
-│   │   │   ├── common/
-│   │   │   │   ├── decorators/
-│   │   │   │   ├── filters/
-│   │   │   │   ├── guards/
-│   │   │   │   ├── interceptors/
-│   │   │   │   └── pipes/
-│   │   │   ├── config/
-│   │   │   ├── prisma/
-│   │   │   └── app.module.ts
-│   │   ├── prisma/
-│   │   │   ├── schema.prisma
-│   │   │   ├── migrations/
-│   │   │   └── seed.ts
-│   │   ├── Dockerfile
-│   │   ├── nest-cli.json
-│   │   └── package.json
-│   │
-│   └── frontend/               # Frontend React
-│       ├── src/
-│       │   ├── components/
-│       │   │   ├── ui/         # Shadcn components
-│       │   │   ├── layout/
-│       │   │   └── business/   # Composants métier
-│       │   ├── pages/
-│       │   │   ├── auth/
-│       │   │   ├── dashboard/
-│       │   │   ├── patients/
-│       │   │   ├── appointments/
-│       │   │   ├── notes/
-│       │   │   ├── nutritional/
-│       │   │   ├── documents/
-│       │   │   ├── tasks/
-│       │   │   ├── reports/
-│       │   │   └── admin/
-│       │   ├── hooks/
-│       │   ├── services/
-│       │   ├── stores/
-│       │   ├── lib/
-│       │   └── types/
-│       ├── Dockerfile
-│       └── package.json
-│
-├── packages/
-│   ├── types/                  # Types partagés
-│   └── config/                 # Configs partagées (ESLint, TS, Prettier)
-│
-├── infra/
-│   └── terraform/
-│       ├── modules/
-│       │   ├── artifact-registry/
-│       │   ├── cloud-run/
-│       │   ├── cloud-sql/
-│       │   ├── storage/
-│       │   ├── secret-manager/
-│       │   ├── service-accounts/
-│       │   ├── iam/
-│       │   ├── project-services/
-│       │   └── monitoring/
-│       ├── envs/
-│       │   ├── dev/
-│       │   ├── staging/
-│       │   └── prod/
-│       └── README.md
-│
-├── docs/
-│   ├── PLAN.md                 # CE DOCUMENT
-│   ├── ADR/                    # Architecture Decision Records
-│   └── api/                    # Docs API complémentaires
-│
-├── .github/
-│   └── workflows/
-│       ├── ci.yml
-│       ├── cd-api.yml
-│       ├── cd-frontend.yml
-│       ├── terraform-plan.yml
-│       └── terraform-apply.yml
-│
-├── docker-compose.yml
-├── docker-compose.override.yml
-├── turbo.json
-├── pnpm-workspace.yaml
-├── package.json
-└── README.md
-```
-
----
-
-## 8. Roadmap et phases de développement
-
-### Phase 1 — Fondations (Semaines 1-3) ✅ SCAFFOLD CRÉÉ
-
-- [x] Monorepo configuré (Turborepo + pnpm)
-- [x] Backend NestJS bootstrapé avec auth JWT
-- [x] Frontend React bootstrapé avec routing protégé
-- [x] Prisma schema complet
-- [x] Docker Compose local fonctionnel
-- [x] Terraform modules créés (non appliqués)
-- [x] GitHub Actions CI de base
-- [ ] Déploiement dev fonctionnel end-to-end
-- [ ] Seeds de démonstration complets
-
-### Phase 2 — Core fonctionnel (Semaines 4-7) ✅ TERMINÉ
-
-- [x] Module patients CRUD complet + fiche complète
-- [x] Module rendez-vous avec vue liste et agenda
-- [x] Module notes cliniques (libre + structurée)
-- [x] Tableau de bord avec vraies données
-- [x] Recherche globale
-- [x] Upload documents Cloud Storage
-
-### Phase 3 — Métier avancé (Semaines 8-11) ✅ TERMINÉ
-
-- [x] Suivi psycho-nutritionnel complet + graphiques
-- [x] Tâches et rappels
-- [x] Timeline patient
-- [x] Export PDF fiche patient
-- [x] Reporting + exports CSV
-- [x] Notifications in-app
-
-### Phase 4 — Qualité & Production (Semaines 12-14) ✅ TERMINÉ
-
-- [x] Tests couverture ≥ 70% (43 backend + 26 frontend unit tests)
-- [x] Tests E2E Playwright critiques (4 suites : auth, patients, RDV, notes)
-- [x] Audit sécurité (dépendances, headers, auth, password complexity)
-- [x] Performance frontend (bundle optimisé, PDF lazy-loaded)
-- [ ] Déploiement staging complet (infra Terraform prête, non appliquée)
-- [ ] Documentation utilisateur
-- [ ] Monitoring et alerting GCP
-- [ ] Déploiement production
-
-### Phase 5 — Améliorations futures
-
-- [ ] Application mobile (React Native ou PWA)
-- [ ] Rappels SMS/email automatisés
-- [ ] Portail patient (accès limité)
-- [ ] Téléconsultation intégrée (Jitsi ou équivalent)
-- [ ] Intelligence artificielle : résumé de séance
-- [ ] Facturation et notes d'honoraires
-- [ ] Agenda partagé avec synchronisation calendrier
-- [ ] Connexion API Doctolib (si disponible)
-
----
-
-## 9. Conventions de code
-
-### Commits (Conventional Commits)
-
-```
-feat(patients): add timeline view
-fix(auth): refresh token not invalidated on logout
-chore(deps): upgrade prisma to 6.x
-docs(api): add swagger annotations to patients module
-test(appointments): add unit tests for status transitions
-refactor(notes): extract note finalizer service
-```
-
-### Branches
-
-```
-main         → production
-develop      → intégration, déploiement staging auto
-feature/xxx  → fonctionnalités
-fix/xxx      → corrections
-chore/xxx    → maintenance
-```
-
-### Nommage fichiers
-
-- Backend : `kebab-case.ts` (NestJS convention)
-- Frontend : `PascalCase.tsx` pour composants, `camelCase.ts` pour autres
-- Tests : `*.spec.ts` (backend), `*.test.tsx` (frontend)
-
----
-
-## 10. Variables d'environnement clés
-
-### Backend (`apps/api/.env`)
-
-```
-NODE_ENV=development
-PORT=3000
-DATABASE_URL=postgresql://...
-JWT_SECRET=...
-GCS_BUCKET_NAME=...
-GOOGLE_CLOUD_PROJECT=...
-APP_URL=http://localhost:5173
-```
-
-### Frontend (`apps/frontend/.env`)
-
-```
-VITE_APP_NAME=VP Dietetic Center
-```
-
----
-
-## 11. Contacts et responsabilités
-
-| Rôle           | Responsabilité                                    |
-| -------------- | ------------------------------------------------- |
-| Chef de projet | Architecture globale, cohérence technique, revues |
-| Dev Backend    | Modules NestJS, API, Prisma, sécurité             |
-| Dev Frontend   | Pages React, composants, intégration API          |
-| DevOps         | Terraform, CI/CD, monitoring, déploiements        |
-| QA             | Tests, recette fonctionnelle                      |
-
----
-
-_Document maintenu par l'équipe technique. Toute décision architecturale structurante doit être consignée dans `docs/ADR/`._
+Les modèles commentés sont dans `apps/api/.env.example` et `apps/frontend/.env.example`. En staging/prod, Terraform les fournit aux services Cloud Run, et les valeurs sensibles viennent de Secret Manager : `DATABASE_URL`, `JWT_SECRET`, `PROXY_TOKEN`, identifiants SMTP.

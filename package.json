@@ -2,7 +2,7 @@
   "name": "vp-dietetic-center",
   "private": true,
   "version": "0.1.0",
-  "description": "Application métier pour psycho-nutritionniste — monorepo",
+  "description": "Application métier pour diététicienne / psycho-nutritionniste — monorepo",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -15,7 +15,6 @@
     "db:generate": "pnpm --filter @vp/api run db:generate",
     "db:migrate": "pnpm --filter @vp/api run db:migrate",
     "db:seed": "pnpm --filter @vp/api run db:seed",
-    "db:migrate:init": "pnpm --filter @vp/api run db:migrate -- --name init",
     "db:studio": "pnpm --filter @vp/api prisma studio",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",

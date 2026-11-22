@@ -3,6 +3,7 @@ import {
   Briefcase,
   CalendarDays,
   Check,
+  ChevronRight,
   History,
   type LucideIcon,
   Mail,
@@ -320,8 +321,10 @@ function LastSession({ brief, size }: { brief: Brief; size: RecapSize }) {
       action={
         last &&
         size === 'page' && (
-          <Button size="sm" variant="ghost" asChild>
-            <Link to={`/consultations/${last.id}`}>Ouvrir</Link>
+          <Button size="icon" variant="ghost" asChild>
+            <Link to={`/consultations/${last.id}`} aria-label="Ouvrir la dernière séance">
+              <ChevronRight aria-hidden />
+            </Link>
           </Button>
         )
       }
@@ -353,8 +356,8 @@ function AversionsAndTastes({ brief, onOpenFile }: { brief: Brief; onOpenFile?: 
       title="Aversions et goûts"
       action={
         onOpenFile && (
-          <Button size="sm" variant="ghost" onClick={onOpenFile}>
-            <Pencil aria-hidden /> Modifier
+          <Button size="icon" variant="ghost" onClick={onOpenFile} aria-label="Modifier les aversions et goûts">
+            <Pencil aria-hidden />
           </Button>
         )
       }

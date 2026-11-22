@@ -71,7 +71,7 @@ export function FileSectionCard({
         >
           {current && (
             <p className="text-sm text-muted-foreground">
-              Modifié le {formatLongDate(current.updatedAt, true)}
+              Modifié le {formatLongDate(current.date, true)}
               {versions > 1 && (
                 <>
                   {' · '}

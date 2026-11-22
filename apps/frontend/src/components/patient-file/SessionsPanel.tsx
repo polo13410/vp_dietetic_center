@@ -46,8 +46,9 @@ export function SessionsPanel({
       return next;
     });
 
+  // The header already has the green « Nouvelle séance »: here it is secondary, except to start the bilan
   const startButton = (
-    <Button onClick={onStart} disabled={starting}>
+    <Button onClick={onStart} disabled={starting} variant={sessions.length === 0 ? 'default' : 'outline'}>
       <Play aria-hidden /> {sessions.length === 0 ? 'Démarrer le bilan' : 'Nouvelle séance'}
     </Button>
   );
@@ -71,7 +72,7 @@ export function SessionsPanel({
             <thead className="bg-muted text-left text-sm text-muted-foreground">
               <tr>
                 {COLUMNS.map((c, i) => (
-                  <th key={c} scope="col" className={cn('px-3 py-3 font-medium', i >= 4 && 'text-right', i === 0 && 'pl-5')}>
+                  <th key={c} scope="col" className={cn('whitespace-nowrap px-3 py-3 font-medium', i >= 4 && 'text-right', i === 0 && 'pl-5')}>
                     {c}
                   </th>
                 ))}

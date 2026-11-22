@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
-import { PatientBrief } from '../../components/patient-file/PatientBrief';
+import { PatientRecap } from '../../components/patient-file/PatientRecap';
 import { useStartSession } from '../../components/patient-file/useStartSession';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -110,7 +110,7 @@ export default function AppointmentDetailPage() {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Avant la séance
             </h2>
-            <PatientBrief patientId={appt.patientId} />
+            <PatientRecap patientId={appt.patientId} size="panel" />
           </div>
         </>
       )}

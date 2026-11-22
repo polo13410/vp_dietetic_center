@@ -3,7 +3,8 @@ import { ShieldCheck } from 'lucide-react';
 
 import api from '../../lib/api';
 import { AUDIT_ACTIONS, AUDIT_ENTITIES, type AuditEntry } from '../../lib/audit';
-import { formatDate } from '../../lib/utils';
+import { formatLongDate, formatTime } from '../../lib/utils';
+import { Section } from '../shared/Section';
 
 /** Who opened or changed this patient's file, and when (the latest 100 entries). */
 export function PatientAccessLog({ patientId }: { patientId: string }) {
@@ -13,21 +14,23 @@ export function PatientAccessLog({ patientId }: { patientId: string }) {
   });
 
   return (
-    <section className="bg-card rounded-xl border border-border p-4">
-      <h3 className="mb-1 flex items-center gap-2 text-sm font-medium">
-        <ShieldCheck className="h-4 w-4 text-muted-foreground" /> Historique des accès
-      </h3>
-      <p className="mb-3 text-xs text-muted-foreground">Chaque ouverture ou modification de ce dossier est enregistrée.</p>
+    <Section
+      size="compact"
+      icon={ShieldCheck}
+      area="audit"
+      title="Historique des accès"
+      description="Chaque ouverture ou modification de ce dossier est enregistrée."
+    >
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucun accès enregistré.</p>
+        <p className="text-base text-muted-foreground">Aucun accès enregistré.</p>
       ) : (
-        <ul className="max-h-80 divide-y divide-border overflow-y-auto text-sm">
+        <ul className="max-h-80 divide-y overflow-y-auto">
           {entries.map((e) => (
-            <li key={e.id} className="flex items-center gap-3 py-1.5">
-              <span className="w-32 shrink-0 tabular-nums text-xs text-muted-foreground">
-                {formatDate(e.createdAt, 'dd/MM/yyyy HH:mm')}
+            <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 py-2">
+              <span className="w-44 shrink-0 text-sm tabular-nums text-muted-foreground">
+                {formatLongDate(e.createdAt, true)} à {formatTime(e.createdAt)}
               </span>
-              <span className="w-36 shrink-0 truncate">
+              <span className="font-medium">
                 {e.user.firstName} {e.user.lastName}
               </span>
               <span className="text-muted-foreground">
@@ -37,6 +40,6 @@ export function PatientAccessLog({ patientId }: { patientId: string }) {
           ))}
         </ul>
       )}
-    </section>
+    </Section>
   );
 }

@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Plus } from 'lucide-react';
+import { CheckCircle2, CheckSquare, Circle, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import api from '../../lib/api';
-import { cn, formatDate } from '../../lib/utils';
+import { cn, formatLongDate } from '../../lib/utils';
+import { Section } from '../shared/Section';
 import { StatusBadge } from '../shared/StatusBadge';
 import { TaskFormDialog } from '../tasks/TaskFormDialog';
 import { Button } from '../ui/button';
@@ -42,52 +43,48 @@ export function PatientTasks({ patientId }: { patientId: string }) {
     .filter((t) => t.status !== 'CANCELLED')
     .sort((a, b) => Number(a.status === 'DONE') - Number(b.status === 'DONE'));
 
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">
-          {visible.filter((t) => t.status !== 'DONE').length} à faire
-        </p>
-        <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4" /> Nouvelle tâche
-        </Button>
-      </div>
+  const todo = visible.filter((t) => t.status !== 'DONE').length;
 
+  return (
+    <Section
+      size="compact"
+      icon={CheckSquare}
+      area="patients"
+      title="Tâches"
+      description={visible.length > 0 ? `${todo} à faire` : undefined}
+      action={
+        <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+          <Plus aria-hidden /> Nouvelle tâche
+        </Button>
+      }
+    >
       {visible.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Aucune tâche</p>
+        <p className="text-base text-muted-foreground">Aucune tâche pour ce patient.</p>
       ) : (
-        <div className="space-y-2">
+        <ul className="divide-y">
           {visible.map((task) => {
             const done = task.status === 'DONE';
             return (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 bg-card rounded-lg border border-border p-3"
-              >
-                <button
+              <li key={task.id} className="flex min-h-14 items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
                   onClick={() => toggle.mutate(task)}
-                  className="text-muted-foreground hover:text-primary"
-                  title={done ? 'Rouvrir' : 'Marquer comme faite'}
+                  aria-label={done ? `Rouvrir : ${task.title}` : `Marquer comme faite : ${task.title}`}
                 >
-                  {done ? (
-                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Circle className="w-5 h-5" />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={cn('text-sm font-medium', done && 'line-through text-muted-foreground')}>
-                    {task.title}
-                  </p>
+                  {done ? <CheckCircle2 className="text-primary" aria-hidden /> : <Circle aria-hidden />}
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <p className={cn('font-medium', done && 'text-muted-foreground line-through')}>{task.title}</p>
                   {task.dueAt && (
-                    <p className="text-xs text-muted-foreground">Échéance {formatDate(task.dueAt)}</p>
+                    <p className="text-sm text-muted-foreground">Échéance : {formatLongDate(task.dueAt, true)}</p>
                   )}
                 </div>
                 {!done && <StatusBadge status={task.priority} />}
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
 
       <TaskFormDialog
@@ -95,6 +92,6 @@ export function PatientTasks({ patientId }: { patientId: string }) {
         onOpenChange={setDialogOpen}
         defaultValues={taskDefaults}
       />
-    </div>
+    </Section>
   );
 }

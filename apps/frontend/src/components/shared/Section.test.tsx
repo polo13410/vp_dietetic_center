@@ -28,6 +28,16 @@ describe('Section', () => {
     expect(container.querySelector('svg')?.parentElement).toHaveClass('text-primary');
   });
 
+  it('has a compact size with a smaller title and padding', () => {
+    render(
+      <Section title="Chiffres clés" size="compact">
+        <div data-testid="body" />
+      </Section>,
+    );
+    expect(screen.getByRole('heading', { name: 'Chiffres clés' })).toHaveClass('text-lg');
+    expect(screen.getByTestId('body').parentElement).toHaveClass('px-4');
+  });
+
   it('drops the body padding when flush', () => {
     render(
       <Section title="Tableau" flush>

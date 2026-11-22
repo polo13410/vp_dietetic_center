@@ -16,6 +16,7 @@ const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PatientsListPage = lazy(() => import('./pages/patients/PatientsListPage'));
 const PatientDetailPage = lazy(() => import('./pages/patients/PatientDetailPage'));
 const PatientNewPage = lazy(() => import('./pages/patients/PatientNewPage'));
+const GpReportPage = lazy(() => import('./pages/patients/GpReportPage'));
 const AppointmentsPage = lazy(() => import('./pages/appointments/AppointmentsPage'));
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/AppointmentDetailPage'));
 const ConsultationPage = lazy(() => import('./pages/consultations/ConsultationPage'));
@@ -61,9 +62,10 @@ export function AppRouter() {
             <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
           </Route>
 
-          {/* Factures: the practitioner's own */}
+          {/* Factures and reports to the GP: the practitioner's own */}
           <Route element={<RequireRole roles={PRACTITIONER_ROLES} />}>
             <Route path="/invoices" element={<InvoicesPage />} />
+            <Route path="/patients/:id/gp-reports/:reportId" element={<GpReportPage />} />
           </Route>
 
           {/* Administration: the app and its users */}

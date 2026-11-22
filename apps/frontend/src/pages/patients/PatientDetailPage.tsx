@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
 import { SessionEndDialog } from '../../components/consultations/SessionEndDialog';
+import { GpReportsSection } from '../../components/gp-reports/GpReportsSection';
 import { PatientInvoices } from '../../components/invoices/PatientInvoices';
 import { FilePanel } from '../../components/patient-file/FilePanel';
 import { PatientRecap } from '../../components/patient-file/PatientRecap';
@@ -115,6 +116,7 @@ function PatientTabs({ patient, appointments }: { patient: Patient; appointments
 
       <TabsContent value="recapitulatif" className="mt-3">
         <PatientRecap patientId={patient.id} size="page" editable onOpenFile={() => setTab('dossier')}>
+          <GpReportsSection patientId={patient.id} gpName={patient.gpName} />
           <PatientFurther patient={patient} appointments={appointments} sessions={sessions} />
         </PatientRecap>
       </TabsContent>

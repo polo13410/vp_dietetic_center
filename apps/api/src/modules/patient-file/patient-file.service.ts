@@ -109,9 +109,10 @@ export class PatientFileService {
         take: 5,
         select: { id: true, title: true, priority: true, dueAt: true },
       }),
+      // A draft first (« à faire »), else the latest one sent; DRAFT comes before SENT in the enum
       this.prisma.gpReport.findFirst({
         where: { patientId },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ status: 'asc' }, { date: 'desc' }, { createdAt: 'desc' }],
         select: { id: true, date: true, status: true, sentAt: true },
       }),
     ]);

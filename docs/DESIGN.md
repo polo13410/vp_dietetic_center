@@ -34,7 +34,7 @@ Les variables sont dans `apps/frontend/src/styles/globals.css` (`:root` pour le 
 | `--input`                | `#8A9885` | `#6A7E71` | Bordure des champs (3:1 sur la carte)                     |
 | `--ring`                 | `#3D7A2C` | `#86C467` | Anneau de focus clavier                                   |
 
-Couleurs du logo, **décoratives uniquement** (illustrations, mascotte, jamais pour du texte) : `--brand-leaf` `#7DAA4F`, `--brand-teal` `#4DBFA8`, `--brand-pear` `#D6E87C`, `--brand-ink` `#1F3A2B`.
+Couleurs du logo, **décoratives uniquement** (illustrations, mascotte, jamais pour du texte) : `--brand-leaf` `#7DAA4F`, `--brand-teal` `#4DBFA8`, `--brand-pear` `#D6E87C`, `--brand-ink` `#1F3A2B`, `--brand-blush` `#F2A7A0` (joues de la mascotte). Classes : `fill-brand-pear`, `stroke-brand-ink`…
 
 ### 1.2 Couleurs sémantiques (badges, alertes)
 
@@ -128,8 +128,8 @@ Un seul composant par usage. Ils sont dans `apps/frontend/src/components/shared/
 | `PageHeader`   | En haut de **chaque** page : `title`, `subtitle` optionnel, `back` (`{ to, label }`) pour les pages de détail, `actions` (le bouton principal à droite, au plus un ou deux), `area` pour l'icône colorée de l'espace. |
 | `Section`      | Toute carte de contenu : `icon` + `title` + `description` optionnelle + `action` optionnelle (en haut à droite) + contenu. `area` ou `tone` colore la pastille de l'icône. Remplace `Block`, `Panel`, `InfoCard` et les `Section` locales. `Card` brut seulement pour un cas qui n'a pas de titre (barre de filtres, tableau seul). |
 | `Field`        | Tout champ de formulaire : `label`, `hint` (aide sous le libellé), `required` (affiche « obligatoire » en toutes lettres, pas d'astérisque), `error`. Il relie lui-même libellé, aide et erreur au champ (`id`, `aria-describedby`, `aria-invalid`). |
-| `EmptyState`   | Liste ou zone vide : `illustration="pear"` (mascotte) ou `icon`, `title` (une phrase), `description` optionnelle, `action` (le bouton qui fait avancer). Exemple : « Aucune séance pour l'instant » + « Démarrer le bilan ». |
-| `Stepper`      | Assistants en plusieurs étapes (création de patient, etc.) : `steps` (`label`, `description` optionnelle) et `current` (index). Pas de saut d'étape par clic sauf si `onStepClick` est fourni. |
+| `EmptyState`   | Liste ou zone vide : `illustration="pear"` (mascotte souriante) ou `"pear-calm"` (yeux fermés, « rien à faire »), sinon `icon` + `area`, `title` (une phrase), `description` optionnelle, `action` (le bouton qui fait avancer). Exemple : « Aucune séance pour l'instant » + « Démarrer le bilan ». |
+| `Stepper`      | Assistants en plusieurs étapes (création de patient, etc.) : `steps` (`label`, `description` optionnelle) et `current` (index). Avec `onStepClick`, on peut revenir à une étape terminée ; jamais sauter en avant. |
 | `StatusBadge`  | Tout statut ou type affiché en pastille. Couleurs via les tons sémantiques (§ 1.2). Un nouveau statut s'ajoute dans sa table, avec un libellé français. |
 | `PearMascot`   | Illustration simple de la mascotte (SVG, aucune image) pour états vides, accueil, fin d'assistant. `mood` : `happy` (défaut) ou `calm`. |
 | `ConfirmDialog`| Toute suppression ou action irréversible : titre en question, conséquence en une phrase, bouton d'action nommé (« Désactiver », pas « Confirmer »). |

@@ -2,7 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createMockUser, mockAccess, mockNotifications, mockPrisma } from '../../test/setup';
+import { createMockUser, mockAccess, mockPrisma } from '../../test/setup';
 
 import { AppointmentsService } from './appointments.service';
 
@@ -12,7 +12,7 @@ describe('AppointmentsService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new AppointmentsService(mockPrisma as any, mockNotifications as any, mockAccess as any);
+    service = new AppointmentsService(mockPrisma as any, mockAccess as any);
   });
 
   describe('findAll', () => {
@@ -71,26 +71,12 @@ describe('AppointmentsService', () => {
       const expectedEnd = new Date(startAt.getTime() + 45 * 60 * 1000);
       expect(call.data.endAt).toEqual(expectedEnd);
     });
-
-    it('creates a notification', async () => {
-      mockPrisma.appointment.create.mockResolvedValue({
-        id: 'a1',
-        patient: { id: 'p1', firstName: 'M', lastName: 'D' },
-      });
-
-      await service.create(
-        { patientId: 'p1', startAt: '2024-06-15T10:00:00Z', duration: 30, type: 'IN_PERSON' as any },
-        user as any,
-      );
-
-      expect(mockNotifications.create).toHaveBeenCalled();
-    });
   });
 
   describe('assistant', () => {
     const assistant = createMockUser({ id: 'assist-1', role: 'ASSISTANTE' });
 
-    it("books for the patient's practitioner and notifies them", async () => {
+    it("books for the patient's practitioner", async () => {
       mockAccess.assertPatient.mockResolvedValueOnce({ practitionerId: 'pract-1' });
       mockPrisma.appointment.create.mockResolvedValue({
         id: 'a1',
@@ -104,7 +90,6 @@ describe('AppointmentsService', () => {
 
       expect(mockAccess.assertPatient).toHaveBeenCalledWith(assistant, 'p1', 'record');
       expect(mockPrisma.appointment.create.mock.calls[0][0].data.practitionerId).toBe('pract-1');
-      expect(mockNotifications.create.mock.calls[0][0]).toBe('pract-1');
     });
 
     it('lists every appointment without the session link', async () => {
@@ -123,7 +108,7 @@ describe('AppointmentsService', () => {
       mockPrisma.appointment.findUnique.mockResolvedValue({
         id: 'a1',
         practitionerId: 'pract-1',
-        consultation: { id: 'c1', status: 'DRAFT' },
+        consultation: { id: 'c1' },
       });
 
       const result = await service.findOne('a1', assistant as any);

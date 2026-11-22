@@ -44,3 +44,36 @@ export function calculateAge(dateOfBirth: string | null): string {
 export function todayISO(): string {
   return formatDate(new Date(), 'yyyy-MM-dd');
 }
+
+/** Age in whole years today, or null without a birth date. */
+export function ageInYears(dateOfBirth: string | null | undefined, now = new Date()): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+  return age;
+}
+
+/** « 12 mars 2026 », or « 12 mars » for a date of the current year when `short`. */
+export function formatLongDate(date: string | Date | null | undefined, short = false): string {
+  if (!date) return '—';
+  const d = new Date(date);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    ...(short && sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+/** « 14 h 32 » (docs/DESIGN.md § 7). */
+export function formatTime(date: string | Date): string {
+  const d = new Date(date);
+  return `${d.getHours()} h ${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+/** A number in French (« 1 400,3 »), with at most `digits` decimals. */
+export function formatNumber(value: number, digits = 2): string {
+  return value.toLocaleString('fr-FR', { maximumFractionDigits: digits });
+}

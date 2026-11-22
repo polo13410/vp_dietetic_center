@@ -1,6 +1,6 @@
 # VP Dietetic Center
 
-Application métier pour diététicienne / psycho-nutritionniste : dossier patient (mesures, IMC, thèmes, objectifs, séances), rendez-vous, documents, journal d'accès.
+Application métier pour diététicienne / psycho-nutritionniste : dossier patient (mesures, IMC et MB, dossier médical, séances), rendez-vous, documents, journal d'accès.
 
 ## Architecture
 

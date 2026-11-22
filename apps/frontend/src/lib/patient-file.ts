@@ -1,30 +1,27 @@
 /** The patient's file: types, French labels and data hooks, shared by the file and session screens. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  BmiCategory,
+  BmiDto as Bmi,
+  ConsultationDto,
+  FileEntryDto,
+  FileField as FileFieldEnum,
+  FileSectionDto,
+  MissingData,
+  PaymentMethod as PaymentMethodEnum,
+} from '@vp/types';
 
 import api from './api';
 
 // ─── Types (as returned by the API) ──────────────────────────────────────────
 
-export type MetricType =
-  | 'WEIGHT'
-  | 'HEIGHT'
-  | 'WAIST'
-  | 'HIP'
-  | 'BODY_FAT'
-  | 'MUSCLE_MASS'
-  | 'ENERGY'
-  | 'SLEEP_QUALITY'
-  | 'STRESS'
-  | 'HUNGER';
-export type PatientTopic = 'EATING' | 'ACTIVITY' | 'SLEEP' | 'EMOTIONS' | 'DIGESTION' | 'HEALTH' | 'LIFE';
-export type LifeEventCategory = 'HEALTH' | 'TREATMENT' | 'FAMILY' | 'WORK' | 'HOME' | 'OTHER';
-export type GoalStatus = 'IN_PROGRESS' | 'ACHIEVED' | 'PARTIAL' | 'ABANDONED';
-export type BmiCategory = 'UNDERWEIGHT' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY' | 'MASSIVE_OBESITY';
+export type { Bmi, BmiCategory, FileEntryDto, FileSectionDto };
+/** The enums' values as plain strings, so labels and literals can be used without the enum */
+export type FileField = `${FileFieldEnum}`;
+export type PaymentMethod = `${PaymentMethodEnum}`;
 
-export interface Bmi {
-  value: number;
-  category: BmiCategory;
-}
+export type MetricType = 'WEIGHT' | 'HEIGHT' | 'WAIST' | 'HIP' | 'BODY_FAT' | 'MUSCLE_MASS';
+export type LifeEventCategory = 'HEALTH' | 'TREATMENT' | 'FAMILY' | 'WORK' | 'HOME' | 'OTHER';
 
 export interface Measurement {
   id: string;
@@ -35,44 +32,12 @@ export interface Measurement {
   consultationId?: string | null;
 }
 
-export interface TopicNote {
-  id: string;
-  topic: PatientTopic;
-  content: string;
-  createdAt: string;
-  consultationId?: string | null;
-  consultation?: { id: string; date: string } | null;
-}
-
 export interface LifeEvent {
   id: string;
   date: string;
   title: string;
-  description?: string | null;
-  category: LifeEventCategory;
+  category: LifeEventCategory | null;
   consultationId?: string | null;
-}
-
-export interface GoalReview {
-  id: string;
-  status: GoalStatus;
-  comment?: string | null;
-  createdAt: string;
-  consultationId: string;
-  consultation?: { id: string; date: string };
-  goal?: { id: string; title: string };
-}
-
-export interface Goal {
-  id: string;
-  title: string;
-  details?: string | null;
-  status: GoalStatus;
-  createdAt: string;
-  closedAt?: string | null;
-  consultationId?: string | null;
-  consultation?: { id: string; date: string } | null;
-  reviews?: GoalReview[];
 }
 
 export interface MetricSummary {
@@ -88,70 +53,84 @@ export interface Brief {
     id: string;
     firstName: string;
     lastName: string;
+    sex: 'F' | 'M' | null;
     dateOfBirth: string | null;
+    birthDateEstimated: boolean;
+    age: number | null;
+    familySituation: string | null;
+    profession: string | null;
+    gpName: string | null;
     consultationReason: string | null;
-    allergies: string | null;
-    dietaryRestrictions: string | null;
-    privateNote: string | null;
   };
   consultationCount: number;
   firstConsultationAt: string | null;
-  lastConsultation: { id: string; date: string; summary: string | null; advice: string | null } | null;
+  lastConsultation: {
+    id: string;
+    date: string;
+    habits: string | null;
+    sessionWork: string | null;
+    advice: string | null;
+  } | null;
   nextAppointment: { id: string; startAt: string; type: string; reason: string | null } | null;
   metrics: MetricSummary[];
   bmi: { current: Bmi | null; atStart: Bmi | null };
-  topics: TopicNote[];
+  bmr: { mj: number; kcal: number } | null;
+  missing: MissingData[];
+  file: FileSectionDto[];
   recentEvents: LifeEvent[];
   newEventsSinceLastConsultation: number;
-  openGoals: (Goal & { reviews: GoalReview[] })[];
   openTasks: { id: string; title: string; priority: string; dueAt: string | null }[];
 }
 
-export interface Consultation {
-  id: string;
-  patientId: string;
-  appointmentId: string | null;
-  date: string;
-  summary: string | null;
-  advice: string | null;
-  status: 'DRAFT' | 'FINALIZED';
-  finalizedAt: string | null;
+/** A session, as listed (follow-up sheet) or opened (with what was recorded in it). */
+export interface Consultation extends ConsultationDto {
   patient?: { id: string; firstName: string; lastName: string };
-  appointment?: { id: string; startAt: string; duration: number; type: string; reason: string | null } | null;
+  appointment?: { id: string; startAt: string; duration?: number; type: string; reason?: string | null } | null;
   measurements?: Measurement[];
-  topicNotes?: TopicNote[];
+  fileEntries?: FileEntryDto[];
   lifeEvents?: LifeEvent[];
-  goals?: Goal[];
-  goalReviews?: GoalReview[];
-  _count?: { measurements: number; topicNotes: number; lifeEvents: number; goals: number };
+  _count?: { measurements: number; fileEntries: number; lifeEvents: number };
 }
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
 
-export const METRICS: Record<MetricType, { label: string; unit: string; scale?: boolean; step: number }> = {
+export const METRICS: Record<MetricType, { label: string; unit: string; step: number }> = {
   WEIGHT: { label: 'Poids', unit: 'kg', step: 0.1 },
   HEIGHT: { label: 'Taille', unit: 'cm', step: 1 },
   WAIST: { label: 'Tour de taille', unit: 'cm', step: 0.5 },
   HIP: { label: 'Tour de hanches', unit: 'cm', step: 0.5 },
   BODY_FAT: { label: 'Masse grasse', unit: '%', step: 0.1 },
   MUSCLE_MASS: { label: 'Masse musculaire', unit: 'kg', step: 0.1 },
-  ENERGY: { label: 'Énergie', unit: '/10', scale: true, step: 1 },
-  SLEEP_QUALITY: { label: 'Qualité du sommeil', unit: '/10', scale: true, step: 1 },
-  STRESS: { label: 'Stress', unit: '/10', scale: true, step: 1 },
-  HUNGER: { label: 'Faim', unit: '/10', scale: true, step: 1 },
 };
 export const METRIC_TYPES = Object.keys(METRICS) as MetricType[];
 
-export const TOPICS: Record<PatientTopic, { label: string; hint: string }> = {
-  EATING: { label: 'Alimentation', hint: 'Repas, horaires, grignotage, préférences' },
-  ACTIVITY: { label: 'Activité physique', hint: 'Sport, marche, sédentarité' },
-  SLEEP: { label: 'Sommeil', hint: 'Durée, qualité, réveils' },
-  EMOTIONS: { label: 'Stress & émotions', hint: 'Rapport à la nourriture, émotions, stress' },
-  DIGESTION: { label: 'Digestion & transit', hint: 'Ballonnements, transit, inconforts' },
-  HEALTH: { label: 'Santé & traitements', hint: 'Pathologies, traitements, bilans' },
-  LIFE: { label: 'Contexte de vie', hint: 'Famille, travail, rythme de vie' },
+/** Sections of the medical file, with her labels, in her order. */
+export const FILE_FIELDS: Record<FileField, string> = {
+  HEALTH: 'Santé, maladies',
+  FAMILY_HISTORY: 'Antécédents familiaux',
+  PSYCHOLOGY: 'Psy',
+  PHYSICAL_ACTIVITY: 'Activité physique et sportive',
+  WEIGHT_HISTORY: 'Histoire du poids et régimes',
+  ALLERGIES: 'Allergies',
+  BLOOD_GLUCOSE: 'Glycémie',
+  CHOLESTEROL_TRIGLYCERIDES: 'Cholestérol et triglycérides',
+  AVERSIONS: 'Aversions',
+  TASTES: 'Goûts',
 };
-export const TOPIC_TYPES = Object.keys(TOPICS) as PatientTopic[];
+export const FILE_FIELD_TYPES = Object.keys(FILE_FIELDS) as FileField[];
+
+export const PAYMENT_METHODS: Record<PaymentMethod, string> = {
+  CASH: 'Espèces',
+  CHECK: 'Chèque',
+  CARD: 'Carte',
+  TRANSFER: 'Virement',
+  NONE: 'Non réglé',
+};
+
+/** « Bilan » for the first session, then « Suivi 1 », « Suivi 2 »… */
+export function sessionName(sequence: number): string {
+  return sequence === 0 ? 'Bilan' : `Suivi ${sequence}`;
+}
 
 export const EVENT_CATEGORIES: Record<LifeEventCategory, string> = {
   HEALTH: 'Santé',
@@ -160,22 +139,6 @@ export const EVENT_CATEGORIES: Record<LifeEventCategory, string> = {
   WORK: 'Travail / études',
   HOME: 'Logement',
   OTHER: 'Autre',
-};
-
-export const GOAL_STATUSES: Record<GoalStatus, { label: string; className: string }> = {
-  IN_PROGRESS: {
-    label: 'En cours',
-    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-  },
-  PARTIAL: {
-    label: 'Partiellement',
-    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-  },
-  ACHIEVED: {
-    label: 'Atteint',
-    className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-  },
-  ABANDONED: { label: 'Abandonné', className: 'bg-muted text-muted-foreground border-border' },
 };
 
 /** BMI categories (thresholds are computed by the API). */
@@ -203,9 +166,8 @@ export const BMI_CATEGORIES: Record<BmiCategory, { label: string; className: str
 };
 
 export function formatMetric(type: MetricType, value: number): string {
-  const { unit, scale } = METRICS[type];
   const n = value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
-  return scale ? `${n}${unit}` : `${n} ${unit}`;
+  return `${n} ${METRICS[type].unit}`;
 }
 
 /** "+1,5 kg" / "−2 kg" / "=" */
@@ -236,9 +198,8 @@ export function usePatientList<T>(patientId: string | undefined, resource: strin
 }
 
 export const useMeasurements = (patientId?: string) => usePatientList<Measurement>(patientId, 'measurements');
-export const useTopicNotes = (patientId?: string) => usePatientList<TopicNote>(patientId, 'topic-notes');
+export const useFileEntries = (patientId?: string) => usePatientList<FileEntryDto>(patientId, 'file-entries');
 export const useLifeEvents = (patientId?: string) => usePatientList<LifeEvent>(patientId, 'life-events');
-export const useGoals = (patientId?: string) => usePatientList<Goal>(patientId, 'goals');
 export const useConsultations = (patientId?: string) => usePatientList<Consultation>(patientId, 'consultations');
 
 export function useConsultation(id: string | undefined) {

@@ -30,18 +30,18 @@ Les notes, tâches et documents n'ont pas de page à eux : ils vivent dans le do
 
 | Élément                | Contenu                                                                                                  |
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| Profil                 | Identité, contact, description générale, statut (actif, inactif, archivé), étiquettes, consentements      |
-| Mesures                | Poids, taille, tour de taille/hanches, masse grasse/musculaire, énergie, sommeil, stress, faim — avec historique et graphiques |
-| IMC                    | Calculé par l'API (kg/m²), jamais stocké. Catégories : < 18,5 maigreur · < 25 normal · < 30 surpoids · < 40 obésité · ≥ 40 obésité massive |
-| Thèmes                 | Alimentation, activité, sommeil, émotions, digestion, santé, vie — chaque note s'ajoute à l'historique du thème |
-| Événements de vie      | Faits marquants datés, affichés sur les graphiques de mesures                                            |
-| Objectifs              | Objectifs suivis et revus à chaque séance (en cours, atteint, abandonné…)                                 |
-| Séances                | Une séance est ouverte depuis un rendez-vous : brouillon → finalisée. Finaliser verrouille les saisies et passe le rendez-vous à « terminé » |
+| Profil                 | Identité, sexe, contact, situation familiale, profession, médecin traitant, motif, adressé par, consentements ; archivé ou non |
+| Mesures                | Poids, taille, tour de taille/hanches, masse grasse/musculaire — avec historique et graphiques             |
+| IMC, MB                | Calculés par l'API, jamais stockés (formules de sa feuille, `docs/REFONTE.md` § 3.1)                       |
+| Dossier médical        | Ses rubriques (santé, antécédents, psy, activité, histoire du poids, allergies, glycémie, cholestérol, aversions, goûts), chacune avec son historique daté |
+| Faits marquants        | Événements datés, affichés sur les graphiques de mesures                                                  |
+| Séances                | Une ligne de son suivi : formule, paiement, poids, habitudes et évolution, travail en consultation, conseils. Jamais verrouillée ; la démarrer depuis un rendez-vous le passe à « terminé » |
+| Comptes rendus         | Comptes rendus au médecin traitant (brouillon, envoyé)                                                    |
 | Documents              | Fichiers (PDF, images, documents bureautiques — liste blanche de formats, 10 Mo max), aperçu dans le navigateur |
 | Tâches                 | Tâches liées au patient                                                                                   |
 | Historique des accès   | Qui a consulté ou modifié le dossier                                                                     |
 
-Avant une séance, le **brief** rassemble l'essentiel : dernières mesures et évolution, objectifs en cours, derniers événements, thèmes récents.
+Avant une séance, le **brief** rassemble l'essentiel : dernière séance et ses conseils, mesures et évolution, IMC et MB, dossier médical, derniers événements.
 
 ### Tableau de bord et agenda
 
@@ -107,20 +107,20 @@ Le domaine `dietetiquecenter.fr` est chez LWS (site vitrine actuel). Les enregis
 
 ```
 User ─── rôle, préférences, sessions (RefreshToken)
-Patient ─── appartient à une praticienne ; statut, étiquettes (Tag), consentements (Consent)
+Formula ─── tarif d'une praticienne (libellé, prix), copié dans chaque séance
+Patient ─── appartient à une praticienne ; archivedAt, consentements (Consent)
  ├── Appointment ─── rendez-vous (type, statut)
- │    └── Consultation ─── séance liée au rendez-vous (DRAFT → FINALIZED)
+ │    └── Consultation ─── séance (formule, paiement, textes), liée ou non au rendez-vous
  ├── Measurement ─── une valeur par type (MetricType) et par date, liée ou non à une séance
- ├── TopicNote ─── note sur un thème (PatientTopic)
- ├── LifeEvent ─── événement de vie (LifeEventCategory)
- ├── Goal ─── objectif ; GoalReview ─── revue à chaque séance
+ ├── FileEntry ─── une version d'une rubrique du dossier médical (FileField)
+ ├── LifeEvent ─── fait marquant (catégorie facultative)
+ ├── GpReport ─── compte rendu au médecin traitant
  ├── Document ─── fichier dans Cloud Storage (patients/<id>/<uuid>.<ext>)
  └── Task
-Notification ─── notifications in-app
 AuditLog ─── qui, quoi, quand, sur quel patient
 ```
 
-Les saisies faites pendant une séance finalisée sont verrouillées. Supprimer un brouillon de séance remet les objectifs dans leur état d'avant.
+Rien n'est verrouillé : une séance passée se corrige comme celle du jour, le journal d'accès garde la trace. Une rubrique modifiée le même jour (ou dans la même séance) met à jour sa version du jour ; un autre jour, elle en crée une nouvelle.
 
 ---
 
@@ -164,7 +164,7 @@ Sur push vers `staging` ou `prod` : build des images modifiées (API, frontend),
 ### Fait
 
 - Rôles et navigation séparés admin / praticienne.
-- Dossier patient complet : mesures, IMC, thèmes, événements, objectifs, séances, brief.
+- Dossier patient complet : mesures, IMC et MB, dossier médical avec historique, faits marquants, séances, brief.
 - Tableau de bord et agenda semaine / jour / liste.
 - Documents dans Cloud Storage avec aperçu.
 - Journal d'accès.

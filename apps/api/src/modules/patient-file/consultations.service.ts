@@ -1,51 +1,58 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, ConsultationStatus, GoalStatus } from '@prisma/client';
+import { AppointmentStatus, MetricType, Prisma } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
-import { CreateConsultationDto, ReviewGoalDto, UpdateConsultationDto } from './dto/consultation.dto';
-import { goalStatusChange, PatientFileService } from './patient-file.service';
+import { SessionInSeries, sessionSeries } from './calculations';
+import { CreateConsultationDto, UpdateConsultationDto } from './dto/consultation.dto';
 
 /** Everything recorded during a session, shown on the session screen. */
 const SESSION_CONTENT = {
   appointment: { select: { id: true, startAt: true, duration: true, type: true, reason: true } },
   patient: { select: { id: true, firstName: true, lastName: true } },
   measurements: { orderBy: { type: 'asc' as const } },
-  topicNotes: { orderBy: { createdAt: 'asc' as const } },
+  fileEntries: { orderBy: { createdAt: 'asc' as const } },
   lifeEvents: { orderBy: { date: 'asc' as const } },
-  goals: { orderBy: { createdAt: 'asc' as const } },
-  goalReviews: {
-    orderBy: { createdAt: 'asc' as const },
-    include: { goal: { select: { id: true, title: true } } },
-  },
-};
+} satisfies Prisma.ConsultationInclude;
+
+/** The session's weight: the latest WEIGHT measurement recorded in it. */
+const SESSION_WEIGHT = {
+  where: { type: MetricType.WEIGHT },
+  orderBy: { createdAt: 'desc' as const },
+  take: 1,
+  select: { value: true },
+} satisfies Prisma.Consultation$measurementsArgs;
 
 /**
- * A session ("séance") with a patient. It starts as a draft, usually from an appointment,
- * collects what is recorded during it, and is finalized at the end: it is then locked and
- * the appointment is marked as done.
+ * A session ("séance") with a patient: one row of her follow-up sheet. It is never locked:
+ * a past session is corrected like today's. Starting one from an appointment marks the
+ * appointment as done. Responses carry the computed figures (weight, BMI, BMR), the change
+ * in weight and the advice of the previous session.
  */
 @Injectable()
 export class ConsultationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: PatientAccessService,
-    private readonly file: PatientFileService,
   ) {}
 
+  /** The follow-up sheet, latest session first. */
   async list(user: AccessUser, patientId: string) {
     await this.access.assertPatient(user, patientId);
-    return this.prisma.consultation.findMany({
+    const sessions = await this.prisma.consultation.findMany({
       where: { patientId },
-      orderBy: { date: 'desc' },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       include: {
         appointment: { select: { id: true, startAt: true, type: true } },
-        _count: {
-          select: { measurements: true, topicNotes: true, lifeEvents: true, goals: true },
-        },
+        measurements: SESSION_WEIGHT,
+        _count: { select: { measurements: true, fileEntries: true, lifeEvents: true } },
       },
     });
+    const series = await this.series(patientId, sessions);
+    return sessions
+      .map(({ measurements: _weight, ...session }) => ({ ...session, ...series.get(session.id)! }))
+      .reverse();
   }
 
   async findOne(user: AccessUser, id: string) {
@@ -55,10 +62,7 @@ export class ConsultationsService {
     });
     if (!session) throw new NotFoundException('Séance introuvable');
     await this.access.assertPatient(user, session.patientId);
-    return {
-      ...session,
-      measurements: session.measurements.map((m) => ({ ...m, value: Number(m.value) })),
-    };
+    return this.withFigures(session);
   }
 
   /** Starts a session. Starting it again from the same appointment returns the existing one. */
@@ -82,96 +86,107 @@ export class ConsultationsService {
       if (!dto.date) date = appointment.startAt;
     }
 
-    return this.prisma.consultation.create({
-      data: { patientId, practitionerId, appointmentId: dto.appointmentId, date },
-    });
+    const data = {
+      patientId,
+      practitionerId,
+      appointmentId: dto.appointmentId,
+      date,
+      paymentMethod: dto.paymentMethod,
+      ...(dto.formulaId ? await this.formulaCopy(practitionerId, dto.formulaId) : {}),
+    };
+    if (!dto.appointmentId) return this.prisma.consultation.create({ data });
+    const [session] = await this.prisma.$transaction([
+      this.prisma.consultation.create({ data }),
+      this.prisma.appointment.update({
+        where: { id: dto.appointmentId },
+        data: { status: AppointmentStatus.COMPLETED },
+      }),
+    ]);
+    return session;
   }
 
   async update(user: AccessUser, id: string, dto: UpdateConsultationDto) {
-    await this.draft(user, id);
+    const session = await this.ofUser(user, id);
+    const { formulaId, date, ...texts } = dto;
+    let formula = {};
+    if (formulaId === null) formula = { formulaId: null, formulaLabel: null, priceCents: null };
+    // Choosing the same formula again keeps the price copied at the time
+    else if (formulaId && formulaId !== session.formulaId) {
+      formula = await this.formulaCopy(session.practitionerId, formulaId);
+    }
     return this.prisma.consultation.update({
       where: { id },
-      data: {
-        summary: dto.summary,
-        advice: dto.advice,
-        date: dto.date ? new Date(dto.date) : undefined,
-      },
+      data: { ...texts, ...formula, date: date ? new Date(date) : undefined },
     });
-  }
-
-  /** Locks the session and marks its appointment as done. */
-  async finalize(user: AccessUser, id: string) {
-    const session = await this.draft(user, id);
-    const [finalized] = await this.prisma.$transaction([
-      this.prisma.consultation.update({
-        where: { id },
-        data: { status: ConsultationStatus.FINALIZED, finalizedAt: new Date() },
-      }),
-      ...(session.appointmentId
-        ? [
-            this.prisma.appointment.update({
-              where: { id: session.appointmentId },
-              data: { status: AppointmentStatus.COMPLETED },
-            }),
-          ]
-        : []),
-    ]);
-    return finalized;
   }
 
   /**
-   * Discards a draft session and everything recorded during it. Goals reviewed in it go back
-   * to the status of their previous review (or "in progress" if there was none).
+   * Deletes a session and its measurements (its weight is part of the row). Medical file
+   * versions and life events written during it stay in the file, no longer linked to it.
    */
   async remove(user: AccessUser, id: string) {
-    const { patientId } = await this.draft(user, id);
-    const where = { consultationId: id };
-    await this.prisma.$transaction(async (tx) => {
-      const reviewed = await tx.goalReview.findMany({ where, select: { goalId: true } });
-      for (const { goalId } of reviewed) {
-        const previous = await tx.goalReview.findFirst({
-          where: { goalId, consultationId: { not: id } },
-          orderBy: { createdAt: 'desc' },
-          select: { status: true },
-        });
-        await tx.goal.update({
-          where: { id: goalId },
-          data: goalStatusChange(previous?.status ?? GoalStatus.IN_PROGRESS),
-        });
-      }
-      await tx.measurement.deleteMany({ where });
-      await tx.topicNote.deleteMany({ where });
-      await tx.lifeEvent.deleteMany({ where });
-      await tx.goal.deleteMany({ where });
-      await tx.consultation.delete({ where: { id } }); // its goal reviews go with it
-    });
+    const { patientId } = await this.ofUser(user, id);
+    await this.prisma.$transaction([
+      this.prisma.measurement.deleteMany({ where: { consultationId: id } }),
+      this.prisma.consultation.delete({ where: { id } }),
+    ]);
     return { patientId };
   }
 
-  /** Records how a goal stands at this session, and moves the goal to that status. */
-  async reviewGoal(user: AccessUser, id: string, goalId: string, dto: ReviewGoalDto) {
-    const session = await this.draft(user, id);
-    const goal = await this.prisma.goal.findUnique({ where: { id: goalId } });
-    if (!goal || goal.patientId !== session.patientId) {
-      throw new NotFoundException('Objectif introuvable');
-    }
-    const [review] = await this.prisma.$transaction([
-      this.prisma.goalReview.upsert({
-        where: { goalId_consultationId: { goalId, consultationId: id } },
-        create: { goalId, consultationId: id, status: dto.status, comment: dto.comment },
-        update: { status: dto.status, comment: dto.comment },
-      }),
-      this.prisma.goal.update({ where: { id: goalId }, data: goalStatusChange(dto.status) }),
-    ]);
-    return { ...review, patientId: session.patientId };
+  /** Adds the session's place in the follow-up and its figures. */
+  private async withFigures<T extends { id: string; patientId: string }>(session: T) {
+    const sessions = await this.prisma.consultation.findMany({
+      where: { patientId: session.patientId },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, date: true, advice: true, measurements: SESSION_WEIGHT },
+    });
+    const series = await this.series(session.patientId, sessions);
+    return { ...session, ...series.get(session.id)! };
   }
 
-  /** A session of the user's patient that can still be changed. */
-  private async draft(user: AccessUser, id: string) {
+  /** Figures of the patient's sessions, given in chronological order with their weight. */
+  private async series(
+    patientId: string,
+    sessions: { id: string; date: Date; advice: string | null; measurements: { value: Prisma.Decimal }[] }[],
+  ): Promise<Map<string, SessionInSeries>> {
+    const [patient, height] = await Promise.all([
+      this.prisma.patient.findUniqueOrThrow({
+        where: { id: patientId },
+        select: { sex: true, dateOfBirth: true },
+      }),
+      // "Taille = dernière taille connue"
+      this.prisma.measurement.findFirst({
+        where: { patientId, type: MetricType.HEIGHT },
+        orderBy: [{ measuredAt: 'desc' }, { createdAt: 'desc' }],
+        select: { value: true },
+      }),
+    ]);
+    return sessionSeries(
+      { ...patient, heightCm: height ? Number(height.value) : null },
+      sessions.map((s) => ({
+        id: s.id,
+        date: s.date,
+        advice: s.advice,
+        weightKg: s.measurements[0] ? Number(s.measurements[0].value) : null,
+      })),
+    );
+  }
+
+  /** The formula's label and price, copied so later price changes leave the session as it was. */
+  private async formulaCopy(practitionerId: string, formulaId: string) {
+    const formula = await this.prisma.formula.findUnique({ where: { id: formulaId } });
+    if (!formula || formula.practitionerId !== practitionerId) {
+      throw new BadRequestException('Formule introuvable');
+    }
+    if (formula.archivedAt) throw new BadRequestException("Cette formule n'est plus proposée");
+    return { formulaId, formulaLabel: formula.label, priceCents: formula.priceCents };
+  }
+
+  /** A session of one of the user's patients. */
+  private async ofUser(user: AccessUser, id: string) {
     const session = await this.prisma.consultation.findUnique({ where: { id } });
     if (!session) throw new NotFoundException('Séance introuvable');
     await this.access.assertPatient(user, session.patientId);
-    await this.file.assertDraftSession(session.patientId, id);
     return session;
   }
 }

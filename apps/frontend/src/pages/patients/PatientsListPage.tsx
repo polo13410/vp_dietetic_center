@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { PaginatedResponse, PatientListItemDto, PatientStatus } from '@vp/types';
+import type { PaginatedResponse, PatientListItemDto } from '@vp/types';
 import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -12,31 +12,20 @@ import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
 import { calculateAge, formatDate } from '../../lib/utils';
 
-const STATUS_LABELS: Record<PatientStatus, string> = {
-  ACTIVE: 'Actif',
-  INACTIVE: 'Inactif',
-  ARCHIVED: 'Archivé',
-};
-const STATUS_COLORS: Record<PatientStatus, string> = {
-  ACTIVE: 'bg-green-500/15 text-green-600 dark:text-green-400',
-  INACTIVE: 'bg-muted text-muted-foreground',
-  ARCHIVED: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-};
-
 export default function PatientsListPage() {
   const isAssistant = useIsRole('ASSISTANTE');
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
 
   const page = parseInt(searchParams.get('page') ?? '1');
-  const status = searchParams.get('status') as PatientStatus | null;
+  const archived = searchParams.get('archived') === 'true';
 
   const { data, isLoading } = useQuery<PaginatedResponse<PatientListItemDto>>({
-    queryKey: ['patients', { page, search, status }],
+    queryKey: ['patients', { page, search, archived }],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
       if (search) params.set('search', search);
-      if (status) params.set('status', status);
+      if (archived) params.set('archived', 'true');
       const { data } = await api.get(`/patients?${params}`);
       return data;
     },
@@ -87,27 +76,27 @@ export default function PatientsListPage() {
           />
         </form>
         <div className="flex items-center gap-2">
-          {(['', 'ACTIVE', 'INACTIVE', 'ARCHIVED'] as const).map((s) => (
+          {[false, true].map((a) => (
             <button
-              key={s}
+              key={String(a)}
               onClick={() =>
                 setSearchParams((p) => {
-                  if (s) {
-                    p.set('status', s);
+                  if (a) {
+                    p.set('archived', 'true');
                   } else {
-                    p.delete('status');
+                    p.delete('archived');
                   }
                   p.set('page', '1');
                   return p;
                 })
               }
               className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                (status ?? '') === s
+                archived === a
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
-              {s ? STATUS_LABELS[s] : 'Tous'}
+              {a ? 'Archivés' : 'Suivis'}
             </button>
           ))}
         </div>
@@ -141,12 +130,6 @@ export default function PatientsListPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
                   Dernier RDV
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Statut
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Tags
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -171,26 +154,6 @@ export default function PatientsListPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {patient.lastAppointmentAt ? formatDate(patient.lastAppointmentAt) : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[patient.status]}`}
-                    >
-                      {STATUS_LABELS[patient.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {patient.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="text-xs px-1.5 py-0.5 rounded-md font-medium"
-                          style={{ backgroundColor: `${tag.color}20`, color: tag.color }}
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
                   </td>
                 </tr>
               ))}

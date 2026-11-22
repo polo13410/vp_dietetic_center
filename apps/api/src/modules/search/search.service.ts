@@ -28,7 +28,7 @@ export class SearchService {
             { email: { contains: q, mode: 'insensitive' } },
           ],
         },
-        select: { id: true, firstName: true, lastName: true, email: true, status: true },
+        select: { id: true, firstName: true, lastName: true, email: true, archivedAt: true },
         take: 5,
       }),
       this.prisma.appointment.findMany({
@@ -49,14 +49,14 @@ export class SearchService {
         where: {
           practitionerId: user.id,
           OR: [
-            { summary: { contains: q, mode: 'insensitive' } },
+            { habits: { contains: q, mode: 'insensitive' } },
+            { sessionWork: { contains: q, mode: 'insensitive' } },
             { advice: { contains: q, mode: 'insensitive' } },
           ],
         },
         select: {
           id: true,
           date: true,
-          status: true,
           patient: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: { date: 'desc' },

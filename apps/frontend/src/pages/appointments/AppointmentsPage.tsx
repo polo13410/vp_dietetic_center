@@ -118,7 +118,7 @@ export default function AppointmentsPage() {
             onSlotClick={(start) => setBooking({ startAt: format(start, "yyyy-MM-dd'T'HH:mm") })}
           />
           <p className="text-xs text-muted-foreground">
-            Cliquez sur un créneau libre pour prendre un rendez-vous. ✓ séance finalisée · ✎ séance en cours.
+            Cliquez sur un créneau libre pour prendre un rendez-vous. ✓ séance commencée.
           </p>
         </>
       )}

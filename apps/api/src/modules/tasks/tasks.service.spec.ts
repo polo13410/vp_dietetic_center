@@ -2,7 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TaskStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createMockUser, mockAccess, mockNotifications, mockPrisma } from '../../test/setup';
+import { createMockUser, mockAccess, mockPrisma } from '../../test/setup';
 
 import { TasksService } from './tasks.service';
 
@@ -12,7 +12,7 @@ describe('TasksService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new TasksService(mockPrisma as any, mockNotifications as any, mockAccess as any);
+    service = new TasksService(mockPrisma as any, mockAccess as any);
   });
 
   describe('findAll', () => {
@@ -72,10 +72,12 @@ describe('TasksService', () => {
       expect(mockPrisma.task.create).not.toHaveBeenCalled();
     });
 
-    it('creates a notification', async () => {
+    it('records who created it', async () => {
       mockPrisma.task.create.mockResolvedValue({ id: 't1' });
       await service.create({ title: 'New task' }, user as any);
-      expect(mockNotifications.create).toHaveBeenCalled();
+      expect(mockPrisma.task.create).toHaveBeenCalledWith({
+        data: { title: 'New task', createdById: 'user-1' },
+      });
     });
   });
 

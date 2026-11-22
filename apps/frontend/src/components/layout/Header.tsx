@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useCurrentUser, useLogout } from '../../hooks/useAuth';
-import { NotificationCenter } from '../notifications/NotificationCenter';
 import { GlobalSearchDialog } from '../search/GlobalSearchDialog';
 import {
   DropdownMenu,
@@ -55,7 +54,6 @@ export function Header() {
 
       <div className="ml-auto flex items-center gap-1">
         <ThemeToggle />
-        <NotificationCenter />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

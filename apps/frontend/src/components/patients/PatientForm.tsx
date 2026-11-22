@@ -1,16 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import api from '../../lib/api';
 import { cn } from '../../lib/utils';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
@@ -18,40 +12,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 export const patientSchema = z.object({
   firstName: z.string().min(1, 'Prenom requis'),
   lastName: z.string().min(1, 'Nom requis'),
+  sex: z.enum(['F', 'M']).optional().or(z.literal('')),
   dateOfBirth: z.string().optional(),
+  /** Declared age, when the birth date is unknown */
+  age: z.string().regex(/^\d{0,3}$/, 'Âge en années').optional(),
   email: z.string().email('Email invalide').optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   zipCode: z.string().optional(),
+  familySituation: z.string().optional(),
+  profession: z.string().optional(),
+  gpName: z.string().optional(),
   referralSource: z.string().optional(),
-  privateNote: z.string().optional(),
   consultationReason: z.string().optional(),
-  allergies: z.string().optional(),
-  dietaryRestrictions: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']).optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  emergencyContactRelationship: z.string().optional(),
-  tagIds: z.array(z.string()).optional(),
 });
 
 export type PatientFormData = z.infer<typeof patientSchema>;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-interface Tag {
-  id: string;
-  name: string;
-  color: string;
-}
-
 interface PatientFormProps {
   defaultValues?: Partial<PatientFormData>;
   onSubmit: (data: PatientFormData) => void;
   isPending: boolean;
   submitLabel: string;
-  showStatus?: boolean;
 }
 
 export function PatientForm({
@@ -59,7 +44,6 @@ export function PatientForm({
   onSubmit,
   isPending,
   submitLabel,
-  showStatus = false,
 }: PatientFormProps) {
   const {
     register,
@@ -71,41 +55,20 @@ export function PatientForm({
     defaultValues: {
       firstName: '',
       lastName: '',
-      tagIds: [],
       ...defaultValues,
     },
   });
 
-  const { data: tags = [] } = useQuery({
-    queryKey: ['tags'],
-    queryFn: async () => {
-      const res = await api.get('/patients/tags');
-      return res.data as Tag[];
-    },
-  });
-
   const handleFormSubmit = (data: PatientFormData) => {
-    // Transform to match backend DTO
-    const { emergencyContactName, emergencyContactPhone, emergencyContactRelationship, ...rest } = data;
+    const { age, ...rest } = data;
     const payload: Record<string, unknown> = { ...rest };
-
-    if (emergencyContactName || emergencyContactPhone) {
-      payload.emergencyContact = {
-        name: emergencyContactName || '',
-        phone: emergencyContactPhone || '',
-        relationship: emergencyContactRelationship,
-      };
-    }
-
-    // Clean up fields that shouldn't be sent
-    delete payload.emergencyContactName;
-    delete payload.emergencyContactPhone;
-    delete payload.emergencyContactRelationship;
 
     // An empty field means "no value": the API refuses "" for dates and emails
     for (const [key, value] of Object.entries(payload)) {
       if (value === '') payload[key] = null;
     }
+    // Only the age is known: the API stores an estimated birth year
+    if (age && !data.dateOfBirth) payload.age = Number(age);
 
     onSubmit(payload as PatientFormData);
   };
@@ -123,29 +86,31 @@ export function PatientForm({
             <input {...register('lastName')} placeholder="Dupont" className={inputClass} />
           </Field>
         </div>
-        <Field label="Date de naissance">
-          <input type="date" {...register('dateOfBirth')} className={inputClass} />
-        </Field>
-        {showStatus && (
-          <Field label="Statut">
+        <div className="grid grid-cols-3 gap-4">
+          <Field label="Sexe">
             <Controller
               control={control}
-              name="status"
+              name="sex"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value || undefined} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Statut" />
+                    <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ACTIVE">Actif</SelectItem>
-                    <SelectItem value="INACTIVE">Inactif</SelectItem>
-                    <SelectItem value="ARCHIVED">Archive</SelectItem>
+                    <SelectItem value="F">Femme</SelectItem>
+                    <SelectItem value="M">Homme</SelectItem>
                   </SelectContent>
                 </Select>
               )}
             />
           </Field>
-        )}
+          <Field label="Date de naissance">
+            <input type="date" {...register('dateOfBirth')} className={inputClass} />
+          </Field>
+          <Field label="Ou âge" error={errors.age?.message}>
+            <input inputMode="numeric" {...register('age')} placeholder="56" className={inputClass} />
+          </Field>
+        </div>
       </fieldset>
 
       {/* Contact */}
@@ -175,32 +140,20 @@ export function PatientForm({
         </div>
       </fieldset>
 
-      {/* Emergency Contact */}
+      {/* Situation */}
       <fieldset className="bg-card rounded-xl border border-border p-5 space-y-4">
-        <legend className="text-sm font-medium px-1">Contact d'urgence</legend>
+        <legend className="text-sm font-medium px-1">Situation</legend>
+        <Field label="Situation familiale">
+          <input {...register('familySituation')} placeholder="Mariée, deux enfants" className={inputClass} />
+        </Field>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Nom">
-            <input
-              {...register('emergencyContactName')}
-              placeholder="Jean Dupont"
-              className={inputClass}
-            />
+          <Field label="Profession">
+            <input {...register('profession')} className={inputClass} />
           </Field>
-          <Field label="Telephone">
-            <input
-              {...register('emergencyContactPhone')}
-              placeholder="06 12 34 56 78"
-              className={inputClass}
-            />
+          <Field label="Médecin traitant">
+            <input {...register('gpName')} placeholder="Dr Martin" className={inputClass} />
           </Field>
         </div>
-        <Field label="Lien de parente">
-          <input
-            {...register('emergencyContactRelationship')}
-            placeholder="Conjoint, parent..."
-            className={inputClass}
-          />
-        </Field>
       </fieldset>
 
       {/* Profile: shown at the top of the summary before each session */}
@@ -214,52 +167,11 @@ export function PatientForm({
             className={cn(inputClass, 'resize-none')}
           />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Allergies et intolérances">
-            <input {...register('allergies')} placeholder="Arachides, lactose..." className={inputClass} />
-          </Field>
-          <Field label="Régime particulier">
-            <input
-              {...register('dietaryRestrictions')}
-              placeholder="Végétarien, halal, sans gluten..."
-              className={inputClass}
-            />
-          </Field>
-        </div>
-      </fieldset>
-
-      {/* Additional info */}
-      <fieldset className="bg-card rounded-xl border border-border p-5 space-y-4">
-        <legend className="text-sm font-medium px-1">Informations complementaires</legend>
-        <Field label="Source de reference">
+        <Field label="Adressé par">
           <input
             {...register('referralSource')}
             placeholder="Medecin traitant, bouche-a-oreille..."
             className={inputClass}
-          />
-        </Field>
-
-        {/* Tags */}
-        <Field label="Tags">
-          <Controller
-            control={control}
-            name="tagIds"
-            render={({ field }) => (
-              <TagMultiSelect
-                tags={tags}
-                value={field.value ?? []}
-                onChange={field.onChange}
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Note privee">
-          <textarea
-            {...register('privateNote')}
-            rows={3}
-            placeholder="Notes internes (non visibles par le patient)..."
-            className={cn(inputClass, 'resize-none')}
           />
         </Field>
       </fieldset>
@@ -271,87 +183,6 @@ export function PatientForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-// ─── Tag multi-select ────────────────────────────────────────────────────────
-
-function TagMultiSelect({
-  tags,
-  value,
-  onChange,
-}: {
-  tags: Tag[];
-  value: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const selectedTags = tags.filter((t) => value.includes(t.id));
-
-  const toggle = (tagId: string) => {
-    onChange(value.includes(tagId) ? value.filter((id) => id !== tagId) : [...value, tagId]);
-  };
-
-  return (
-    <div className="space-y-2">
-      {selectedTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedTags.map((tag) => (
-            <Badge
-              key={tag.id}
-              variant="secondary"
-              className="gap-1"
-              style={{ backgroundColor: tag.color + '20', color: tag.color, borderColor: tag.color + '40' }}
-            >
-              {tag.name}
-              <button
-                type="button"
-                onClick={() => toggle(tag.id)}
-                className="ml-0.5 hover:opacity-70"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-            {selectedTags.length > 0
-              ? `${selectedTags.length} tag(s) selectionne(s)`
-              : 'Ajouter des tags...'}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Rechercher un tag..." />
-            <CommandList>
-              <CommandEmpty>Aucun tag trouve.</CommandEmpty>
-              <CommandGroup>
-                {tags.map((tag) => (
-                  <CommandItem key={tag.id} value={tag.name} onSelect={() => toggle(tag.id)}>
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        value.includes(tag.id) ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    <span
-                      className="mr-2 h-3 w-3 rounded-full shrink-0"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    {tag.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </div>
   );
 }
 

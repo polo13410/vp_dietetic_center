@@ -147,13 +147,12 @@ export default function AppointmentDetailPage() {
 /** Starts the session of this appointment, or opens it if it already exists. */
 function SessionAction({ appt }: { appt: any }) {
   const start = useStartSession(appt.patientId);
-  const session = appt.consultation as { id: string; status: string } | null;
+  const session = appt.consultation as { id: string } | null;
   if (session) {
     return (
-      <Button asChild variant={session.status === 'DRAFT' ? 'default' : 'outline'}>
+      <Button asChild variant="outline">
         <Link to={`/consultations/${session.id}`}>
-          <Play className="w-4 h-4" />
-          {session.status === 'DRAFT' ? 'Reprendre la séance' : 'Voir la séance'}
+          <Play className="w-4 h-4" /> Rouvrir la séance
         </Link>
       </Button>
     );

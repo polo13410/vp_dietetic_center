@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PatientStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class PatientQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -24,13 +23,10 @@ export class PatientQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: PatientStatus })
+  @ApiPropertyOptional({ description: 'true: archived patients only (default: current ones)' })
   @IsOptional()
-  @IsEnum(PatientStatus)
-  status?: PatientStatus;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUUID()
-  tagId?: string;
+  // Read the raw value: implicit conversion would turn "false" into true
+  @Transform(({ obj }) => obj.archived === true || obj.archived === 'true')
+  @IsBoolean()
+  archived?: boolean;
 }

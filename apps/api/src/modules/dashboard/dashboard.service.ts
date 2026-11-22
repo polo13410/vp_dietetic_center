@@ -20,7 +20,7 @@ const PATIENT = { select: { id: true, firstName: true, lastName: true } };
 
 /**
  * The practitioner's day at a glance: today's appointments and their sessions, the next
- * patient, sessions left unfinished, patients to follow up and tasks due.
+ * patient, patients to follow up and tasks due.
  */
 @Injectable()
 export class DashboardService {
@@ -40,7 +40,7 @@ export class DashboardService {
     const patients: Prisma.PatientWhereInput = {
       ...this.access.patientScope(user),
       deletedAt: null,
-      status: 'ACTIVE',
+      archivedAt: null,
     };
 
     const [
@@ -48,24 +48,22 @@ export class DashboardService {
       nextAppointment,
       weekAppointmentCount,
       followedPatientCount,
-      draftConsultations,
       followUps,
       tasks,
     ] = await Promise.all([
       this.prisma.appointment.findMany({
         where: { ...appointments, startAt: { gte: startOfDay, lt: endOfDay } },
-        include: { patient: PATIENT, consultation: { select: { id: true, status: true } } },
+        include: { patient: PATIENT, consultation: { select: { id: true } } },
         orderBy: { startAt: 'asc' },
       }),
       this.prisma.appointment.findFirst({
-        // Still to come, or started less than an hour ago
+        // Still to come, or started less than an hour ago; starting its session marks it done
         where: {
           ...appointments,
           startAt: { gte: new Date(now.getTime() - 3600 * 1000) },
           status: { in: UPCOMING },
-          OR: [{ consultation: null }, { consultation: { status: 'DRAFT' } }],
         },
-        include: { patient: PATIENT, consultation: { select: { id: true, status: true } } },
+        include: { patient: PATIENT, consultation: { select: { id: true } } },
         orderBy: { startAt: 'asc' },
       }),
       this.prisma.appointment.count({
@@ -83,13 +81,6 @@ export class DashboardService {
             { appointments: { some: { startAt: { gte: now }, status: { in: UPCOMING } } } },
           ],
         },
-      }),
-      this.prisma.consultation.findMany({
-        // Sessions are only ever listed for their own practitioner
-        where: { practitionerId: user.id, status: 'DRAFT' },
-        select: { id: true, date: true, patient: PATIENT },
-        orderBy: { date: 'desc' },
-        take: 10,
       }),
       this.followUps(patients, now),
       this.prisma.task.findMany({
@@ -113,7 +104,6 @@ export class DashboardService {
         weekAppointmentCount,
         followedPatientCount,
       },
-      draftConsultations,
       followUps,
       tasks,
     };

@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, Edit, Eye, Play, Upload } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Archive, ArchiveRestore, ArrowLeft, Download, Edit, Eye, Play, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -10,14 +10,14 @@ import {
 } from '../../components/documents/DocumentPreviewDialog';
 import { DocumentUploadDialog } from '../../components/documents/DocumentUploadDialog';
 import { BmiBadge } from '../../components/patient-file/BmiBadge';
-import { GoalsPanel } from '../../components/patient-file/GoalsPanel';
+import { FilePanel } from '../../components/patient-file/FilePanel';
 import { MeasurementsPanel } from '../../components/patient-file/MeasurementsPanel';
 import { PatientBrief } from '../../components/patient-file/PatientBrief';
 import { SessionsPanel } from '../../components/patient-file/SessionsPanel';
-import { TopicsPanel } from '../../components/patient-file/TopicsPanel';
 import { useStartSession } from '../../components/patient-file/useStartSession';
 import { PatientAccessLog } from '../../components/patients/PatientAccessLog';
 import { PatientTasks } from '../../components/patients/PatientTasks';
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
@@ -76,8 +76,7 @@ export default function PatientDetailPage() {
             <TabsTrigger value="brief">Résumé</TabsTrigger>
             <TabsTrigger value="sessions">Séances ({patient._count?.consultations ?? 0})</TabsTrigger>
             <TabsTrigger value="measurements">Mesures & événements</TabsTrigger>
-            <TabsTrigger value="topics">Thématiques</TabsTrigger>
-            <TabsTrigger value="goals">Objectifs</TabsTrigger>
+            <TabsTrigger value="file">Dossier médical</TabsTrigger>
             <TabsTrigger value="appointments">Rendez-vous ({patient._count?.appointments ?? 0})</TabsTrigger>
             <TabsTrigger value="documents">Documents ({patient._count?.documents ?? 0})</TabsTrigger>
             <TabsTrigger value="tasks">Tâches</TabsTrigger>
@@ -93,11 +92,8 @@ export default function PatientDetailPage() {
           <TabsContent value="measurements">
             <MeasurementsPanel patientId={id} />
           </TabsContent>
-          <TabsContent value="topics">
-            <TopicsPanel patientId={id} />
-          </TabsContent>
-          <TabsContent value="goals">
-            <GoalsPanel patientId={id} />
+          <TabsContent value="file">
+            <FilePanel patientId={id} />
           </TabsContent>
           <TabsContent value="appointments">
             <AppointmentsList appointments={appointments} />
@@ -134,11 +130,12 @@ function Header({ patient, appointments, isAssistant }: { patient: any; appointm
             <h1 className="text-xl font-semibold">
               {patient.firstName} {patient.lastName}
             </h1>
-            <StatusBadge status={patient.status} />
+            {patient.archivedAt && <span className="text-xs text-muted-foreground">Archivé</span>}
             <BmiBadge bmi={patient.bmi} />
           </div>
           <p className="text-sm text-muted-foreground">
-            {calculateAge(patient.dateOfBirth)} · suivi depuis le {formatDate(patient.createdAt)}
+            {calculateAge(patient.dateOfBirth)}
+            {patient.birthDateEstimated && ', âge déclaré'} · suivi depuis le {formatDate(patient.createdAt)}
           </p>
         </div>
         {!isAssistant && (
@@ -158,6 +155,7 @@ function Header({ patient, appointments, isAssistant }: { patient: any; appointm
                 <Edit className="w-4 h-4" /> Modifier
               </Link>
             </Button>
+            <ArchiveButton patient={patient} />
             <Button
               size="sm"
               disabled={start.isPending}
@@ -169,21 +167,40 @@ function Header({ patient, appointments, isAssistant }: { patient: any; appointm
           </div>
         )}
       </div>
-
-      {patient.tags?.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {patient.tags.map((tag: { id: string; name: string; color: string }) => (
-            <span
-              key={tag.id}
-              className="text-xs px-2 py-1 rounded-md font-medium"
-              style={{ backgroundColor: `${tag.color}20`, color: tag.color }}
-            >
-              {tag.name}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
+  );
+}
+
+/** Archived patients leave the lists; their file stays as it is. */
+function ArchiveButton({ patient }: { patient: any }) {
+  const queryClient = useQueryClient();
+  const [confirm, setConfirm] = useState(false);
+  const archived = !!patient.archivedAt;
+  const toggle = useMutation({
+    mutationFn: () => api.post(`/patients/${patient.id}/${archived ? 'unarchive' : 'archive'}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient', patient.id] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      setConfirm(false);
+      toast({ title: archived ? 'Patient désarchivé' : 'Patient archivé' });
+    },
+  });
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => (archived ? toggle.mutate() : setConfirm(true))}>
+        {archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+        {archived ? 'Désarchiver' : 'Archiver'}
+      </Button>
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={setConfirm}
+        title="Archiver ce patient ?"
+        description="Il n’apparaîtra plus dans la liste des patients suivis. Son dossier reste intact et vous pourrez le désarchiver."
+        confirmLabel="Archiver"
+        loading={toggle.isPending}
+        onConfirm={() => toggle.mutate()}
+      />
+    </>
   );
 }
 
@@ -280,7 +297,7 @@ function PatientDocuments({ patientId }: { patientId: string }) {
   );
 }
 
-/** Administrative record: identity, contact, emergency contact, profile. */
+/** Administrative record: identity, contact, situation, reason for coming. */
 function RecordCard({ patient }: { patient: any }) {
   return (
     <div className="space-y-4">
@@ -292,24 +309,17 @@ function RecordCard({ patient }: { patient: any }) {
           <InfoRow label="Adresse" value={[patient.address, patient.zipCode, patient.city].filter(Boolean).join(', ')} />
           <InfoRow label="Adressé par" value={patient.referralSource} />
         </InfoCard>
-        <InfoCard title="Contact d'urgence">
-          <InfoRow label="Nom" value={patient.emergencyContactName} />
-          <InfoRow label="Téléphone" value={patient.emergencyContactPhone} />
-          <InfoRow label="Lien" value={patient.emergencyContactRelationship} />
+        <InfoCard title="Situation">
+          <InfoRow label="Sexe" value={patient.sex === 'F' ? 'Femme' : patient.sex === 'M' ? 'Homme' : null} />
+          <InfoRow label="Situation familiale" value={patient.familySituation} />
+          <InfoRow label="Profession" value={patient.profession} />
+          <InfoRow label="Médecin traitant" value={patient.gpName} />
         </InfoCard>
       </div>
       {'consultationReason' in patient && (
         <InfoCard title="Profil">
           <InfoRow label="Motif" value={patient.consultationReason} />
-          <InfoRow label="Allergies" value={patient.allergies} />
-          <InfoRow label="Régime" value={patient.dietaryRestrictions} />
         </InfoCard>
-      )}
-      {patient.privateNote && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-          <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1.5">Note privée praticienne</p>
-          <p className="text-sm text-foreground whitespace-pre-line">{patient.privateNote}</p>
-        </div>
       )}
     </div>
   );

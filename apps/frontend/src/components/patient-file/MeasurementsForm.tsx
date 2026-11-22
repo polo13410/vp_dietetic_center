@@ -8,7 +8,7 @@ import { Button } from '../ui/button';
 import { toast } from '../ui/toaster';
 
 /** The measurements taken at most sessions; the others are one click away. */
-const COMMON: MetricType[] = ['WEIGHT', 'WAIST', 'ENERGY', 'SLEEP_QUALITY', 'STRESS'];
+const COMMON: MetricType[] = ['WEIGHT', 'WAIST'];
 
 const inputClass =
   'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50';
@@ -85,7 +85,6 @@ export function MeasurementsForm({
               </span>
               <input
                 inputMode="decimal"
-                placeholder={meta.scale ? '1 à 10' : ''}
                 value={values[type] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [type]: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && save()}

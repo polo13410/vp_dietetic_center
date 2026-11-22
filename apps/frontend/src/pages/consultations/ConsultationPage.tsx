@@ -1,16 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Check, Flag, Lock, PanelLeftClose, PanelLeftOpen, Ruler, Target, Trash2, Utensils, X } from 'lucide-react';
+import { ArrowLeft, Check, Flag, Heart, PanelLeftClose, PanelLeftOpen, Ruler, Trash2, X } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { GoalForm } from '../../components/patient-file/GoalsPanel';
+import { FileSectionEditor, useFileSections } from '../../components/patient-file/FilePanel';
 import { fieldClass, LifeEventForm } from '../../components/patient-file/LifeEventsPanel';
 import { MeasurementsForm } from '../../components/patient-file/MeasurementsForm';
 import { PatientBrief } from '../../components/patient-file/PatientBrief';
-import { TopicNoteForm } from '../../components/patient-file/TopicsPanel';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
-import { StatusBadge } from '../../components/shared/StatusBadge';
-import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
@@ -18,15 +15,14 @@ import api from '../../lib/api';
 import {
   type Consultation,
   EVENT_CATEGORIES,
+  FILE_FIELDS,
+  type FileField,
   formatMetric,
-  GOAL_STATUSES,
-  type GoalStatus,
   METRICS,
-  type PatientTopic,
-  TOPIC_TYPES,
-  TOPICS,
+  PAYMENT_METHODS,
+  type PaymentMethod,
+  sessionName,
   useConsultation,
-  useGoals,
   useInvalidatePatientFile,
   useMeasurements,
   usePatientFileMutation,
@@ -34,9 +30,9 @@ import {
 import { cn, formatDate, formatDateTime } from '../../lib/utils';
 
 /**
- * A session with the patient. The summary of the file stays on the left; on the right, what
- * happens in the session: the report, measurements, topic updates, life events, the review of
- * previous goals and new ones. Finalizing locks it and marks the appointment as done.
+ * A session with the patient: one row of her follow-up sheet. The summary of the file stays on
+ * the left; on the right, the session itself. Nothing is locked: a past session is corrected
+ * like today's. (Temporary screen: lot 7 rebuilds it.)
  */
 export default function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,9 +41,6 @@ export default function ConsultationPage() {
 
   if (isLoading) return <LoadingSpinner />;
   if (!session) return <p className="text-muted-foreground">Séance introuvable</p>;
-
-  const locked = session.status === 'FINALIZED';
-  const patientId = session.patientId;
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
@@ -62,7 +55,7 @@ export default function ConsultationPage() {
                 <PanelLeftClose className="h-4 w-4" />
               </Button>
             </div>
-            <PatientBrief patientId={patientId} compact />
+            <PatientBrief patientId={session.patientId} compact />
           </aside>
         )}
 
@@ -72,11 +65,10 @@ export default function ConsultationPage() {
               <PanelLeftOpen className="h-4 w-4" /> Afficher le résumé du dossier
             </Button>
           )}
-          <Report session={session} locked={locked} />
-          <MeasurementsBlock session={session} locked={locked} />
-          <GoalsReview session={session} locked={locked} />
-          <TopicsBlock session={session} locked={locked} />
-          <EventsBlock session={session} locked={locked} />
+          <MeasurementsBlock session={session} />
+          <Report session={session} />
+          <AversionsAndTastes session={session} />
+          <EventsBlock session={session} />
         </div>
       </div>
     </div>
@@ -88,22 +80,14 @@ export default function ConsultationPage() {
 function Header({ session }: { session: Consultation }) {
   const navigate = useNavigate();
   const invalidate = useInvalidatePatientFile();
-  const [confirm, setConfirm] = useState<'finalize' | 'discard' | null>(null);
+  const [confirm, setConfirm] = useState(false);
   const patient = session.patient!;
 
-  const finalize = useMutation({
-    mutationFn: () => api.post(`/consultations/${session.id}/finalize`),
-    onSuccess: () => {
-      invalidate(session.patientId);
-      toast({ title: 'Séance finalisée', description: 'Le rendez-vous est marqué comme terminé.' });
-      setConfirm(null);
-    },
-  });
-  const discard = useMutation({
+  const remove = useMutation({
     mutationFn: () => api.delete(`/consultations/${session.id}`),
     onSuccess: () => {
       invalidate(session.patientId);
-      toast({ title: 'Brouillon abandonné' });
+      toast({ title: 'Séance supprimée' });
       navigate(`/patients/${session.patientId}`);
     },
   });
@@ -115,43 +99,27 @@ function Header({ session }: { session: Consultation }) {
       </Link>
       <div className="flex-1 min-w-0">
         <h1 className="text-xl font-semibold truncate">
-          Séance · {patient.firstName} {patient.lastName}
+          {sessionName(session.sequence)} · {patient.firstName} {patient.lastName}
         </h1>
         <p className="text-xs text-muted-foreground">
           {session.appointment ? formatDateTime(session.appointment.startAt) : formatDate(session.date)}
-          {session.appointment?.reason && ` · ${session.appointment.reason}`}
+          {session.formulaLabel && ` · ${session.formulaLabel}`}
+          {session.priceCents !== null && ` · ${(session.priceCents / 100).toLocaleString('fr-FR')} €`}
         </p>
       </div>
-      <StatusBadge status={session.status} />
-      {session.status === 'DRAFT' && (
-        <>
-          <Button variant="ghost" size="sm" onClick={() => setConfirm('discard')}>
-            <Trash2 className="h-4 w-4" /> Abandonner
-          </Button>
-          <Button size="sm" onClick={() => setConfirm('finalize')}>
-            <Lock className="h-4 w-4" /> Finaliser la séance
-          </Button>
-        </>
-      )}
+      <Button variant="ghost" size="sm" onClick={() => setConfirm(true)}>
+        <Trash2 className="h-4 w-4" /> Supprimer la séance
+      </Button>
 
       <ConfirmDialog
-        open={confirm === 'finalize'}
-        onOpenChange={(o) => !o && setConfirm(null)}
-        title="Finaliser la séance ?"
-        description="La séance et ce qui y a été saisi ne pourront plus être modifiés. Le rendez-vous sera marqué comme terminé."
-        confirmLabel="Finaliser"
-        loading={finalize.isPending}
-        onConfirm={() => finalize.mutate()}
-      />
-      <ConfirmDialog
-        open={confirm === 'discard'}
-        onOpenChange={(o) => !o && setConfirm(null)}
-        title="Abandonner ce brouillon ?"
-        description="La séance et tout ce qui y a été saisi (mesures, notes, événements, objectifs) seront supprimés."
-        confirmLabel="Abandonner"
+        open={confirm}
+        onOpenChange={setConfirm}
+        title="Supprimer cette séance ?"
+        description="La séance et ses mesures seront supprimées. Ce qui a été écrit dans le dossier médical est conservé."
+        confirmLabel="Supprimer"
         variant="destructive"
-        loading={discard.isPending}
-        onConfirm={() => discard.mutate()}
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
       />
     </div>
   );
@@ -182,19 +150,25 @@ function RemoveButton({ onClick }: { onClick: () => void }) {
 
 // ─── Report ───────────────────────────────────────────────────────────────────
 
-/** Summary and advice, saved when leaving each field. */
-function Report({ session, locked }: { session: Consultation; locked: boolean }) {
+type Texts = { habits: string; sessionWork: string; advice: string };
+
+/** Her columns of the follow-up sheet, saved when leaving each field. */
+function Report({ session }: { session: Consultation }) {
   const invalidate = useInvalidatePatientFile();
-  const [summary, setSummary] = useState(session.summary ?? '');
-  const [advice, setAdvice] = useState(session.advice ?? '');
+  const saved: Texts = {
+    habits: session.habits ?? '',
+    sessionWork: session.sessionWork ?? '',
+    advice: session.advice ?? '',
+  };
+  const [texts, setTexts] = useState<Texts>(saved);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   useEffect(() => {
-    setSummary(session.summary ?? '');
-    setAdvice(session.advice ?? '');
-  }, [session.summary, session.advice]);
+    setTexts({ habits: session.habits ?? '', sessionWork: session.sessionWork ?? '', advice: session.advice ?? '' });
+  }, [session.habits, session.sessionWork, session.advice]);
 
   const save = useMutation({
-    mutationFn: (body: { summary?: string; advice?: string }) => api.patch(`/consultations/${session.id}`, body),
+    mutationFn: (body: Partial<Texts> & { paymentMethod?: PaymentMethod }) =>
+      api.patch(`/consultations/${session.id}`, body),
     onSuccess: () => {
       setSavedAt(new Date());
       invalidate(session.patientId);
@@ -202,275 +176,152 @@ function Report({ session, locked }: { session: Consultation; locked: boolean })
     onError: () => toast({ title: 'Enregistrement impossible', variant: 'destructive' }),
   });
 
-  if (locked) {
-    return (
-      <Block icon={<Lock />} title="Compte rendu">
-        <ReadOnly label="Déroulé" text={session.summary} />
-        <ReadOnly label="Conseils donnés" text={session.advice} />
-      </Block>
-    );
-  }
+  const field = (key: keyof Texts, label: string, rows: number, placeholder: string) => (
+    <label className="block">
+      <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
+      <textarea
+        rows={rows}
+        value={texts[key]}
+        onChange={(e) => setTexts((t) => ({ ...t, [key]: e.target.value }))}
+        onBlur={() => texts[key] !== saved[key] && save.mutate({ [key]: texts[key] })}
+        placeholder={placeholder}
+        className={`${fieldClass} resize-y`}
+      />
+    </label>
+  );
 
   return (
     <Block
       icon={<Check />}
-      title="Compte rendu"
+      title="Séance"
       aside={
         <span className="text-xs text-muted-foreground">
           {save.isPending ? 'Enregistrement…' : savedAt ? `Enregistré à ${formatDate(savedAt, 'HH:mm')}` : ''}
         </span>
       }
     >
-      <label className="block">
-        <span className="block text-xs font-medium text-muted-foreground mb-1">Déroulé de la séance</span>
-        <textarea
-          rows={5}
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          onBlur={() => summary !== (session.summary ?? '') && save.mutate({ summary })}
-          placeholder="Ce qui s’est dit, ce que le patient rapporte, vos observations…"
-          className={`${fieldClass} resize-y`}
-        />
+      <label className="block max-w-[14rem]">
+        <span className="block text-xs font-medium text-muted-foreground mb-1">Moyen de paiement</span>
+        <select
+          value={session.paymentMethod}
+          onChange={(e) => save.mutate({ paymentMethod: e.target.value as PaymentMethod })}
+          className={fieldClass}
+        >
+          {(Object.keys(PAYMENT_METHODS) as PaymentMethod[]).map((m) => (
+            <option key={m} value={m}>
+              {PAYMENT_METHODS[m]}
+            </option>
+          ))}
+        </select>
       </label>
-      <label className="block">
-        <span className="block text-xs font-medium text-muted-foreground mb-1">Conseils et plan donnés au patient</span>
-        <textarea
-          rows={3}
-          value={advice}
-          onChange={(e) => setAdvice(e.target.value)}
-          onBlur={() => advice !== (session.advice ?? '') && save.mutate({ advice })}
-          placeholder="Ce que vous lui avez conseillé pour la suite"
-          className={`${fieldClass} resize-y`}
-        />
-      </label>
+      {session.previousAdvice && (
+        <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
+          <p className="text-xs font-medium text-muted-foreground mb-0.5">Conseils de la séance précédente</p>
+          <p className="whitespace-pre-line">{session.previousAdvice}</p>
+        </div>
+      )}
+      {field('habits', 'Habitudes et évolution', 4, 'Ce que le patient rapporte depuis la dernière fois')}
+      {field('sessionWork', 'Travail en consultation', 4, 'Ce qui a été travaillé pendant la séance')}
+      {field('advice', 'Conseils diététiques', 3, 'Ce que vous lui avez conseillé pour la suite')}
     </Block>
-  );
-}
-
-function ReadOnly({ label, text }: { label: string; text: string | null }) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
-      <p className="text-sm whitespace-pre-line">{text || '—'}</p>
-    </div>
   );
 }
 
 // ─── Measurements ─────────────────────────────────────────────────────────────
 
-function MeasurementsBlock({ session, locked }: { session: Consultation; locked: boolean }) {
+const MISSING_LABELS = { weight: 'le poids', height: 'la taille', sex: 'le sexe', age: "l'âge" } as const;
+
+function MeasurementsBlock({ session }: { session: Consultation }) {
   const { data: all = [] } = useMeasurements(session.patientId);
   const remove = usePatientFileMutation(session.patientId, (id: string) => ({
     method: 'delete',
     url: `/patients/${session.patientId}/measurements/${id}`,
   }));
   const taken = session.measurements ?? [];
+  const { bmi, bmr, missing } = session.figures;
+  const { sincePrevious, sinceFirst } = session.weightChange;
+  const kg = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString('fr-FR')} kg`;
 
   return (
-    <Block icon={<Ruler />} title="Mesures">
+    <Block icon={<Ruler />} title="Poids et mesures">
       {taken.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {taken.map((m) => (
             <span key={m.id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-sm">
               {formatMetric(m.type, m.value)}
               <span className="text-xs text-muted-foreground">{METRICS[m.type].label.toLowerCase()}</span>
-              {!locked && <RemoveButton onClick={() => remove.mutate(m.id)} />}
+              <RemoveButton onClick={() => remove.mutate(m.id)} />
             </span>
           ))}
         </div>
       )}
-      {locked ? (
-        taken.length === 0 && <p className="text-sm text-muted-foreground">Aucune mesure prise.</p>
-      ) : (
-        <MeasurementsForm
-          patientId={session.patientId}
-          consultationId={session.id}
-          needsHeight={!all.some((m) => m.type === 'HEIGHT')}
-        />
-      )}
+      <p className="text-sm text-muted-foreground">
+        {bmi && <>IMC {bmi.value.toLocaleString('fr-FR')}</>}
+        {bmr && (
+          <>
+            {' '}
+            · MB {bmr.mj.toLocaleString('fr-FR')} MJ · {bmr.kcal.toLocaleString('fr-FR')} kcal
+          </>
+        )}
+        {sincePrevious !== null && <> · {kg(sincePrevious)} depuis la dernière séance</>}
+        {sinceFirst !== null && <> · {kg(sinceFirst)} depuis le bilan</>}
+        {missing.length > 0 && (
+          <> {bmi || bmr ? '· ' : ''}Pour calculer l’IMC et le MB, ajoutez {missing.map((m) => MISSING_LABELS[m]).join(', ')}.</>
+        )}
+      </p>
+      <MeasurementsForm
+        patientId={session.patientId}
+        consultationId={session.id}
+        needsHeight={!all.some((m) => m.type === 'HEIGHT')}
+      />
     </Block>
   );
 }
 
-// ─── Goals ────────────────────────────────────────────────────────────────────
+// ─── Aversions and tastes ─────────────────────────────────────────────────────
 
-const REVIEW_CHOICES: GoalStatus[] = ['IN_PROGRESS', 'PARTIAL', 'ACHIEVED', 'ABANDONED'];
+const SESSION_FIELDS: FileField[] = ['AVERSIONS', 'TASTES'];
 
-/** Review of the goals set in previous sessions, then the new goals of this one. */
-function GoalsReview({ session, locked }: { session: Consultation; locked: boolean }) {
-  const { data: goals = [] } = useGoals(session.patientId);
-  const reviews = new Map((session.goalReviews ?? []).map((r) => [r.goal?.id, r]));
-  const toReview = goals.filter(
-    (g) => g.consultationId !== session.id && (reviews.has(g.id) || g.status === 'IN_PROGRESS' || g.status === 'PARTIAL'),
-  );
-  const created = session.goals ?? [];
-  const removeGoal = usePatientFileMutation(session.patientId, (id: string) => ({
-    method: 'delete',
-    url: `/patients/${session.patientId}/goals/${id}`,
-  }));
-
+/** The patient's aversions and tastes (sections of the file), completed during the session. */
+function AversionsAndTastes({ session }: { session: Consultation }) {
+  const { data: sections = [] } = useFileSections(session.patientId);
   return (
-    <Block icon={<Target />} title="Objectifs">
-      {toReview.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Point sur les objectifs précédents</p>
-          {toReview.map((goal) => (
-            <GoalReviewRow
-              key={goal.id}
-              session={session}
-              goalId={goal.id}
-              title={goal.title}
-              review={reviews.get(goal.id)}
-              locked={locked}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Nouveaux objectifs</p>
-        {created.map((g) => (
-          <div key={g.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
-            {g.title}
-            {!locked && <RemoveButton onClick={() => removeGoal.mutate(g.id)} />}
-          </div>
-        ))}
-        {!locked && <GoalForm patientId={session.patientId} consultationId={session.id} />}
-        {locked && created.length === 0 && <p className="text-sm text-muted-foreground">Aucun.</p>}
-      </div>
-    </Block>
-  );
-}
-
-function GoalReviewRow({
-  session,
-  goalId,
-  title,
-  review,
-  locked,
-}: {
-  session: Consultation;
-  goalId: string;
-  title: string;
-  review?: { status: GoalStatus; comment?: string | null };
-  locked: boolean;
-}) {
-  const [comment, setComment] = useState(review?.comment ?? '');
-  const save = usePatientFileMutation(session.patientId, (body: { status: GoalStatus; comment?: string }) => ({
-    method: 'put',
-    url: `/consultations/${session.id}/goal-reviews/${goalId}`,
-    body,
-  }));
-
-  return (
-    <div className="rounded-lg border border-border p-3 space-y-2">
-      <p className="text-sm font-medium">{title}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {REVIEW_CHOICES.map((status) => (
-          <button
-            key={status}
-            disabled={locked}
-            onClick={() => save.mutate({ status, comment: comment || undefined })}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs transition-colors disabled:cursor-default',
-              review?.status === status
-                ? GOAL_STATUSES[status].className
-                : 'border-border text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {GOAL_STATUSES[status].label}
-          </button>
-        ))}
-      </div>
-      {review && !locked && (
-        <input
-          placeholder="Commentaire (facultatif)"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          onBlur={() => comment !== (review.comment ?? '') && save.mutate({ status: review.status, comment })}
-          className={fieldClass}
-        />
-      )}
-      {locked && review?.comment && <p className="text-xs text-muted-foreground">« {review.comment} »</p>}
-      {!review && locked && <p className="text-xs text-muted-foreground">Pas revu pendant cette séance.</p>}
-    </div>
-  );
-}
-
-// ─── Topics ───────────────────────────────────────────────────────────────────
-
-function TopicsBlock({ session, locked }: { session: Consultation; locked: boolean }) {
-  const [topic, setTopic] = useState<PatientTopic | null>(null);
-  const notes = session.topicNotes ?? [];
-  const remove = usePatientFileMutation(session.patientId, (id: string) => ({
-    method: 'delete',
-    url: `/patients/${session.patientId}/topic-notes/${id}`,
-  }));
-
-  return (
-    <Block icon={<Utensils />} title="Thématiques">
-      {notes.map((n) => (
-        <div key={n.id} className="rounded-lg border border-border px-3 py-2 text-sm">
-          <div className="flex items-center justify-between">
-            <Badge variant="outline">{TOPICS[n.topic].label}</Badge>
-            {!locked && <RemoveButton onClick={() => remove.mutate(n.id)} />}
-          </div>
-          <p className="mt-1 whitespace-pre-line">{n.content}</p>
+    <Block icon={<Heart />} title="Aversions · Goûts">
+      {SESSION_FIELDS.map((field) => (
+        <div key={field}>
+          <p className="text-xs font-medium text-muted-foreground mb-1">{FILE_FIELDS[field]}</p>
+          <FileSectionEditor
+            patientId={session.patientId}
+            field={field}
+            current={sections.find((s) => s.field === field)?.current?.content ?? ''}
+            consultationId={session.id}
+          />
         </div>
       ))}
-      {!locked && (
-        <>
-          <div className="flex flex-wrap gap-1.5">
-            {TOPIC_TYPES.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTopic(topic === t ? null : t)}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs transition-colors',
-                  topic === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {TOPICS[t].label}
-              </button>
-            ))}
-          </div>
-          {topic && (
-            <TopicNoteForm
-              key={topic}
-              patientId={session.patientId}
-              topic={topic}
-              consultationId={session.id}
-              onDone={() => setTopic(null)}
-            />
-          )}
-        </>
-      )}
-      {locked && notes.length === 0 && <p className="text-sm text-muted-foreground">Aucune mise à jour.</p>}
     </Block>
   );
 }
 
 // ─── Life events ──────────────────────────────────────────────────────────────
 
-function EventsBlock({ session, locked }: { session: Consultation; locked: boolean }) {
+function EventsBlock({ session }: { session: Consultation }) {
   const events = session.lifeEvents ?? [];
   const remove = usePatientFileMutation(session.patientId, (id: string) => ({
     method: 'delete',
     url: `/patients/${session.patientId}/life-events/${id}`,
   }));
   return (
-    <Block icon={<Flag />} title="Événements de vie">
+    <Block icon={<Flag />} title="Faits marquants">
       {events.map((e) => (
         <div key={e.id} className="flex items-start justify-between gap-3 text-sm">
           <span>
-            <span className="text-xs text-muted-foreground">{formatDate(e.date)}</span> · {e.title}{' '}
-            <span className="text-xs text-muted-foreground">({EVENT_CATEGORIES[e.category]})</span>
+            <span className="text-xs text-muted-foreground">{formatDate(e.date)}</span> · {e.title}
+            {e.category && <span className="text-xs text-muted-foreground"> ({EVENT_CATEGORIES[e.category]})</span>}
           </span>
-          {!locked && <RemoveButton onClick={() => remove.mutate(e.id)} />}
+          <RemoveButton onClick={() => remove.mutate(e.id)} />
         </div>
       ))}
-      {!locked && <LifeEventForm patientId={session.patientId} consultationId={session.id} />}
-      {locked && events.length === 0 && <p className="text-sm text-muted-foreground">Aucun.</p>}
+      <LifeEventForm patientId={session.patientId} consultationId={session.id} />
     </Block>
   );
 }

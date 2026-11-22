@@ -13,21 +13,12 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; tone: BadgeTone }> = {
-  // Patient statuses
-  ACTIVE: { label: 'Actif', tone: 'success' },
-  INACTIVE: { label: 'Inactif', tone: 'warning' },
-  ARCHIVED: { label: 'Archivé', tone: 'neutral' },
-
   // Appointment statuses
   SCHEDULED: { label: 'Planifié', tone: 'info' },
   CONFIRMED: { label: 'Confirmé', tone: 'info' },
   COMPLETED: { label: 'Terminé', tone: 'success' },
   CANCELLED: { label: 'Annulé', tone: 'danger' },
   NO_SHOW: { label: 'Absent', tone: 'warning' },
-
-  // Session statuses
-  DRAFT: { label: 'Brouillon', tone: 'warning' },
-  FINALIZED: { label: 'Finalisée', tone: 'success' },
 
   // Task statuses
   PENDING: { label: 'En attente', tone: 'neutral' },

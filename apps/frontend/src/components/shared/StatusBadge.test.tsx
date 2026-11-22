@@ -4,19 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { StatusBadge } from './StatusBadge';
 
 describe('StatusBadge', () => {
-  it('renders known status label', () => {
-    render(<StatusBadge status="ACTIVE" />);
-    expect(screen.getByText('Actif')).toBeInTheDocument();
-  });
-
   it('renders appointment status', () => {
     render(<StatusBadge status="SCHEDULED" />);
     expect(screen.getByText('Planifié')).toBeInTheDocument();
-  });
-
-  it('renders session status', () => {
-    render(<StatusBadge status="FINALIZED" />);
-    expect(screen.getByText('Finalisée')).toBeInTheDocument();
   });
 
   it('renders document types in French', () => {
@@ -50,7 +40,7 @@ describe('StatusBadge', () => {
   });
 
   it('applies custom className', () => {
-    const { container } = render(<StatusBadge status="ACTIVE" className="my-class" />);
+    const { container } = render(<StatusBadge status="SCHEDULED" className="my-class" />);
     expect(container.firstChild).toHaveClass('my-class');
   });
 });

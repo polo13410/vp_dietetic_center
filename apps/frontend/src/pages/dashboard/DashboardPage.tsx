@@ -7,12 +7,10 @@ import {
   CheckCircle2,
   Circle,
   Clock,
-  FileClock,
   FolderOpen,
   History,
   Phone,
   Play,
-  Target,
   UserRoundCheck,
   Users,
 } from 'lucide-react';
@@ -23,12 +21,11 @@ import { AppointmentFormDialog } from '../../components/appointments/Appointment
 import { BmiBadge } from '../../components/patient-file/BmiBadge';
 import { useStartSession } from '../../components/patient-file/useStartSession';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useCurrentUser } from '../../hooks/useAuth';
 import api from '../../lib/api';
-import { GOAL_STATUSES, usePatientBrief } from '../../lib/patient-file';
+import { usePatientBrief } from '../../lib/patient-file';
 import { cn, formatDate, todayISO } from '../../lib/utils';
 
 const TYPE_LABELS: Record<string, string> = { IN_PERSON: 'En cabinet', VIDEO: 'Visio', PHONE: 'Téléphone' };
@@ -58,7 +55,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <Kpi icon={<CalendarDays />} label="Rendez-vous aujourd’hui" value={stats.todayCount} href="/appointments" />
         <Kpi
           icon={<Users />}
@@ -68,12 +65,6 @@ export default function DashboardPage() {
           hint="Vus depuis moins de 3 mois ou avec un RDV prévu"
         />
         <Kpi icon={<CalendarPlus />} label="Rendez-vous cette semaine" value={stats.weekAppointmentCount} href="/appointments" />
-        <Kpi
-          icon={<FileClock />}
-          label="Séances à finaliser"
-          value={data.draftConsultations.length}
-          tone={data.draftConsultations.length ? 'warn' : undefined}
-        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -81,9 +72,8 @@ export default function DashboardPage() {
         <TodayAgenda appointments={data.todayAppointments} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2">
         <FollowUps followUps={data.followUps} />
-        <DraftSessions drafts={data.draftConsultations} />
         <Tasks tasks={data.tasks} />
       </div>
     </div>
@@ -153,19 +143,10 @@ function Empty({ children }: { children: ReactNode }) {
 /** Starts the appointment's session, or reopens it. */
 function SessionButton({ appt }: { appt: DashboardAppointmentDto }) {
   const start = useStartSession(appt.patientId);
-  if (appt.consultation?.status === 'FINALIZED') {
-    return (
-      <Button size="sm" variant="ghost" asChild>
-        <Link to={`/consultations/${appt.consultation.id}`}>Voir la séance</Link>
-      </Button>
-    );
-  }
   if (appt.consultation) {
     return (
-      <Button size="sm" asChild>
-        <Link to={`/consultations/${appt.consultation.id}`}>
-          <Play className="h-4 w-4" /> Reprendre
-        </Link>
+      <Button size="sm" variant="outline" asChild>
+        <Link to={`/consultations/${appt.consultation.id}`}>Rouvrir</Link>
       </Button>
     );
   }
@@ -195,6 +176,7 @@ function NextPatient({ appointment }: { appointment: DashboardAppointmentDto | n
   const patient = appointment.patient;
   const weight = brief?.metrics.find((m) => m.type === 'WEIGHT');
   const weightChange = weight && weight.count > 1 ? weight.latest.value - weight.first.value : null;
+  const allergies = brief?.file.find((s) => s.field === 'ALLERGIES')?.current?.content;
 
   return (
     <Panel
@@ -232,11 +214,11 @@ function NextPatient({ appointment }: { appointment: DashboardAppointmentDto | n
           </div>
         </div>
 
-        {brief?.patient.allergies && (
+        {allergies && (
           <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              <strong>Allergies :</strong> {brief.patient.allergies}
+              <strong>Allergies :</strong> {allergies}
             </span>
           </div>
         )}
@@ -251,7 +233,7 @@ function NextPatient({ appointment }: { appointment: DashboardAppointmentDto | n
                   : 'Motif de consultation'}
               </p>
               <p className="text-sm line-clamp-4 whitespace-pre-line">
-                {brief.lastConsultation?.summary ?? brief.patient.consultationReason ?? '—'}
+                {brief.lastConsultation?.sessionWork || brief.patient.consultationReason || '—'}
               </p>
               {brief.lastConsultation?.advice && (
                 <p className="text-xs text-muted-foreground line-clamp-2">Conseils : {brief.lastConsultation.advice}</p>
@@ -275,25 +257,6 @@ function NextPatient({ appointment }: { appointment: DashboardAppointmentDto | n
                   <BmiBadge bmi={brief.bmi.current} />
                 </div>
               )}
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <Target className="h-3.5 w-3.5" /> Objectifs à revoir
-                </p>
-                {brief.openGoals.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Aucun</p>
-                ) : (
-                  <ul className="mt-1 space-y-1">
-                    {brief.openGoals.slice(0, 4).map((g) => (
-                      <li key={g.id} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="truncate">{g.title}</span>
-                        <Badge variant="outline" className={cn(GOAL_STATUSES[g.status].className, 'shrink-0')}>
-                          {GOAL_STATUSES[g.status].label}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
               {brief.lastConsultation && brief.newEventsSinceLastConsultation > 0 && (
                 <p className="text-xs text-purple-600 dark:text-purple-300">
                   {brief.newEventsSinceLastConsultation} événement(s) de vie depuis la dernière séance
@@ -390,32 +353,6 @@ function FollowUps({ followUps }: { followUps: DashboardSummary['followUps'] }) 
         onOpenChange={(open) => !open && setPatientId(null)}
         defaultValues={defaults}
       />
-    </Panel>
-  );
-}
-
-function DraftSessions({ drafts }: { drafts: DashboardSummary['draftConsultations'] }) {
-  return (
-    <Panel icon={<FileClock />} title="Séances à finaliser">
-      {drafts.length === 0 ? (
-        <Empty>Toutes les séances sont finalisées.</Empty>
-      ) : (
-        <ul className="space-y-1">
-          {drafts.map((s) => (
-            <li key={s.id}>
-              <Link
-                to={`/consultations/${s.id}`}
-                className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-muted"
-              >
-                <span className="truncate">
-                  {s.patient.firstName} {s.patient.lastName}
-                </span>
-                <span className="text-xs text-muted-foreground">{formatDate(s.date)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
     </Panel>
   );
 }

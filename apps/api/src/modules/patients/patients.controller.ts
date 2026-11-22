@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '@prisma/client';
 import { UserRole } from '@prisma/client';
@@ -21,15 +32,9 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lister les patients (paginé, filtré, recherche)' })
+  @ApiOperation({ summary: 'Lister les patients (paginé, recherche, archivés à part)' })
   findAll(@CurrentUser() user: any, @Query() query: PatientQueryDto) {
     return this.patientsService.findAll(user, query);
-  }
-
-  @Get('tags')
-  @ApiOperation({ summary: 'Lister tous les tags disponibles' })
-  findAllTags() {
-    return this.patientsService.findAllTags();
   }
 
   @Get(':id')
@@ -61,10 +66,28 @@ export class PatientsController {
     return this.patientsService.update(id, dto, user);
   }
 
+  @Post(':id/archive')
+  @Audited({ action: AuditAction.UPDATE, entity: 'patient', patientId: 'param:id' })
+  @Roles(UserRole.PRATICIENNE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Archiver un patient (il sort des listes, son dossier reste intact)' })
+  archive(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.patientsService.setArchived(id, true, user);
+  }
+
+  @Post(':id/unarchive')
+  @Audited({ action: AuditAction.UPDATE, entity: 'patient', patientId: 'param:id' })
+  @Roles(UserRole.PRATICIENNE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Désarchiver un patient' })
+  unarchive(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.patientsService.setArchived(id, false, user);
+  }
+
   @Delete(':id')
   @Audited({ action: AuditAction.DELETE, entity: 'patient', patientId: 'param:id' })
   @Roles(UserRole.PRATICIENNE)
-  @ApiOperation({ summary: 'Archiver un patient (soft delete)' })
+  @ApiOperation({ summary: 'Supprimer un patient (suppression logique)' })
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.patientsService.remove(id, user);
   }

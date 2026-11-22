@@ -25,7 +25,6 @@ describe('DashboardService', () => {
     mockPrisma.appointment.findFirst.mockResolvedValue({ id: 'a2' });
     mockPrisma.appointment.count.mockResolvedValue(9);
     mockPrisma.patient.count.mockResolvedValue(12);
-    mockPrisma.consultation.findMany.mockResolvedValue([]);
     mockPrisma.task.findMany.mockResolvedValue([]);
     mockPrisma.patient.findMany.mockResolvedValue([
       { id: 'p1', firstName: 'A', lastName: 'Seen 50 days ago', appointments: [{ startAt: at('2026-10-01T11:00:00') }] },
@@ -47,13 +46,12 @@ describe('DashboardService', () => {
     expect(nextAppointment).toEqual({ id: 'a2' });
   });
 
-  it("only looks at the practitioner's own patients and sessions", async () => {
+  it("only looks at the practitioner's own current patients", async () => {
     await service.getSummary(user as any);
     expect(mockPrisma.appointment.findMany.mock.calls[0][0].where.practitionerId).toBe(user.id);
-    expect(mockPrisma.patient.count.mock.calls[0][0].where.practitionerId).toBe(user.id);
-    expect(mockPrisma.consultation.findMany.mock.calls[0][0].where).toEqual({
+    expect(mockPrisma.patient.count.mock.calls[0][0].where).toMatchObject({
       practitionerId: user.id,
-      status: 'DRAFT',
+      archivedAt: null,
     });
   });
 

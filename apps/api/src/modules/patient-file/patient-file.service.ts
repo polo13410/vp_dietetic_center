@@ -1,26 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import {
-  ConsultationStatus,
-  GoalStatus,
-  MetricType,
-  PatientTopic,
-  Prisma,
-  TaskStatus,
-} from '@prisma/client';
+import { FileField, GpReportStatus, MetricType, Prisma, TaskStatus } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
-import { Bmi, computeBmi } from './bmi';
+import { Bmi, computeBmi, sessionFigures } from './calculations';
 import {
-  CreateGoalDto,
   CreateLifeEventDto,
   CreateMeasurementDto,
-  CreateTopicNoteDto,
-  UpdateGoalDto,
+  SaveFileFieldDto,
+  UpdateFileEntryDto,
   UpdateLifeEventDto,
   UpdateMeasurementDto,
-  UpdateTopicNoteDto,
 } from './dto/entries.dto';
 
 /** Plausible range of each measurement, to catch typos (72 kg typed as 720). */
@@ -31,21 +22,18 @@ const METRIC_RANGES: Record<MetricType, [number, number]> = {
   HIP: [20, 300],
   BODY_FAT: [1, 80],
   MUSCLE_MASS: [1, 200],
-  ENERGY: [1, 10],
-  SLEEP_QUALITY: [1, 10],
-  STRESS: [1, 10],
-  HUNGER: [1, 10],
 };
 
-const CLOSED_GOAL_STATUSES: GoalStatus[] = [GoalStatus.ACHIEVED, GoalStatus.ABANDONED];
+/** Sections of the medical file, in the practitioner's order. */
+export const FILE_FIELDS = Object.values(FileField);
 
 type MeasurementRow = { type: MetricType; value: Prisma.Decimal; measuredAt: Date };
 type Point = { value: number; measuredAt: Date };
 
 /**
- * The patient's file: measurements, topic notes, life events and goals, plus the summary
- * shown before a session. Everything is the practitioner's own patients only ("full" access).
- * Entries recorded during a session are locked once that session is finalized.
+ * The patient's file: medical file sections with their history, measurements and life events,
+ * plus the summary shown before a session. The practitioner's own patients only ("full"
+ * access). Nothing is ever locked: the access log keeps track of changes.
  */
 @Injectable()
 export class PatientFileService {
@@ -65,10 +53,10 @@ export class PatientFileService {
       consultations,
       nextAppointment,
       measurements,
-      topicNotes,
+      file,
       recentEvents,
-      openGoals,
       openTasks,
+      latestGpReport,
     ] = await Promise.all([
       this.prisma.patient.findUniqueOrThrow({
         where: { id: patientId },
@@ -76,19 +64,23 @@ export class PatientFileService {
           id: true,
           firstName: true,
           lastName: true,
+          sex: true,
           dateOfBirth: true,
-          status: true,
+          birthDateEstimated: true,
+          phone: true,
+          email: true,
+          familySituation: true,
+          profession: true,
+          gpName: true,
           consultationReason: true,
-          allergies: true,
-          dietaryRestrictions: true,
-          privateNote: true,
+          referralSource: true,
           createdAt: true,
         },
       }),
       this.prisma.consultation.findMany({
-        where: { patientId, status: ConsultationStatus.FINALIZED },
-        orderBy: { date: 'desc' },
-        select: { id: true, date: true, summary: true, advice: true },
+        where: { patientId },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        select: { id: true, date: true, habits: true, sessionWork: true, advice: true },
       }),
       this.prisma.appointment.findFirst({
         where: { patientId, startAt: { gte: now }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
@@ -100,27 +92,11 @@ export class PatientFileService {
         orderBy: [{ measuredAt: 'asc' }, { createdAt: 'asc' }],
         select: { type: true, value: true, measuredAt: true },
       }),
-      this.latestTopicNotes(patientId),
+      this.currentFile(patientId),
       this.prisma.lifeEvent.findMany({
         where: { patientId },
         orderBy: { date: 'desc' },
         take: 5,
-      }),
-      this.prisma.goal.findMany({
-        // Goals set in a session still being written are new, not yet to review
-        where: {
-          patientId,
-          status: { notIn: CLOSED_GOAL_STATUSES },
-          OR: [{ consultationId: null }, { consultation: { status: ConsultationStatus.FINALIZED } }],
-        },
-        orderBy: { createdAt: 'asc' },
-        include: {
-          reviews: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            include: { consultation: { select: { date: true } } },
-          },
-        },
       }),
       this.prisma.task.findMany({
         where: { patientId, status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] } },
@@ -128,32 +104,48 @@ export class PatientFileService {
         take: 5,
         select: { id: true, title: true, priority: true, dueAt: true },
       }),
+      this.prisma.gpReport.findFirst({
+        where: { patientId },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        select: { id: true, date: true, status: true, sentAt: true },
+      }),
     ]);
 
     const lastConsultation = consultations[0] ?? null;
     const metrics = this.summarizeMetrics(measurements);
     const weight = metrics.find((m) => m.type === MetricType.WEIGHT);
     const height = metrics.find((m) => m.type === MetricType.HEIGHT)?.latest.value;
+    const current = sessionFigures({
+      sex: patient.sex,
+      dateOfBirth: patient.dateOfBirth,
+      heightCm: height,
+      weightKg: weight?.latest.value,
+      date: now,
+    });
 
     return {
-      patient,
+      patient: { ...patient, age: current.age },
       consultationCount: consultations.length,
       firstConsultationAt: consultations.at(-1)?.date ?? null,
       lastConsultation,
       nextAppointment,
       metrics,
       bmi: {
-        current: computeBmi(weight?.latest.value, height),
+        current: current.bmi,
         atStart: computeBmi(weight?.first.value, height),
       },
-      topics: topicNotes,
+      bmr: current.bmr,
+      /** What is missing to compute BMI and BMR now */
+      missing: current.missing,
+      file,
       recentEvents,
       // Events since the last session are the ones to ask about
       newEventsSinceLastConsultation: lastConsultation
         ? recentEvents.filter((e) => e.date > lastConsultation.date).length
         : recentEvents.length,
-      openGoals,
       openTasks,
+      latestGpReport,
+      gpReportToDo: latestGpReport?.status === GpReportStatus.DRAFT,
     };
   }
 
@@ -235,10 +227,7 @@ export class PatientFileService {
     dto: UpdateMeasurementDto,
   ) {
     await this.access.assertPatient(user, patientId);
-    const existing = await this.editable(
-      this.prisma.measurement.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
+    const existing = await owned(this.prisma.measurement.findUnique({ where: { id } }), patientId);
     if (dto.value !== undefined) assertInRange(existing.type, dto.value);
     const row = await this.prisma.measurement.update({
       where: { id },
@@ -253,64 +242,92 @@ export class PatientFileService {
 
   async removeMeasurement(user: AccessUser, patientId: string, id: string) {
     await this.access.assertPatient(user, patientId);
-    await this.editable(
-      this.prisma.measurement.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
+    await owned(this.prisma.measurement.findUnique({ where: { id } }), patientId);
     await this.prisma.measurement.delete({ where: { id } });
   }
 
-  // ─── Topic notes ─────────────────────────────────────────────────────────────
+  // ─── Medical file ────────────────────────────────────────────────────────────
 
-  async listTopicNotes(user: AccessUser, patientId: string, topic?: PatientTopic) {
+  /** Each section in her order, with its current value (latest entry) and how many versions. */
+  async getFile(user: AccessUser, patientId: string) {
     await this.access.assertPatient(user, patientId);
-    return this.prisma.topicNote.findMany({
-      where: { patientId, ...(topic ? { topic } : {}) },
-      orderBy: { createdAt: 'desc' },
+    return this.currentFile(patientId);
+  }
+
+  /** Versions of the file, latest first; one section only if `field` is given. */
+  async listFileEntries(user: AccessUser, patientId: string, field?: FileField) {
+    await this.access.assertPatient(user, patientId);
+    return this.prisma.fileEntry.findMany({
+      where: { patientId, ...(field ? { field } : {}) },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       include: { consultation: { select: { id: true, date: true } } },
     });
   }
 
-  async createTopicNote(user: AccessUser, patientId: string, dto: CreateTopicNoteDto) {
+  /**
+   * Saves the text of a section as she types it. The same day (or within the same session) it
+   * updates that entry; another day it adds a new version, so the history follows the changes
+   * without asking anything of her. An unchanged text adds nothing.
+   */
+  async saveFileField(user: AccessUser, patientId: string, field: FileField, dto: SaveFileFieldDto) {
     await this.assertCanWrite(user, patientId, dto.consultationId);
-    return this.prisma.topicNote.create({
+    const content = dto.content.trim();
+    const day = dayOf(await this.entryDate(undefined, dto.consultationId));
+
+    const sessionEntry = dto.consultationId
+      ? await this.prisma.fileEntry.findFirst({
+          where: { patientId, field, consultationId: dto.consultationId },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
+    const latest =
+      sessionEntry ??
+      (await this.prisma.fileEntry.findFirst({
+        where: { patientId, field },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      }));
+
+    if (latest && (sessionEntry || sameDay(latest.date, day))) {
+      return this.prisma.fileEntry.update({
+        where: { id: latest.id },
+        data: { content, consultationId: latest.consultationId ?? dto.consultationId },
+      });
+    }
+    if (latest && latest.content === content) return latest;
+    return this.prisma.fileEntry.create({
+      data: { patientId, field, content, date: day, consultationId: dto.consultationId },
+    });
+  }
+
+  /** Corrects a version of the history. */
+  async updateFileEntry(user: AccessUser, patientId: string, id: string, dto: UpdateFileEntryDto) {
+    await this.access.assertPatient(user, patientId);
+    await owned(this.prisma.fileEntry.findUnique({ where: { id } }), patientId);
+    return this.prisma.fileEntry.update({
+      where: { id },
       data: {
-        patientId,
-        consultationId: dto.consultationId,
-        topic: dto.topic,
-        content: dto.content.trim(),
+        content: dto.content?.trim(),
+        date: dto.date ? dayOf(new Date(dto.date)) : undefined,
       },
     });
   }
 
-  async updateTopicNote(user: AccessUser, patientId: string, id: string, dto: UpdateTopicNoteDto) {
+  async removeFileEntry(user: AccessUser, patientId: string, id: string) {
     await this.access.assertPatient(user, patientId);
-    await this.editable(
-      this.prisma.topicNote.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
-    return this.prisma.topicNote.update({ where: { id }, data: { content: dto.content.trim() } });
+    await owned(this.prisma.fileEntry.findUnique({ where: { id } }), patientId);
+    await this.prisma.fileEntry.delete({ where: { id } });
   }
 
-  async removeTopicNote(user: AccessUser, patientId: string, id: string) {
-    await this.access.assertPatient(user, patientId);
-    await this.editable(
-      this.prisma.topicNote.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
-    await this.prisma.topicNote.delete({ where: { id } });
-  }
-
-  /** The current state of each topic: its most recent note. */
-  private async latestTopicNotes(patientId: string) {
-    const notes = await this.prisma.topicNote.findMany({
+  private async currentFile(patientId: string) {
+    const entries = await this.prisma.fileEntry.findMany({
       where: { patientId },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, topic: true, content: true, createdAt: true },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: { id: true, field: true, content: true, date: true, updatedAt: true, consultationId: true },
     });
-    const latest = new Map<PatientTopic, (typeof notes)[number]>();
-    for (const note of notes) if (!latest.has(note.topic)) latest.set(note.topic, note);
-    return [...latest.values()];
+    return FILE_FIELDS.map((field) => {
+      const versions = entries.filter((e) => e.field === field);
+      return { field, current: versions[0] ?? null, versionCount: versions.length };
+    });
   }
 
   // ─── Life events ─────────────────────────────────────────────────────────────
@@ -328,7 +345,6 @@ export class PatientFileService {
         consultationId: dto.consultationId,
         date: new Date(dto.date),
         title: dto.title.trim(),
-        description: dto.description,
         category: dto.category,
       },
     });
@@ -336,15 +352,12 @@ export class PatientFileService {
 
   async updateLifeEvent(user: AccessUser, patientId: string, id: string, dto: UpdateLifeEventDto) {
     await this.access.assertPatient(user, patientId);
-    await this.editable(
-      this.prisma.lifeEvent.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
+    await owned(this.prisma.lifeEvent.findUnique({ where: { id } }), patientId);
     return this.prisma.lifeEvent.update({
       where: { id },
       data: {
-        ...dto,
         title: dto.title?.trim(),
+        category: dto.category,
         date: dto.date ? new Date(dto.date) : undefined,
       },
     });
@@ -352,99 +365,26 @@ export class PatientFileService {
 
   async removeLifeEvent(user: AccessUser, patientId: string, id: string) {
     await this.access.assertPatient(user, patientId);
-    await this.editable(
-      this.prisma.lifeEvent.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
+    await owned(this.prisma.lifeEvent.findUnique({ where: { id } }), patientId);
     await this.prisma.lifeEvent.delete({ where: { id } });
-  }
-
-  // ─── Goals ───────────────────────────────────────────────────────────────────
-
-  async listGoals(user: AccessUser, patientId: string) {
-    await this.access.assertPatient(user, patientId);
-    return this.prisma.goal.findMany({
-      where: { patientId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        consultation: { select: { id: true, date: true } },
-        reviews: {
-          orderBy: { createdAt: 'asc' },
-          include: { consultation: { select: { id: true, date: true } } },
-        },
-      },
-    });
-  }
-
-  async createGoal(user: AccessUser, patientId: string, dto: CreateGoalDto) {
-    await this.assertCanWrite(user, patientId, dto.consultationId);
-    return this.prisma.goal.create({
-      data: {
-        patientId,
-        consultationId: dto.consultationId,
-        title: dto.title.trim(),
-        details: dto.details,
-      },
-    });
-  }
-
-  /** Goals stay editable after their session: their status follows the patient's progress. */
-  async updateGoal(user: AccessUser, patientId: string, id: string, dto: UpdateGoalDto) {
-    await this.access.assertPatient(user, patientId);
-    const goal = await this.prisma.goal.findUnique({ where: { id } });
-    if (!goal || goal.patientId !== patientId) throw new NotFoundException('Objectif introuvable');
-    return this.prisma.goal.update({
-      where: { id },
-      data: {
-        title: dto.title?.trim(),
-        details: dto.details,
-        ...(dto.status ? goalStatusChange(dto.status) : {}),
-      },
-    });
-  }
-
-  async removeGoal(user: AccessUser, patientId: string, id: string) {
-    await this.access.assertPatient(user, patientId);
-    await this.editable(
-      this.prisma.goal.findUnique({ where: { id }, include: { consultation: true } }),
-      patientId,
-    );
-    await this.prisma.goal.delete({ where: { id } });
   }
 
   // ─── Shared rules ────────────────────────────────────────────────────────────
 
-  /** The patient is the user's, and the session (if any) is theirs and still a draft. */
+  /** The patient is the user's, and the session (if any) is one of the patient's. */
   private async assertCanWrite(user: AccessUser, patientId: string, consultationId?: string) {
     await this.access.assertPatient(user, patientId);
-    if (consultationId) await this.assertDraftSession(patientId, consultationId);
+    if (consultationId) await this.assertSessionOfPatient(patientId, consultationId);
   }
 
-  async assertDraftSession(patientId: string, consultationId: string) {
+  async assertSessionOfPatient(patientId: string, consultationId: string) {
     const session = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
-      select: { patientId: true, status: true },
+      select: { patientId: true },
     });
     if (!session || session.patientId !== patientId) {
       throw new BadRequestException("Cette séance n'appartient pas à ce patient");
     }
-    if (session.status === ConsultationStatus.FINALIZED) {
-      throw new BadRequestException('Cette séance est finalisée : elle ne peut plus être modifiée');
-    }
-  }
-
-  /** An existing entry of this patient that is not locked by a finalized session. */
-  private async editable<
-    T extends { patientId: string; consultation: { status: ConsultationStatus } | null },
-  >(query: Promise<T | null>, patientId: string): Promise<T> {
-    const entry = await query;
-    if (!entry || entry.patientId !== patientId) throw new NotFoundException('Élément introuvable');
-    if (entry.consultation?.status === ConsultationStatus.FINALIZED) {
-      throw new BadRequestException(
-        'Cet élément fait partie d’une séance finalisée : il ne peut plus être modifié',
-      );
-    }
-    return entry;
   }
 
   /** Date of an entry: the given one, else the session's date, else today. */
@@ -461,6 +401,16 @@ export class PatientFileService {
   }
 }
 
+/** An existing entry of this patient. */
+async function owned<T extends { patientId: string }>(
+  query: Promise<T | null>,
+  patientId: string,
+): Promise<T> {
+  const entry = await query;
+  if (!entry || entry.patientId !== patientId) throw new NotFoundException('Élément introuvable');
+  return entry;
+}
+
 function assertInRange(type: MetricType, value: number) {
   const [min, max] = METRIC_RANGES[type];
   if (value < min || value > max) {
@@ -472,7 +422,11 @@ function toNumberValue<T extends { value: Prisma.Decimal }>(row: T) {
   return { ...row, value: Number(row.value) };
 }
 
-/** A goal reaching a final status gets a closing date; reopening it clears that date. */
-export function goalStatusChange(status: GoalStatus) {
-  return { status, closedAt: CLOSED_GOAL_STATUSES.includes(status) ? new Date() : null };
+/** The calendar day of a date, as stored in a date-only column. */
+export function dayOf(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+}
+
+function sameDay(a: Date, b: Date) {
+  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
 }

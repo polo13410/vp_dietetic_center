@@ -18,7 +18,6 @@ import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { EmptyState } from '../shared/EmptyState';
 import { Field } from '../shared/Field';
 import { Section } from '../shared/Section';
-import { StatusBadge } from '../shared/StatusBadge';
 import { Button } from '../ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { Input } from '../ui/input';
@@ -137,21 +136,19 @@ function FormulaRow({ formula, track, onUp, onDown, onRemove }: FormulaRowProps)
       />
       <AutosaveField
         className="w-40"
-        label={
-          <>
-            Prix en euros
-            {formula.priceCents === null && (
-              <StatusBadge status="price-missing" label="À compléter" tone="warning" />
-            )}
-          </>
-        }
+        label="Prix en euros"
         value={centsToInput(formula.priceCents)}
         validate={priceError}
         onSave={(price) =>
           update({ id: formula.id, dto: { priceCents: parseEuros(price ?? '') ?? null } })
         }
         track={track}
-        inputProps={{ inputMode: 'decimal', placeholder: '60' }}
+        // No price yet: the field says so in words (the banner above lists them too)
+        inputProps={{
+          inputMode: 'decimal',
+          placeholder: 'À compléter',
+          className: formula.priceCents === null ? 'border-warning placeholder:text-warning' : undefined,
+        }}
       />
       <div className="flex items-center gap-2">
         <Button
@@ -220,7 +217,6 @@ function NewFormula({ track }: { track: Track }) {
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           inputMode="decimal"
-          placeholder="50"
         />
       </Field>
       <Button type="submit" variant="outline" disabled={isPending}>

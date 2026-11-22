@@ -183,8 +183,10 @@ describe('SettingsPage', () => {
   it('flags the formulas without a price and saves a price typed in euros', async () => {
     renderPage();
     expect(await screen.findByText(/Indiquez le prix de la formule « Suivi »/)).toBeInTheDocument();
-    expect(screen.getByText('À compléter')).toBeInTheDocument();
     const prices = screen.getAllByLabelText(/Prix en euros/);
+    expect(prices[1]).toHaveValue('');
+    expect(prices[1]).toHaveClass('border-warning');
+    expect(prices[0]).not.toHaveClass('border-warning');
     edit(prices[1], '52,50');
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/me/formulas/f2', { priceCents: 5250 }),

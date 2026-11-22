@@ -23,11 +23,10 @@ test.describe('Patients', () => {
     await expect(page.locator('h1')).toContainText('Nouveau patient');
   });
 
-  test('new patient form has required fields', async ({ page }) => {
+  test('new patient wizard starts with the name', async ({ page }) => {
     await page.goto('/patients/new');
-    // Check identity fields exist
-    await expect(page.locator('input[name="firstName"]')).toBeVisible();
-    await expect(page.locator('input[name="lastName"]')).toBeVisible();
+    await expect(page.getByLabel(/^Prénom/)).toBeVisible();
+    await expect(page.getByLabel(/^Nom/)).toBeVisible();
   });
 
   test('search filters the patient list', async ({ page }) => {

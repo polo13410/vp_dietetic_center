@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronsUpDown, User } from 'lucide-react';
+import { Check, ChevronsUpDown, User, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 import api from '../../lib/api';
@@ -20,6 +20,8 @@ interface PatientComboboxProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Offers « Nouveau patient » at the end of the list, with what was typed in the search */
+  onCreate?: (search: string) => void;
 }
 
 export function PatientCombobox({
@@ -28,6 +30,7 @@ export function PatientCombobox({
   placeholder = 'Selectionner un patient...',
   disabled = false,
   className,
+  onCreate,
 }: PatientComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -98,6 +101,21 @@ export function PatientCombobox({
                 </CommandItem>
               ))}
             </CommandGroup>
+            {onCreate && (
+              <CommandGroup>
+                <CommandItem
+                  value="__new_patient__"
+                  onSelect={() => {
+                    setOpen(false);
+                    onCreate(search);
+                  }}
+                  className="min-h-11 font-medium text-primary"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {search.trim() ? `Nouveau patient : ${search.trim()}` : 'Nouveau patient'}
+                </CommandItem>
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

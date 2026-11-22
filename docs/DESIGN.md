@@ -110,6 +110,8 @@ C'est le gabarit `PageShell` (`components/layout/PageShell.tsx`), utilisé par `
 - **Cibles ≥ 44 × 44 px** : boutons (`h-11`), champs (`h-11`), éléments de menu (`min-h-11`), liens de la barre latérale, boutons-icônes (`size-11`). La taille `sm` des boutons garde 44 px de haut (texte et marges plus petits) ; ne pas réduire les boutons par `className="h-8"` dans le nouveau code.
 - **Rien qui ne marche qu'au survol** : pas d'information seulement dans un `title` ou une infobulle, pas d'action qui n'apparaît qu'au survol d'une ligne. Une infobulle peut répéter un libellé visible, jamais le remplacer. Les boutons-icônes ont un `aria-label`.
 - **Clavier virtuel** : les champs sont dans le flux normal de la page (pas de pied de page fixe qui recouvre le champ actif) ; les fenêtres longues défilent.
+  - Un formulaire de plusieurs champs pose le hook `useKeepFieldVisible` (`hooks/useKeepFieldVisible.ts`) sur son conteneur : il fait défiler le champ actif au-dessus du clavier de l'iPad (qui recouvre `<main>` sans le redimensionner) et donne la hauteur cachée (`keyboardInset`) à ajouter en bas. Sur une fenêtre, il la remonte en haut de l'écran (voir `AppointmentFormDialog`).
+  - Bon clavier pour chaque champ : `type="tel"` + `inputMode="tel"`, `type="email"` + `inputMode="email"`, `inputMode="decimal"` pour une taille ou un poids, `inputMode="numeric"` pour un âge ou un code postal. `focusNextOnEnter` sur le `<form>` : la touche « Suivant » passe au champ suivant et n'envoie le formulaire que depuis le dernier.
 - Focus visible partout (`ring-2 ring-ring`), ordre de tabulation naturel.
 - Une couleur n'est jamais la seule information : un badge a toujours un libellé, une erreur un texte.
 

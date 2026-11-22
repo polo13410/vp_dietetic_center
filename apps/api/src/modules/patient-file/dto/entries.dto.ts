@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType, PickType } from '@nestjs/swagger';
-import { GoalStatus, LifeEventCategory, MetricType, PatientTopic } from '@prisma/client';
+import { GpReportStatus, LifeEventCategory, MetricType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
@@ -27,12 +27,12 @@ export class CreateMeasurementDto extends LinkedToSession {
   @IsEnum(MetricType)
   type: MetricType;
 
-  @ApiProperty({ description: 'kg, cm, % or 1-10 depending on the type' })
+  @ApiProperty({ description: 'kg, cm or % depending on the type' })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   value: number;
 
-  @ApiPropertyOptional({ description: 'Defaults to today' })
+  @ApiPropertyOptional({ description: "Defaults to the session's date, or today" })
   @IsOptional()
   @IsDateString()
   measuredAt?: string;
@@ -48,21 +48,27 @@ export class UpdateMeasurementDto extends PartialType(
   PickType(CreateMeasurementDto, ['value', 'measuredAt', 'note'] as const),
 ) {}
 
-// ─── Topic notes ──────────────────────────────────────────────────────────────
+// ─── Medical file ─────────────────────────────────────────────────────────────
 
-export class CreateTopicNoteDto extends LinkedToSession {
-  @ApiProperty({ enum: PatientTopic })
-  @IsEnum(PatientTopic)
-  topic: PatientTopic;
-
-  @ApiProperty()
+export class SaveFileFieldDto extends LinkedToSession {
+  @ApiProperty({ description: 'The whole text of the section (empty to clear it)' })
   @IsString()
-  @MinLength(1)
-  @MaxLength(5000)
+  @MaxLength(20000)
   content: string;
 }
 
-export class UpdateTopicNoteDto extends PickType(CreateTopicNoteDto, ['content'] as const) {}
+export class UpdateFileEntryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  content?: string;
+
+  @ApiPropertyOptional({ description: 'Date of this version' })
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+}
 
 // ─── Life events ──────────────────────────────────────────────────────────────
 
@@ -71,49 +77,39 @@ export class CreateLifeEventDto extends LinkedToSession {
   @IsDateString()
   date: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'One line' })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
   title: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  description?: string;
-
-  @ApiPropertyOptional({ enum: LifeEventCategory })
+  @ApiPropertyOptional({ enum: LifeEventCategory, nullable: true })
   @IsOptional()
   @IsEnum(LifeEventCategory)
-  category?: LifeEventCategory;
+  category?: LifeEventCategory | null;
 }
 
 export class UpdateLifeEventDto extends PartialType(
-  PickType(CreateLifeEventDto, ['date', 'title', 'description', 'category'] as const),
+  PickType(CreateLifeEventDto, ['date', 'title', 'category'] as const),
 ) {}
 
-// ─── Goals ────────────────────────────────────────────────────────────────────
+// ─── Reports to the GP ────────────────────────────────────────────────────────
 
-export class CreateGoalDto extends LinkedToSession {
+export class CreateGpReportDto {
+  @ApiPropertyOptional({ description: 'Defaults to today' })
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+
   @ApiProperty()
   @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  title: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  details?: string;
+  @MaxLength(50000)
+  content: string;
 }
 
-export class UpdateGoalDto extends PartialType(
-  PickType(CreateGoalDto, ['title', 'details'] as const),
-) {
-  @ApiPropertyOptional({ enum: GoalStatus })
+export class UpdateGpReportDto extends PartialType(CreateGpReportDto) {
+  @ApiPropertyOptional({ enum: GpReportStatus, description: 'SENT records the sending date' })
   @IsOptional()
-  @IsEnum(GoalStatus)
-  status?: GoalStatus;
+  @IsEnum(GpReportStatus)
+  status?: GpReportStatus;
 }

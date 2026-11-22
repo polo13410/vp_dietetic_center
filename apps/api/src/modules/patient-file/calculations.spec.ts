@@ -7,6 +7,7 @@ import {
   computeBmr,
   estimatedBirthDate,
   sessionFigures,
+  sessionSeries,
   weightDelta,
 } from './calculations';
 
@@ -106,6 +107,55 @@ describe('calculations (docs/REFONTE.md § 3.1)', () => {
         sessionFigures({ date: base.date, sex: null, dateOfBirth: null, heightCm: null, weightKg: 79 }),
       ).toMatchObject({ bmi: null, bmr: null, missing: ['height', 'sex', 'age'] });
       expect(sessionFigures({ ...base, weightKg: null }).missing).toEqual(['weight']);
+    });
+  });
+
+  describe('session series', () => {
+    const woman = {
+      sex: 'F' as const,
+      dateOfBirth: new Date('1970-01-01'),
+      heightCm: 159,
+    };
+    const session = (id: string, date: string, weightKg: number | null, advice: string | null) => ({
+      id,
+      date: new Date(date),
+      weightKg,
+      advice,
+    });
+
+    it('follows her sheet: bilan, then each follow-up with its change in weight', () => {
+      const series = sessionSeries(woman, [
+        session('bilan', '2026-09-01T10:00:00Z', 79, 'Petit-déjeuner'),
+        session('suivi1', '2026-10-01T10:00:00Z', 78.2, 'Collation à 16 h'),
+        session('suivi2', '2026-11-01T10:00:00Z', null, null),
+        session('suivi3', '2026-11-22T10:00:00Z', 76.5, 'Continuer'),
+      ]);
+
+      expect(series.get('bilan')).toMatchObject({
+        sequence: 0,
+        figures: { age: 56, weight: 79, bmi: { value: 31.25 }, bmr: { mj: 5.86, kcal: 1400.3 } },
+        weightChange: { sincePrevious: null, sinceFirst: null },
+        previousAdvice: null,
+      });
+      expect(series.get('suivi1')).toMatchObject({
+        sequence: 1,
+        figures: { bmr: { mj: 5.83, kcal: 1393.5 } },
+        weightChange: { sincePrevious: -0.8, sinceFirst: -0.8 },
+        previousAdvice: 'Petit-déjeuner',
+      });
+      // Not weighed: nothing to compute, the advice still follows
+      expect(series.get('suivi2')).toMatchObject({
+        figures: { weight: null, bmi: null, bmr: null, missing: ['weight'] },
+        weightChange: { sincePrevious: null, sinceFirst: null },
+        previousAdvice: 'Collation à 16 h',
+      });
+      // Compared with the latest weighed session
+      expect(series.get('suivi3')).toMatchObject({
+        sequence: 3,
+        figures: { bmr: { mj: 5.77, kcal: 1378.9 } },
+        weightChange: { sincePrevious: -1.7, sinceFirst: -2.5 },
+        previousAdvice: null,
+      });
     });
   });
 

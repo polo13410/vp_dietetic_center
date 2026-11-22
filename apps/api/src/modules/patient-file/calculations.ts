@@ -115,8 +115,55 @@ export function sessionFigures(input: {
   };
 }
 
-/** Difference between two weights, rounded to the gram range we display (0.01 kg). */
+/** Difference between two weights, rounded to 0.01 kg. */
 export function weightDelta(current: number | null, reference: number | null | undefined) {
   if (current === null || reference === null || reference === undefined) return null;
   return round(current - reference, 2);
+}
+
+export type SessionFigures = ReturnType<typeof sessionFigures>;
+
+export interface SessionInSeries {
+  /** 0 for the first session ("Bilan"), then 1, 2… ("Suivi 1", "Suivi 2"…) */
+  sequence: number;
+  figures: SessionFigures;
+  weightChange: {
+    /** Since the latest earlier session with a weight */
+    sincePrevious: number | null;
+    /** Since the first session with a weight (normally the "Bilan") */
+    sinceFirst: number | null;
+  };
+  /** Advice given at the session before this one, to review it */
+  previousAdvice: string | null;
+}
+
+/**
+ * The patient's follow-up sheet, one row per session: figures computed with the patient's sex,
+ * age at each session and latest known height, and the change in weight. Sessions must be given
+ * in chronological order; the result has one entry per session, by id.
+ */
+export function sessionSeries(
+  patient: { sex?: Sex | null; dateOfBirth?: Date | null; heightCm?: number | null },
+  sessions: { id: string; date: Date; advice: string | null; weightKg: number | null }[],
+): Map<string, SessionInSeries> {
+  const series = new Map<string, SessionInSeries>();
+  let firstWeight: number | null = null;
+  let previousWeight: number | null = null;
+  sessions.forEach((session, index) => {
+    const figures = sessionFigures({ ...patient, weightKg: session.weightKg, date: session.date });
+    series.set(session.id, {
+      sequence: index,
+      figures,
+      weightChange: {
+        sincePrevious: weightDelta(figures.weight, previousWeight),
+        sinceFirst: weightDelta(figures.weight, firstWeight),
+      },
+      previousAdvice: index > 0 ? (sessions[index - 1].advice ?? null) : null,
+    });
+    if (figures.weight !== null) {
+      firstWeight ??= figures.weight;
+      previousWeight = figures.weight;
+    }
+  });
+  return series;
 }

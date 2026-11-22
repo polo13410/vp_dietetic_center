@@ -14,8 +14,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuditAction } from '@prisma/client';
-import { MetricType, PatientTopic, UserRole } from '@prisma/client';
+import { AuditAction, FileField, MetricType, UserRole } from '@prisma/client';
 
 import type { AccessUser } from '../../common/access/patient-access.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,20 +22,22 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Audited } from '../audit/audited.decorator';
 
 import { ConsultationsService } from './consultations.service';
-import { CreateConsultationDto, ReviewGoalDto, UpdateConsultationDto } from './dto/consultation.dto';
+import { CreateConsultationDto, UpdateConsultationDto } from './dto/consultation.dto';
 import {
-  CreateGoalDto,
+  CreateGpReportDto,
   CreateLifeEventDto,
   CreateMeasurementDto,
-  CreateTopicNoteDto,
-  UpdateGoalDto,
+  SaveFileFieldDto,
+  UpdateFileEntryDto,
+  UpdateGpReportDto,
   UpdateLifeEventDto,
   UpdateMeasurementDto,
-  UpdateTopicNoteDto,
 } from './dto/entries.dto';
+import { GpReportsService } from './gp-reports.service';
 import { PatientFileService } from './patient-file.service';
 
 const uuid = new ParseUUIDPipe();
+const fileField = new ParseEnumPipe(FileField);
 
 @ApiTags('patient-file')
 @ApiBearerAuth()
@@ -47,6 +48,7 @@ export class PatientFileController {
   constructor(
     private readonly file: PatientFileService,
     private readonly sessions: ConsultationsService,
+    private readonly gpReports: GpReportsService,
   ) {}
 
   @Get('brief')
@@ -59,19 +61,77 @@ export class PatientFileController {
   // ─── Sessions ────────────────────────────────────────────────────────────────
 
   @Get('consultations')
+  @ApiOperation({ summary: 'Le suivi : les séances, avec poids, IMC, MB et écarts' })
   listSessions(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
     return this.sessions.list(user, patientId);
   }
 
   @Post('consultations')
   @Audited({ action: AuditAction.CREATE, entity: 'consultation', patientId: 'param:patientId', entityId: 'result:id' })
-  @ApiOperation({ summary: 'Démarrer une séance (depuis un rendez-vous ou non)' })
+  @ApiOperation({ summary: 'Démarrer une séance (depuis un rendez-vous, qui passe à « terminé », ou non)' })
   startSession(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
     @Body() dto: CreateConsultationDto,
   ) {
     return this.sessions.create(user, patientId, dto);
+  }
+
+  // ─── Medical file ────────────────────────────────────────────────────────────
+
+  @Get('file')
+  @Audited({ action: AuditAction.READ, entity: 'file_entry', patientId: 'param:patientId' })
+  @ApiOperation({ summary: 'Dossier médical : valeur actuelle de chaque rubrique' })
+  getFile(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
+    return this.file.getFile(user, patientId);
+  }
+
+  @Put('file/:field')
+  @Audited({ action: AuditAction.UPDATE, entity: 'file_entry', patientId: 'param:patientId', entityId: 'result:id' })
+  @ApiOperation({
+    summary: 'Enregistrer une rubrique (même jour ou même séance : mise à jour ; autre jour : nouvelle version)',
+  })
+  saveFileField(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Param('field', fileField) field: FileField,
+    @Body() dto: SaveFileFieldDto,
+  ) {
+    return this.file.saveFileField(user, patientId, field, dto);
+  }
+
+  @Get('file-entries')
+  @Audited({ action: AuditAction.READ, entity: 'file_entry', patientId: 'param:patientId' })
+  @ApiOperation({ summary: 'Historique du dossier médical (une rubrique ou toutes)' })
+  listFileEntries(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Query('field', new ParseEnumPipe(FileField, { optional: true })) field?: FileField,
+  ) {
+    return this.file.listFileEntries(user, patientId, field);
+  }
+
+  @Patch('file-entries/:id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'file_entry', patientId: 'param:patientId' })
+  @ApiOperation({ summary: "Corriger une version de l'historique" })
+  updateFileEntry(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Param('id', uuid) id: string,
+    @Body() dto: UpdateFileEntryDto,
+  ) {
+    return this.file.updateFileEntry(user, patientId, id, dto);
+  }
+
+  @Delete('file-entries/:id')
+  @Audited({ action: AuditAction.DELETE, entity: 'file_entry', patientId: 'param:patientId' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeFileEntry(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Param('id', uuid) id: string,
+  ) {
+    return this.file.removeFileEntry(user, patientId, id);
   }
 
   // ─── Measurements ────────────────────────────────────────────────────────────
@@ -117,49 +177,6 @@ export class PatientFileController {
     return this.file.removeMeasurement(user, patientId, id);
   }
 
-  // ─── Topic notes ─────────────────────────────────────────────────────────────
-
-  @Get('topic-notes')
-  listTopicNotes(
-    @CurrentUser() user: AccessUser,
-    @Param('patientId', uuid) patientId: string,
-    @Query('topic', new ParseEnumPipe(PatientTopic, { optional: true })) topic?: PatientTopic,
-  ) {
-    return this.file.listTopicNotes(user, patientId, topic);
-  }
-
-  @Post('topic-notes')
-  @Audited({ action: AuditAction.CREATE, entity: 'topic_note', patientId: 'param:patientId', entityId: 'result:id' })
-  createTopicNote(
-    @CurrentUser() user: AccessUser,
-    @Param('patientId', uuid) patientId: string,
-    @Body() dto: CreateTopicNoteDto,
-  ) {
-    return this.file.createTopicNote(user, patientId, dto);
-  }
-
-  @Patch('topic-notes/:id')
-  @Audited({ action: AuditAction.UPDATE, entity: 'topic_note', patientId: 'param:patientId' })
-  updateTopicNote(
-    @CurrentUser() user: AccessUser,
-    @Param('patientId', uuid) patientId: string,
-    @Param('id', uuid) id: string,
-    @Body() dto: UpdateTopicNoteDto,
-  ) {
-    return this.file.updateTopicNote(user, patientId, id, dto);
-  }
-
-  @Delete('topic-notes/:id')
-  @Audited({ action: AuditAction.DELETE, entity: 'topic_note', patientId: 'param:patientId' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  removeTopicNote(
-    @CurrentUser() user: AccessUser,
-    @Param('patientId', uuid) patientId: string,
-    @Param('id', uuid) id: string,
-  ) {
-    return this.file.removeTopicNote(user, patientId, id);
-  }
-
   // ─── Life events ─────────────────────────────────────────────────────────────
 
   @Get('life-events')
@@ -199,43 +216,56 @@ export class PatientFileController {
     return this.file.removeLifeEvent(user, patientId, id);
   }
 
-  // ─── Goals ───────────────────────────────────────────────────────────────────
+  // ─── Reports to the GP ───────────────────────────────────────────────────────
 
-  @Get('goals')
-  listGoals(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
-    return this.file.listGoals(user, patientId);
+  @Get('gp-reports')
+  @Audited({ action: AuditAction.READ, entity: 'gp_report', patientId: 'param:patientId' })
+  @ApiOperation({ summary: 'Comptes rendus au médecin traitant' })
+  listGpReports(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
+    return this.gpReports.list(user, patientId);
   }
 
-  @Post('goals')
-  @Audited({ action: AuditAction.CREATE, entity: 'goal', patientId: 'param:patientId', entityId: 'result:id' })
-  createGoal(
-    @CurrentUser() user: AccessUser,
-    @Param('patientId', uuid) patientId: string,
-    @Body() dto: CreateGoalDto,
-  ) {
-    return this.file.createGoal(user, patientId, dto);
-  }
-
-  @Patch('goals/:id')
-  @Audited({ action: AuditAction.UPDATE, entity: 'goal', patientId: 'param:patientId' })
-  updateGoal(
+  @Get('gp-reports/:id')
+  @Audited({ action: AuditAction.READ, entity: 'gp_report', patientId: 'param:patientId' })
+  findGpReport(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
     @Param('id', uuid) id: string,
-    @Body() dto: UpdateGoalDto,
   ) {
-    return this.file.updateGoal(user, patientId, id, dto);
+    return this.gpReports.findOne(user, patientId, id);
   }
 
-  @Delete('goals/:id')
-  @Audited({ action: AuditAction.DELETE, entity: 'goal', patientId: 'param:patientId' })
+  @Post('gp-reports')
+  @Audited({ action: AuditAction.CREATE, entity: 'gp_report', patientId: 'param:patientId', entityId: 'result:id' })
+  createGpReport(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Body() dto: CreateGpReportDto,
+  ) {
+    return this.gpReports.create(user, patientId, dto);
+  }
+
+  @Patch('gp-reports/:id')
+  @Audited({ action: AuditAction.UPDATE, entity: 'gp_report', patientId: 'param:patientId' })
+  @ApiOperation({ summary: 'Modifier un compte rendu, ou le marquer comme envoyé' })
+  updateGpReport(
+    @CurrentUser() user: AccessUser,
+    @Param('patientId', uuid) patientId: string,
+    @Param('id', uuid) id: string,
+    @Body() dto: UpdateGpReportDto,
+  ) {
+    return this.gpReports.update(user, patientId, id, dto);
+  }
+
+  @Delete('gp-reports/:id')
+  @Audited({ action: AuditAction.DELETE, entity: 'gp_report', patientId: 'param:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeGoal(
+  removeGpReport(
     @CurrentUser() user: AccessUser,
     @Param('patientId', uuid) patientId: string,
     @Param('id', uuid) id: string,
   ) {
-    return this.file.removeGoal(user, patientId, id);
+    return this.gpReports.remove(user, patientId, id);
   }
 }
 
@@ -248,12 +278,14 @@ export class ConsultationsController {
 
   @Get(':id')
   @Audited({ action: AuditAction.READ, entity: 'consultation', patientId: 'result:patientId' })
+  @ApiOperation({ summary: 'Une séance, avec ses calculs et les conseils de la séance précédente' })
   findOne(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
     return this.sessions.findOne(user, id);
   }
 
   @Patch(':id')
   @Audited({ action: AuditAction.UPDATE, entity: 'consultation', patientId: 'result:patientId' })
+  @ApiOperation({ summary: 'Modifier une séance (toujours possible, même passée)' })
   update(
     @CurrentUser() user: AccessUser,
     @Param('id', uuid) id: string,
@@ -262,31 +294,11 @@ export class ConsultationsController {
     return this.sessions.update(user, id, dto);
   }
 
-  @Post(':id/finalize')
-  @Audited({ action: AuditAction.FINALIZE, entity: 'consultation', patientId: 'result:patientId' })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Finaliser la séance (verrouillée ensuite, RDV marqué terminé)' })
-  finalize(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
-    return this.sessions.finalize(user, id);
-  }
-
   @Delete(':id')
   @Audited({ action: AuditAction.DELETE, entity: 'consultation', patientId: 'result:patientId' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Abandonner un brouillon de séance et ce qui y a été saisi' })
+  @ApiOperation({ summary: 'Supprimer une séance et ses mesures' })
   remove(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
     return this.sessions.remove(user, id);
-  }
-
-  @Put(':id/goal-reviews/:goalId')
-  @Audited({ action: AuditAction.UPDATE, entity: 'goal', patientId: 'result:patientId', entityId: 'param:goalId' })
-  @ApiOperation({ summary: "Faire le point sur un objectif pendant la séance" })
-  reviewGoal(
-    @CurrentUser() user: AccessUser,
-    @Param('id', uuid) id: string,
-    @Param('goalId', uuid) goalId: string,
-    @Body() dto: ReviewGoalDto,
-  ) {
-    return this.sessions.reviewGoal(user, id, goalId, dto);
   }
 }

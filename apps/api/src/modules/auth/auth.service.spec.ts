@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { configuration } from '../../config/configuration';
@@ -122,6 +123,70 @@ describe('AuthService password reset', () => {
       where: { userId: user.id, revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+  });
+});
+
+describe('AuthService change password', () => {
+  let service: AuthService;
+  let user: ReturnType<typeof createMockUser>;
+  const sha = (value: string) => createHash('sha256').update(value).digest('hex');
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // Low cost: the real hashing, quickly
+    user = createMockUser({ passwordHash: await bcrypt.hash('Ancien-mdp1', 4) });
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue(user);
+    service = new AuthService(mockPrisma as any, {} as any, {} as any, { get: vi.fn() } as any, {} as any);
+  });
+
+  it('checks the current password, saves the new one and closes the other sessions', async () => {
+    await service.changePassword(user.id, 'Ancien-mdp1', 'Nouveau-mdp2', 'this-session');
+    const saved = mockPrisma.user.update.mock.calls[0][0];
+    expect(saved.where).toEqual({ id: user.id });
+    expect(await bcrypt.compare('Nouveau-mdp2', saved.data.passwordHash)).toBe(true);
+    expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: user.id, revokedAt: null, tokenHash: { not: sha('this-session') } },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('closes every session when the current one is unknown', async () => {
+    await service.changePassword(user.id, 'Ancien-mdp1', 'Nouveau-mdp2');
+    expect(mockPrisma.refreshToken.updateMany.mock.calls[0][0].where).toEqual({
+      userId: user.id,
+      revokedAt: null,
+    });
+  });
+
+  it('refuses a wrong current password with 400 (not 401, which would end the session)', async () => {
+    await expect(service.changePassword(user.id, 'Mauvais1', 'Nouveau-mdp2')).rejects.toThrow(
+      new BadRequestException('Le mot de passe actuel n’est pas le bon.'),
+    );
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a new password equal to the current one', async () => {
+    await expect(service.changePassword(user.id, 'Ancien-mdp1', 'Ancien-mdp1')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a Google-only account, which has no password', async () => {
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ ...user, passwordHash: null });
+    await expect(service.changePassword(user.id, 'x', 'Nouveau-mdp2')).rejects.toThrow(/Google/);
+  });
+
+  it('refuses a password sign-in on a Google-only account', async () => {
+    const google = new AuthService(
+      mockPrisma as any,
+      { findByEmail: vi.fn().mockResolvedValue({ ...user, passwordHash: null }) } as any,
+      {} as any,
+      { get: vi.fn() } as any,
+      {} as any,
+    );
+    await expect(google.validateUser(user.email, '')).resolves.toBeNull();
   });
 });
 

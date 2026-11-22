@@ -39,6 +39,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       'consent',
       'patient',
       'user_preferences',
+      'practitioner_profile',
       'refresh_token',
       'user',
     ];

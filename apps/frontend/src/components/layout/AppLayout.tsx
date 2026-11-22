@@ -1,11 +1,14 @@
 import { Outlet, useLocation } from 'react-router';
 
+import { useThemeFromAccount } from '../../hooks/useMe';
+
 import { Header } from './Header';
 import { getPageWidth, PageShell } from './PageShell';
 import { Sidebar } from './Sidebar';
 
 export function AppLayout() {
   const { pathname } = useLocation();
+  useThemeFromAccount();
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">

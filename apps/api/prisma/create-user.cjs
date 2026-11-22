@@ -1,7 +1,9 @@
 /*
- * Creates an account (the first ADMIN of an environment, or a practitioner) without anyone
- * knowing its password. The person signs in with "Continue with Google" (matched by email);
- * a password can be set later with "forgot password". Does nothing if the email already exists.
+ * Creates an account (the first ADMIN of an environment, or a practitioner) without
+ * a password. The person signs in with "Continue with Google" (matched by email); a password
+ * can be set later with "forgot password". A practitioner gets the default formulas « Bilan »
+ * and « Suivi » without a price (see src/modules/me/default-formulas.ts), which the settings
+ * page asks her to fill in. Does nothing if the email already exists.
  *
  * Usage (inside the API image, e.g. as an execution of the <env>-api-migrate job):
  *   USER_EMAIL=someone@example.com USER_ROLE=PRATICIENNE USER_FIRST_NAME=Jane USER_LAST_NAME=Doe \
@@ -17,9 +19,9 @@
     typeof require === 'function'
       ? require
       : (await import('node:module')).createRequire(process.cwd() + '/package.json');
-  const { randomBytes } = req('crypto');
   const { PrismaClient } = req('@prisma/client');
-  const bcrypt = req('bcryptjs');
+  // Same as DEFAULT_FORMULAS in src/modules/me/default-formulas.ts
+  const DEFAULT_FORMULAS = ['Bilan', 'Suivi'];
 
   const email = (process.env.USER_EMAIL ?? '').trim().toLowerCase();
   const role = (process.env.USER_ROLE ?? 'ADMIN').trim().toUpperCase();
@@ -37,10 +39,18 @@
       console.log(`User ${email} already exists (role ${existing.role}): nothing changed`);
       return;
     }
-    // Random password that is never stored or shown anywhere
-    const passwordHash = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
+    // No password: Google sign-in only, until one is set with "forgot password"
     const user = await prisma.user.create({
-      data: { email, firstName, lastName, role, passwordHash },
+      data: {
+        email,
+        firstName,
+        lastName,
+        role,
+        passwordHash: null,
+        ...(role === 'PRATICIENNE' && {
+          formulas: { create: DEFAULT_FORMULAS.map((label, position) => ({ label, position })) },
+        }),
+      },
     });
     console.log(`Created ${role} ${user.email} (${user.id})`);
   } finally {

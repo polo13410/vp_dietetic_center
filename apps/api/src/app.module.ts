@@ -17,6 +17,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { MeModule } from './modules/me/me.module';
 import { PatientFileModule } from './modules/patient-file/patient-file.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { SearchModule } from './modules/search/search.module';
@@ -66,6 +67,7 @@ import { PrismaModule } from './prisma/prisma.module';
     // Business modules
     AuthModule,
     UsersModule,
+    MeModule,
     PatientsModule,
     PatientFileModule,
     AppointmentsModule,

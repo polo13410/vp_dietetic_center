@@ -27,7 +27,7 @@ interface PatientComboboxProps {
 export function PatientCombobox({
   value,
   onChange,
-  placeholder = 'Selectionner un patient...',
+  placeholder = 'Choisir un patient',
   disabled = false,
   className,
   onCreate,
@@ -78,12 +78,12 @@ export function PatientCombobox({
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Rechercher un patient..."
+            placeholder="Rechercher un patient…"
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
-            <CommandEmpty>Aucun patient trouve.</CommandEmpty>
+            <CommandEmpty>Aucun patient ne correspond.</CommandEmpty>
             <CommandGroup>
               {patients.map((patient) => (
                 <CommandItem

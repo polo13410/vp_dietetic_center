@@ -1,20 +1,26 @@
 import { Link } from 'react-router';
 
+import { EmptyState } from '../components/shared/EmptyState';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 
+/** An address that leads nowhere: say so kindly and offer the way home. */
 export default function NotFoundPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <p className="text-6xl font-bold text-primary/20 mb-4">404</p>
-        <h1 className="text-xl font-semibold mb-2">Page introuvable</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          La page que vous cherchez n'existe pas.
-        </p>
-        <Button asChild>
-          <Link to="/dashboard">Retour au tableau de bord</Link>
-        </Button>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <h1 className="sr-only">Page introuvable</h1>
+      <Card className="w-full max-w-md">
+        <EmptyState
+          illustration="pear"
+          title="Cette page n’existe pas."
+          description="Le lien est peut-être incomplet, ou la page a été déplacée."
+          action={
+            <Button asChild>
+              <Link to="/">Revenir à l’accueil</Link>
+            </Button>
+          }
+        />
+      </Card>
     </div>
   );
 }

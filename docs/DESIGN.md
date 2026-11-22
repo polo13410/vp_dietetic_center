@@ -33,6 +33,7 @@ Les variables sont dans `apps/frontend/src/styles/globals.css` (`:root` pour le 
 | `--border`               | `#D9E0D3` | `#2B3A31` | Bordures de cartes et séparateurs                         |
 | `--input`                | `#8A9885` | `#6A7E71` | Bordure des champs (3:1 sur la carte)                     |
 | `--ring`                 | `#3D7A2C` | `#86C467` | Anneau de focus clavier                                   |
+| `--scrim`                | `#101914` | `#000000` | Voile derrière une fenêtre ou la barre latérale ouverte par-dessus la page, toujours avec une opacité (`bg-scrim/60`) |
 
 Couleurs du logo, **décoratives uniquement** (illustrations, mascotte, jamais pour du texte) : `--brand-leaf` `#7DAA4F`, `--brand-teal` `#4DBFA8`, `--brand-pear` `#D6E87C`, `--brand-ink` `#1F3A2B`, `--brand-blush` `#F2A7A0` (joues de la mascotte). Classes : `fill-brand-pear`, `stroke-brand-ink`…
 
@@ -132,6 +133,8 @@ Un seul composant par usage. Ils sont dans `apps/frontend/src/components/shared/
 | `Field`        | Tout champ de formulaire : `label`, `hint` (aide sous le libellé), `required` (affiche « obligatoire » en toutes lettres, pas d'astérisque), `error`. Il relie lui-même libellé, aide et erreur au champ (`id`, `aria-describedby`, `aria-invalid`). |
 | `EmptyState`   | Liste ou zone vide : `illustration="pear"` (logo officiel de la mascotte ; `"pear-calm"` reste un alias pour les usages existants), sinon `icon` + `area`, `title` (une phrase), `description` optionnelle, `action` (le bouton qui fait avancer). Exemple : « Aucune séance pour l'instant » + « Démarrer le bilan ». |
 | `Stepper`      | Assistants en plusieurs étapes (création de patient, etc.) : `steps` (`label`, `description` optionnelle) et `current` (index). Avec `onStepClick`, on peut revenir à une étape terminée ; jamais sauter en avant. |
+| `SegmentedControl` | Choix entre deux à quatre vues ou filtres, tous visibles (« Semaine · Jour · Liste », « Suivis · Archivés », « Mois · Trimestre · Année ») : `label` (lu par les lecteurs d'écran), `options`, `value`, `onChange`. Pas de menu déroulant pour si peu de choix. |
+| `Pagination`   | Sous une liste paginée : « Page 2 sur 5 » + « Précédent » / « Suivant ». N'affiche rien s'il n'y a qu'une page. |
 | `StatusBadge`  | Tout statut ou type affiché en pastille. Couleurs via les tons sémantiques (§ 1.2). Un nouveau statut s'ajoute dans sa table, avec un libellé français. |
 | `PearMascot`   | Logo officiel de la mascotte (`public/logo_small.png`) pour états vides, accueil, fin d'assistant. Proportions conservées, taille ajustable via `className`. Décoratif par défaut ; `title` fournit le texte alternatif si nécessaire. |
 | `SaveIndicator`| Sous tout champ enregistré automatiquement (avec le hook `useAutosave` : enregistre peu après la frappe et en quittant le champ) : « Enregistrement… », « Enregistré à 14 h 32 », ou l'erreur en clair. Rien avant la première modification. |

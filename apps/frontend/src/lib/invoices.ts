@@ -6,13 +6,14 @@ import type {
   InvoiceMismatch,
   PatientInvoicesDto,
   SessionInvoicesDto,
+  SessionToInvoiceDto,
 } from '@vp/types';
 
 import type { BadgeTone } from '../components/shared/StatusBadge';
 
 import api from './api';
 
-export type { InvoiceDto, InvoiceListDto, InvoiceMismatch, PatientInvoicesDto, SessionInvoicesDto };
+export type { InvoiceDto, InvoiceListDto, InvoiceMismatch, PatientInvoicesDto, SessionInvoicesDto, SessionToInvoiceDto };
 
 /** "2026-0012" for an invoice, "A-2026-0001" for a credit note */
 export const isCreditNote = (invoice: Pick<InvoiceDto, 'type'>) => invoice.type === 'CREDIT_NOTE';
@@ -142,6 +143,15 @@ export function useInvoiceList(range: { from: string; to: string }) {
   return useQuery({
     queryKey: [...INVOICES, 'list', range.from, range.to],
     queryFn: async () => (await api.get<InvoiceListDto>('/invoices', { params: range })).data,
+  });
+}
+
+/** Sessions with no invoice in force, latest first (the dashboard's « Factures à faire »). */
+export function useSessionsToInvoice(enabled = true) {
+  return useQuery({
+    queryKey: [...INVOICES, 'to-issue'],
+    queryFn: async () => (await api.get<SessionToInvoiceDto[]>('/invoices/to-issue')).data,
+    enabled,
   });
 }
 

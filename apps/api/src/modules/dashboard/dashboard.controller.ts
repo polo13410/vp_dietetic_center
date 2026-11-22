@@ -17,7 +17,7 @@ export class DashboardController {
   constructor(private readonly service: DashboardService) {}
 
   @Get('summary')
-  @ApiOperation({ summary: 'La journée de la praticienne : RDV, prochain patient, relances, tâches' })
+  @ApiOperation({ summary: 'La journée de la praticienne : RDV du jour, patients à relancer, tâches' })
   summary(@CurrentUser() user: AccessUser) {
     return this.service.getSummary(user);
   }

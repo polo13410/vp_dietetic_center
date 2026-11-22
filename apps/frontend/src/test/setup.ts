@@ -39,3 +39,21 @@ class MockResizeObserver {
   disconnect = vi.fn();
 }
 vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+// Recent Node versions shadow jsdom's localStorage with their own, unusable without a file:
+// give the persisted stores an in-memory one
+if (typeof window !== 'undefined') {
+  const items = new Map<string, string>();
+  const storage: Storage = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => void items.set(key, String(value)),
+    removeItem: (key) => void items.delete(key),
+    clear: () => items.clear(),
+    key: (i) => [...items.keys()][i] ?? null,
+    get length() {
+      return items.size;
+    },
+  };
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true });
+  Object.defineProperty(window, 'localStorage', { value: storage, configurable: true });
+}

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Edit, Play, X, XCircle } from 'lucide-react';
+import { CalendarDays, CalendarX, Check, ClipboardList, Pencil, Play, RotateCcw, UserX, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -7,13 +8,32 @@ import { AppointmentFormDialog } from '../../components/appointments/Appointment
 import { PatientRecap } from '../../components/patient-file/PatientRecap';
 import { useStartSession } from '../../components/patient-file/useStartSession';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { EmptyState } from '../../components/shared/EmptyState';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { Section } from '../../components/shared/Section';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
 import { useIsRole } from '../../hooks/useAuth';
 import api from '../../lib/api';
-import { formatDate, formatDateTime } from '../../lib/utils';
+import { formatDate, formatLongDate, formatTime } from '../../lib/utils';
+
+interface AppointmentDetail {
+  id: string;
+  patientId: string;
+  startAt: string;
+  duration: number;
+  type: string;
+  status: string;
+  reason: string | null;
+  cancelReason?: string | null;
+  patient?: { firstName: string; lastName: string };
+  practitioner?: { firstName: string; lastName: string };
+  consultation?: { id: string } | null;
+}
+
+const BACK = { to: '/appointments', label: 'Agenda' };
 
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,10 +45,7 @@ export default function AppointmentDetailPage() {
 
   const { data: appt, isLoading } = useQuery({
     queryKey: ['appointment', id],
-    queryFn: async () => {
-      const { data } = await api.get(`/appointments/${id}`);
-      return data;
-    },
+    queryFn: async () => (await api.get<AppointmentDetail>(`/appointments/${id}`)).data,
     enabled: !!id,
   });
 
@@ -37,85 +54,117 @@ export default function AppointmentDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointment', id] });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast({ title: 'Statut mis a jour' });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Rendez-vous mis à jour' });
       setCancelOpen(false);
     },
   });
 
   if (isLoading) return <LoadingSpinner />;
-  if (!appt) return <p className="text-muted-foreground">Rendez-vous introuvable</p>;
+  if (!appt) {
+    return (
+      <>
+        <PageHeader area="agenda" back={BACK} title="Rendez-vous" />
+        <EmptyState
+          icon={CalendarX}
+          area="agenda"
+          title="Ce rendez-vous n’existe plus."
+          description="Il a peut-être été supprimé. Retrouvez les autres dans l’agenda."
+          action={
+            <Button asChild>
+              <Link to="/appointments">Ouvrir l’agenda</Link>
+            </Button>
+          }
+        />
+      </>
+    );
+  }
 
-  const canTransition = appt.status === 'SCHEDULED' || appt.status === 'CONFIRMED';
+  const name = `${appt.patient?.firstName ?? ''} ${appt.patient?.lastName ?? ''}`.trim();
+  const open = appt.status === 'SCHEDULED' || appt.status === 'CONFIRMED';
 
   return (
-    <div className="max-w-6xl space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link to="/appointments" className="text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">Rendez-vous — {formatDateTime(appt.startAt)}</h1>
-          <p className="text-sm text-muted-foreground">
-            {appt.duration} min — {appt.patient?.lastName} {appt.patient?.firstName}
-          </p>
-        </div>
-        <StatusBadge status={appt.status} />
-      </div>
+    <>
+      <PageHeader
+        area="agenda"
+        back={BACK}
+        title={name}
+        subtitle={
+          <span className="first-letter:uppercase">
+            {new Date(appt.startAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}{' '}
+            à {formatTime(appt.startAt)} · {appt.duration} min
+          </span>
+        }
+        actions={!isAssistant && <SessionAction appt={appt} />}
+      />
 
-      {/* Status actions */}
-      {canTransition && (
-        <div className="flex gap-2">
-          {appt.status === 'SCHEDULED' && (
-            <Button size="sm" variant="outline" onClick={() => statusMutation.mutate('CONFIRMED')}>
-              <Check className="w-4 h-4" /> Confirmer
-            </Button>
+      <div className="space-y-6">
+        <Section
+          icon={CalendarDays}
+          area="agenda"
+          title="Rendez-vous"
+          action={<StatusBadge status={appt.status} />}
+        >
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <Info label="Patient">
+              {isAssistant ? (
+                name
+              ) : (
+                <Link to={`/patients/${appt.patientId}`} className="font-medium text-primary hover:underline">
+                  {name}
+                </Link>
+              )}
+            </Info>
+            <Info label="Date">
+              {formatLongDate(appt.startAt)} à {formatTime(appt.startAt)}
+            </Info>
+            <Info label="Lieu">
+              <StatusBadge status={appt.type} />
+            </Info>
+            <Info label="Durée">{appt.duration} minutes</Info>
+            {appt.practitioner && (
+              <Info label="Praticienne">
+                {appt.practitioner.firstName} {appt.practitioner.lastName}
+              </Info>
+            )}
+            {appt.reason && <Info label="Motif">{appt.reason}</Info>}
+            {appt.cancelReason && <Info label="Motif d’annulation">{appt.cancelReason}</Info>}
+          </dl>
+
+          {open && (
+            <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil aria-hidden /> Modifier
+              </Button>
+              {appt.status === 'SCHEDULED' && (
+                <Button variant="outline" onClick={() => statusMutation.mutate('CONFIRMED')}>
+                  <Check aria-hidden /> Confirmer
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => statusMutation.mutate('NO_SHOW')}>
+                <UserX aria-hidden /> Marquer absent
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-destructive hover:bg-danger-soft hover:text-destructive"
+                onClick={() => setCancelOpen(true)}
+              >
+                <X aria-hidden /> Annuler le rendez-vous
+              </Button>
+            </div>
           )}
-          <Button size="sm" variant="outline" onClick={() => statusMutation.mutate('NO_SHOW')}>
-            <XCircle className="w-4 h-4" /> Absent
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-            <Edit className="w-4 h-4" /> Modifier
-          </Button>
-          <Button size="sm" variant="destructive" onClick={() => setCancelOpen(true)}>
-            <X className="w-4 h-4" /> Annuler
-          </Button>
-        </div>
-      )}
+        </Section>
 
-      {/* Info card */}
-      <div className="bg-card rounded-xl border border-border p-5 space-y-3">
-        <InfoRow label="Patient">
-          <Link to={`/patients/${appt.patientId}`} className="text-primary hover:underline">
-            {appt.patient?.lastName} {appt.patient?.firstName}
-          </Link>
-        </InfoRow>
-        {appt.practitioner && (
-          <InfoRow label="Praticienne">
-            {appt.practitioner.firstName} {appt.practitioner.lastName}
-          </InfoRow>
-        )}
-        <InfoRow label="Type"><StatusBadge status={appt.type} /></InfoRow>
-        <InfoRow label="Duree">{appt.duration} minutes</InfoRow>
-        <InfoRow label="Statut"><StatusBadge status={appt.status} /></InfoRow>
-        {appt.reason && <InfoRow label="Motif">{appt.reason}</InfoRow>}
-        {appt.cancelReason && <InfoRow label="Motif annulation">{appt.cancelReason}</InfoRow>}
-      </div>
-
-      {!isAssistant && (
-        <>
-          <SessionAction appt={appt} />
-          {/* What to know before seeing the patient */}
-          <div className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Avant la séance
+        {!isAssistant && (
+          <section className="space-y-3" aria-labelledby="before-session">
+            <h2 id="before-session" className="flex items-center gap-2 text-xl font-semibold">
+              <ClipboardList className="size-5 text-area-patients" aria-hidden /> Avant la séance
             </h2>
             <PatientRecap patientId={appt.patientId} size="panel" />
-          </div>
-        </>
-      )}
+          </section>
+        )}
+      </div>
 
-      {/* Edit dialog */}
       <AppointmentFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -124,35 +173,34 @@ export default function AppointmentDetailPage() {
           patientId: appt.patientId,
           startAt: formatDate(appt.startAt, 'yyyy-MM-ddTHH:mm'), // local time for the field
           duration: appt.duration,
-          type: appt.type,
+          type: appt.type as 'IN_PERSON' | 'VIDEO' | 'PHONE',
           reason: appt.reason ?? '',
         }}
       />
 
-      {/* Cancel confirm */}
       <ConfirmDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
-        title="Annuler le rendez-vous"
-        description="Etes-vous sur de vouloir annuler ce rendez-vous ? Cette action ne peut pas etre defaite."
+        title={`Annuler le rendez-vous de ${name} ?`}
+        description="Il reste visible dans l’agenda, barré, et le créneau redevient libre."
         variant="destructive"
-        confirmLabel="Annuler le RDV"
+        confirmLabel="Annuler le rendez-vous"
+        cancelLabel="Garder le rendez-vous"
         loading={statusMutation.isPending}
         onConfirm={() => statusMutation.mutate('CANCELLED')}
       />
-    </div>
+    </>
   );
 }
 
-/** Starts the session of this appointment, or opens it if it already exists. */
-function SessionAction({ appt }: { appt: any }) {
+/** « Démarrer la séance » for this appointment, or « Rouvrir la séance » once it exists. */
+function SessionAction({ appt }: { appt: AppointmentDetail }) {
   const start = useStartSession(appt.patientId);
-  const session = appt.consultation as { id: string } | null;
-  if (session) {
+  if (appt.consultation) {
     return (
       <Button asChild variant="outline">
-        <Link to={`/consultations/${session.id}`}>
-          <Play className="w-4 h-4" /> Rouvrir la séance
+        <Link to={`/consultations/${appt.consultation.id}`}>
+          <RotateCcw aria-hidden /> Rouvrir la séance
         </Link>
       </Button>
     );
@@ -160,17 +208,16 @@ function SessionAction({ appt }: { appt: any }) {
   if (appt.status === 'CANCELLED' || appt.status === 'NO_SHOW') return null;
   return (
     <Button onClick={() => start.mutate({ appointmentId: appt.id })} disabled={start.isPending}>
-      <Play className="w-4 h-4" /> Démarrer la séance
+      <Play aria-hidden /> Démarrer la séance
     </Button>
   );
 }
 
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2">
-      <span className="text-sm text-muted-foreground w-36 shrink-0">{label}</span>
-      <span className="text-sm">{children}</span>
+    <div className="space-y-1">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-base">{children}</dd>
     </div>
   );
 }
-

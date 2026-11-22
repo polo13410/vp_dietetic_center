@@ -6,6 +6,7 @@ import { InvoicesTable } from '../../components/invoices/InvoicesTable';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Section } from '../../components/shared/Section';
+import { SegmentedControl } from '../../components/shared/SegmentedControl';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
@@ -119,22 +120,12 @@ function PeriodBar({ period, onChange }: { period: Period; onChange: (period: Pe
   const isCurrent = now.year === period.year && now.index === period.index;
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
-      <div role="group" aria-label="Période" className="inline-flex rounded-lg bg-muted p-1">
-        {KINDS.map((k) => (
-          <button
-            key={k.value}
-            type="button"
-            aria-pressed={period.kind === k.value}
-            onClick={() => onChange(currentPeriod(k.value))}
-            className={cn(
-              'min-h-11 rounded-md px-4 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              period.kind === k.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {k.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="Période"
+        options={KINDS}
+        value={period.kind}
+        onChange={(kind) => onChange(currentPeriod(kind))}
+      />
       <div className="flex flex-1 items-center justify-center gap-1 sm:justify-start">
         <Button variant="ghost" size="icon" aria-label="Période précédente" onClick={() => onChange(shiftPeriod(period, -1))}>
           <ChevronLeft aria-hidden />

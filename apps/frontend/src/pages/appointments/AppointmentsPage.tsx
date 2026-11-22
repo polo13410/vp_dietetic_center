@@ -1,16 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
+import { addDays, format, isToday, startOfDay, startOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { type AgendaAppointment, AgendaGrid } from '../../components/appointments/AgendaGrid';
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
 import { AppointmentsTable } from '../../components/appointments/AppointmentsTable';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { SegmentedControl } from '../../components/shared/SegmentedControl';
 import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
 import api from '../../lib/api';
-import { cn } from '../../lib/utils';
 
 type View = 'week' | 'day' | 'list';
 const VIEWS: { value: View; label: string }[] = [
@@ -62,6 +64,7 @@ export default function AppointmentsPage() {
   });
 
   const step = view === 'day' ? 1 : 7;
+  const showsToday = days.some((day) => isToday(day));
   const title =
     view === 'day'
       ? format(date, 'EEEE d MMMM yyyy', { locale: fr })
@@ -70,64 +73,74 @@ export default function AppointmentsPage() {
   const bookingDefaults = useMemo(() => booking ?? undefined, [booking]);
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold mr-2">Rendez-vous</h1>
-        <div className="inline-flex rounded-lg border border-border bg-muted p-0.5">
-          {VIEWS.map((v) => (
-            <button
-              key={v.value}
-              onClick={() => set({ view: v.value })}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm transition-colors',
-                view === v.value ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground',
+    <>
+      <PageHeader
+        area="agenda"
+        title="Agenda"
+        actions={
+          <Button onClick={() => setBooking({})}>
+            <Plus aria-hidden /> Nouveau rendez-vous
+          </Button>
+        }
+      />
+
+      <div className="space-y-4">
+        <Card className="flex flex-wrap items-center gap-3 p-3">
+          <SegmentedControl label="Affichage" options={VIEWS} value={view} onChange={(next) => set({ view: next })} />
+          {view !== 'list' && (
+            <div className="flex flex-1 flex-wrap items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={view === 'day' ? 'Jour précédent' : 'Semaine précédente'}
+                onClick={() => set({ date: addDays(date, -step) })}
+              >
+                <ChevronLeft aria-hidden />
+              </Button>
+              <p className="min-w-[13rem] text-center text-xl font-semibold first-letter:uppercase" aria-live="polite">
+                {title}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={view === 'day' ? 'Jour suivant' : 'Semaine suivante'}
+                onClick={() => set({ date: addDays(date, step) })}
+              >
+                <ChevronRight aria-hidden />
+              </Button>
+              {!showsToday && (
+                <Button variant="outline" className="ml-auto" onClick={() => set({ date: new Date() })}>
+                  Revenir à aujourd’hui
+                </Button>
               )}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
+            </div>
+          )}
+        </Card>
 
-        {view !== 'list' && (
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => set({ date: addDays(date, -step) })} title="Précédent">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => set({ date: new Date() })}>
-              Aujourd’hui
-            </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => set({ date: addDays(date, step) })} title="Suivant">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <span className="ml-2 text-sm font-medium first-letter:uppercase">{title}</span>
-          </div>
+        {view === 'list' ? (
+          <AppointmentsTable />
+        ) : (
+          <>
+            <AgendaGrid
+              days={days}
+              appointments={appointments}
+              onSlotClick={(start) => setBooking({ startAt: format(start, "yyyy-MM-dd'T'HH:mm") })}
+            />
+            <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+              Touchez un créneau libre pour prendre un rendez-vous.
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle2 className="size-4 text-success" aria-hidden /> séance commencée
+              </span>
+            </p>
+          </>
         )}
-
-        <Button size="sm" className="ml-auto" onClick={() => setBooking({})}>
-          <Plus className="w-4 h-4" /> Nouveau rendez-vous
-        </Button>
       </div>
-
-      {view === 'list' ? (
-        <AppointmentsTable />
-      ) : (
-        <>
-          <AgendaGrid
-            days={days}
-            appointments={appointments}
-            onSlotClick={(start) => setBooking({ startAt: format(start, "yyyy-MM-dd'T'HH:mm") })}
-          />
-          <p className="text-xs text-muted-foreground">
-            Cliquez sur un créneau libre pour prendre un rendez-vous. ✓ séance commencée.
-          </p>
-        </>
-      )}
 
       <AppointmentFormDialog
         open={booking !== null}
         onOpenChange={(open) => !open && setBooking(null)}
         defaultValues={bookingDefaults}
       />
-    </div>
+    </>
   );
 }

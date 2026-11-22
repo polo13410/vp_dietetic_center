@@ -12,7 +12,7 @@ interface EmptyStateProps {
   description?: ReactNode;
   /** The button that moves things forward ("Démarrer le bilan") */
   action?: ReactNode;
-  /** The pear mascot, or a coloured icon when the mascot would be too much */
+  /** The official pear logo; pear-calm is kept as an alias for existing callers. */
   illustration?: 'pear' | 'pear-calm';
   icon?: LucideIcon;
   area?: Area;
@@ -39,7 +39,7 @@ export function EmptyState({
       )}
     >
       {illustration ? (
-        <PearMascot mood={illustration === 'pear-calm' ? 'calm' : 'happy'} className="h-24" />
+        <PearMascot className="h-24" />
       ) : (
         Icon && (
           <span

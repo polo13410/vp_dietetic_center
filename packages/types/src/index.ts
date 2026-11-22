@@ -6,10 +6,9 @@ export enum UserRole {
   ASSISTANTE = 'ASSISTANTE',
 }
 
-export enum PatientStatus {
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-  ARCHIVED = 'ARCHIVED',
+export enum Sex {
+  F = 'F',
+  M = 'M',
 }
 
 export enum AppointmentStatus {
@@ -26,9 +25,32 @@ export enum AppointmentType {
   PHONE = 'PHONE',
 }
 
-export enum ConsultationStatus {
+/** How a session was paid. NONE = « Non réglé ». */
+export enum PaymentMethod {
+  CASH = 'CASH',
+  CHECK = 'CHECK',
+  CARD = 'CARD',
+  TRANSFER = 'TRANSFER',
+  NONE = 'NONE',
+}
+
+/** Sections of the medical file, in the practitioner's order. */
+export enum FileField {
+  HEALTH = 'HEALTH',
+  FAMILY_HISTORY = 'FAMILY_HISTORY',
+  PSYCHOLOGY = 'PSYCHOLOGY',
+  PHYSICAL_ACTIVITY = 'PHYSICAL_ACTIVITY',
+  WEIGHT_HISTORY = 'WEIGHT_HISTORY',
+  ALLERGIES = 'ALLERGIES',
+  BLOOD_GLUCOSE = 'BLOOD_GLUCOSE',
+  CHOLESTEROL_TRIGLYCERIDES = 'CHOLESTEROL_TRIGLYCERIDES',
+  AVERSIONS = 'AVERSIONS',
+  TASTES = 'TASTES',
+}
+
+export enum GpReportStatus {
   DRAFT = 'DRAFT',
-  FINALIZED = 'FINALIZED',
+  SENT = 'SENT',
 }
 
 export enum TaskStatus {
@@ -61,7 +83,6 @@ export enum AuditAction {
   LOGIN = 'LOGIN',
   LOGOUT = 'LOGOUT',
   EXPORT = 'EXPORT',
-  FINALIZE = 'FINALIZE',
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -110,56 +131,151 @@ export interface UpdateUserDto {
 
 // ─── Patient ──────────────────────────────────────────────────────────────────
 
+export type BmiCategory = 'UNDERWEIGHT' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY' | 'MASSIVE_OBESITY';
+
+export interface BmiDto {
+  value: number;
+  category: BmiCategory;
+}
+
 export interface PatientDto {
   id: string;
   firstName: string;
   lastName: string;
+  sex: Sex | null;
   dateOfBirth: string | null;
+  /** Only the age was known: dateOfBirth is January 1st of the estimated birth year */
+  birthDateEstimated: boolean;
   email: string | null;
   phone: string | null;
   address: string | null;
-  status: PatientStatus;
-  tags: TagDto[];
+  city: string | null;
+  zipCode: string | null;
+  familySituation: string | null;
+  profession: string | null;
+  /** Médecin traitant */
+  gpName: string | null;
+  /** Motif (practitioner only) */
+  consultationReason?: string | null;
+  /** Adressé par */
+  referralSource: string | null;
+  archivedAt: string | null;
   practitionerId: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PatientListItemDto {
-  id: string;
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string | null;
-  email: string | null;
-  phone: string | null;
-  status: PatientStatus;
-  tags: TagDto[];
+export interface PatientListItemDto extends PatientDto {
   lastAppointmentAt: string | null;
-  nextAppointmentAt: string | null;
   /** Latest BMI (practitioner only) */
-  bmi?: { value: number; category: 'UNDERWEIGHT' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY' | 'MASSIVE_OBESITY' } | null;
+  bmi?: BmiDto | null;
 }
 
 export interface CreatePatientDto {
   firstName: string;
   lastName: string;
-  dateOfBirth?: string;
+  sex?: Sex | null;
+  dateOfBirth?: string | null;
+  /** Declared age, when the birth date is unknown (exclusive with dateOfBirth) */
+  age?: number;
   email?: string;
   phone?: string;
   address?: string;
-  emergencyContact?: EmergencyContactDto;
-  tagIds?: string[];
+  city?: string;
+  zipCode?: string;
+  familySituation?: string;
+  profession?: string;
+  gpName?: string;
+  referralSource?: string;
+  consultationReason?: string;
 }
 
-export interface UpdatePatientDto extends Partial<CreatePatientDto> {
-  status?: PatientStatus;
-  privateNote?: string;
+export type UpdatePatientDto = Partial<CreatePatientDto>;
+
+// ─── Patient file ─────────────────────────────────────────────────────────────
+
+/** What is needed for a figure and not known yet */
+export type MissingData = 'weight' | 'height' | 'sex' | 'age';
+
+/** Computed for each session, never stored (docs/REFONTE.md § 3.1). */
+export interface SessionFiguresDto {
+  /** Age on the session's date */
+  age: number | null;
+  weight: number | null;
+  bmi: BmiDto | null;
+  /** Basal metabolic rate per day */
+  bmr: { mj: number; kcal: number } | null;
+  missing: MissingData[];
 }
 
-export interface EmergencyContactDto {
-  name: string;
-  phone: string;
-  relationship?: string;
+/** A session ("séance"): one row of the practitioner's follow-up sheet. */
+export interface ConsultationDto {
+  id: string;
+  patientId: string;
+  practitionerId: string;
+  appointmentId: string | null;
+  date: string;
+  formulaId: string | null;
+  /** Copied from the formula at the time of the session */
+  formulaLabel: string | null;
+  priceCents: number | null;
+  paymentMethod: PaymentMethod;
+  /** Habitudes et évolution */
+  habits: string | null;
+  /** Travail en consultation */
+  sessionWork: string | null;
+  /** Conseils diététiques */
+  advice: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** 0 for the « Bilan », then 1, 2… (« Suivi 1 », « Suivi 2 »…) */
+  sequence: number;
+  figures: SessionFiguresDto;
+  weightChange: { sincePrevious: number | null; sinceFirst: number | null };
+  /** Advice given at the previous session */
+  previousAdvice: string | null;
+}
+
+export interface UpdateConsultationDto {
+  date?: string;
+  formulaId?: string | null;
+  paymentMethod?: PaymentMethod;
+  habits?: string;
+  sessionWork?: string;
+  advice?: string;
+}
+
+/** One version of a section of the medical file. */
+export interface FileEntryDto {
+  id: string;
+  patientId: string;
+  consultationId: string | null;
+  field: FileField;
+  content: string;
+  /** Day of this version */
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A section of the medical file: its current value and how many versions it has. */
+export interface FileSectionDto {
+  field: FileField;
+  current: Pick<FileEntryDto, 'id' | 'field' | 'content' | 'date' | 'updatedAt' | 'consultationId'> | null;
+  versionCount: number;
+}
+
+/** A report to the patient's general practitioner. */
+export interface GpReportDto {
+  id: string;
+  patientId: string;
+  authorId: string;
+  date: string;
+  content: string;
+  status: GpReportStatus;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Appointment ─────────────────────────────────────────────────────────────
@@ -175,7 +291,7 @@ export interface AppointmentDto {
   type: AppointmentType;
   status: AppointmentStatus;
   reason: string | null;
-  consultation?: { id: string; status: ConsultationStatus } | null;
+  consultation?: { id: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -233,14 +349,6 @@ export interface CreateTaskDto {
   dueAt?: string;
 }
 
-// ─── Tag ─────────────────────────────────────────────────────────────────────
-
-export interface TagDto {
-  id: string;
-  name: string;
-  color: string;
-}
-
 // ─── Audit ────────────────────────────────────────────────────────────────────
 
 export interface AuditLogDto {
@@ -283,13 +391,12 @@ export interface SearchResult {
 export interface ConsultationSummaryDto {
   id: string;
   date: string;
-  status?: ConsultationStatus;
   patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName'>;
 }
 
 /** An appointment as shown on the dashboard, with its session if one was started. */
 export interface DashboardAppointmentDto extends AppointmentDto {
-  consultation: { id: string; status: ConsultationStatus } | null;
+  consultation: { id: string } | null;
 }
 
 export interface DashboardSummary {
@@ -300,11 +407,10 @@ export interface DashboardSummary {
     todayCount: number;
     todayRemaining: number;
     weekAppointmentCount: number;
-    /** Active patients seen in the last 90 days or with an appointment booked */
+    /** Current patients seen in the last 90 days or with an appointment booked */
     followedPatientCount: number;
   };
-  draftConsultations: ConsultationSummaryDto[];
-  /** Active patients with nothing booked and not seen for 6 weeks */
+  /** Current patients with nothing booked and not seen for 6 weeks */
   followUps: {
     patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName' | 'phone' | 'email'>;
     lastSeenAt: string | null;

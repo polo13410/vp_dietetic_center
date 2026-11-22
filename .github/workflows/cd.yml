@@ -24,6 +24,9 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # to find the last successful deployment
     outputs:
       api: ${{ steps.filter.outputs.api }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -49,8 +52,10 @@ jobs:
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
+          BRANCH: ${{ github.ref_name }}
           AFTER: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           deploy_all() {
             echo "api=true" >> "$GITHUB_OUTPUT"
@@ -62,17 +67,22 @@ jobs:
             exit 0
           fi
 
-          # Compare against the commit the branch pointed to before this push, so a push
-          # of several commits deploys everything they touched (not just the last commit).
-          # New branch or force-push: no usable base, so deploy everything.
-          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
-            echo "No usable base commit (${BEFORE:-none}), deploying everything"
+          # Compare against the commit of the last successful deployment of this branch, not
+          # the previous push: merges pushed with [skip ci] start no run, so their changes
+          # must be picked up by the next one. A run only succeeds when every deploy it
+          # needed went through, so a failed deployment is retried by the next run.
+          # No usable base (first deployment, API error, force-push): deploy everything.
+          BASE=$(gh run list --workflow cd.yml --branch "$BRANCH" --status success --limit 1 \
+            --json headSha --jq '.[0].headSha // empty' 2>/dev/null || true)
+          if [[ -z "$BASE" ]] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null \
+            || ! git merge-base --is-ancestor "$BASE" "$AFTER"; then
+            echo "No usable last deployment (${BASE:-none}), deploying everything"
             deploy_all
             exit 0
           fi
 
-          CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
-          echo "Changed files since $BEFORE:"
+          CHANGED=$(git diff --name-only "$BASE" "$AFTER")
+          echo "Changed files since the last deployment ($BASE):"
           echo "$CHANGED"
 
           # Files baked into both Docker images

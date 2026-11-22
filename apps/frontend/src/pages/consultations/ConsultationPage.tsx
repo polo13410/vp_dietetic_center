@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Flag, Heart, PanelLeftClose, PanelLeftOpen, Ruler, Tr
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
+import { SessionInvoice } from '../../components/invoices/SessionInvoice';
 import { FileSectionEditor } from '../../components/patient-file/FilePanel';
 import { fieldClass, LifeEventForm } from '../../components/patient-file/LifeEventsPanel';
 import { MeasurementsForm } from '../../components/patient-file/MeasurementsForm';
@@ -12,6 +13,7 @@ import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
 import api from '../../lib/api';
+import { useSessionInvoices } from '../../lib/invoices';
 import {
   type Consultation,
   EVENT_CATEGORIES,
@@ -19,8 +21,6 @@ import {
   type FileField,
   formatMetric,
   METRICS,
-  PAYMENT_METHODS,
-  type PaymentMethod,
   sessionName,
   useConsultation,
   useFileSections,
@@ -70,6 +70,7 @@ export default function ConsultationPage() {
           <Report session={session} />
           <AversionsAndTastes session={session} />
           <EventsBlock session={session} />
+          <SessionInvoice session={session} />
         </div>
       </div>
     </div>
@@ -83,6 +84,7 @@ function Header({ session }: { session: Consultation }) {
   const invalidate = useInvalidatePatientFile();
   const [confirm, setConfirm] = useState(false);
   const patient = session.patient!;
+  const invoice = useSessionInvoices(session.id).data?.current;
 
   const remove = useMutation({
     mutationFn: () => api.delete(`/consultations/${session.id}`),
@@ -116,7 +118,12 @@ function Header({ session }: { session: Consultation }) {
         open={confirm}
         onOpenChange={setConfirm}
         title="Supprimer cette séance ?"
-        description="La séance et ses mesures seront supprimées. Ce qui a été écrit dans le dossier médical est conservé."
+        description={
+          (invoice
+            ? `La facture n° ${invoice.number} sera annulée par un avoir ; la facture et l’avoir restent dans vos factures. `
+            : '') +
+          'La séance et ses mesures seront supprimées. Ce qui a été écrit dans le dossier médical est conservé.'
+        }
         confirmLabel="Supprimer"
         variant="destructive"
         loading={remove.isPending}
@@ -168,7 +175,7 @@ function Report({ session }: { session: Consultation }) {
   }, [session.habits, session.sessionWork, session.advice]);
 
   const save = useMutation({
-    mutationFn: (body: Partial<Texts> & { paymentMethod?: PaymentMethod }) =>
+    mutationFn: (body: Partial<Texts>) =>
       api.patch(`/consultations/${session.id}`, body),
     onSuccess: () => {
       setSavedAt(new Date());
@@ -201,20 +208,6 @@ function Report({ session }: { session: Consultation }) {
         </span>
       }
     >
-      <label className="block max-w-[14rem]">
-        <span className="block text-xs font-medium text-muted-foreground mb-1">Moyen de paiement</span>
-        <select
-          value={session.paymentMethod}
-          onChange={(e) => save.mutate({ paymentMethod: e.target.value as PaymentMethod })}
-          className={fieldClass}
-        >
-          {(Object.keys(PAYMENT_METHODS) as PaymentMethod[]).map((m) => (
-            <option key={m} value={m}>
-              {PAYMENT_METHODS[m]}
-            </option>
-          ))}
-        </select>
-      </label>
       {session.previousAdvice && (
         <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
           <p className="text-xs font-medium text-muted-foreground mb-0.5">Conseils de la séance précédente</p>

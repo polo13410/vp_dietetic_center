@@ -90,7 +90,7 @@ export function AgendaGrid({
         <div className="grid" style={{ gridTemplateColumns: COLUMNS(days.length) }}>
           <div>
             {hourLabels.map((h) => (
-              <div key={h} className="relative pr-2 text-right text-xs text-muted-foreground" style={{ height: HOUR_PX }}>
+              <div key={h} className="relative pr-2 text-right text-sm text-muted-foreground" style={{ height: HOUR_PX }}>
                 <span className="relative -top-2">{hourLabel(h)}</span>
               </div>
             ))}

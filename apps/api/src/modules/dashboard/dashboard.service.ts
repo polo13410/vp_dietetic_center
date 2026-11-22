@@ -6,7 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 const DAY = 24 * 3600 * 1000;
 /** A patient with no session for this long, and nothing booked, should be contacted. */
-export const FOLLOW_UP_AFTER_DAYS = 42;
+const FOLLOW_UP_AFTER_DAYS = 42;
 
 const UPCOMING: AppointmentStatus[] = [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED];
 const PATIENT = { select: { id: true, firstName: true, lastName: true } };

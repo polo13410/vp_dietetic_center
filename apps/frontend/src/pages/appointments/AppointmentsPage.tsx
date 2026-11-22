@@ -61,12 +61,6 @@ export default function AppointmentsPage() {
     enabled: view !== 'list',
   });
 
-  // Weekends only take room when something is booked on them
-  const shownDays =
-    view === 'week'
-      ? days.filter((d) => d.getDay() % 6 !== 0 || appointments.some((a) => new Date(a.startAt).toDateString() === d.toDateString()))
-      : days;
-
   const step = view === 'day' ? 1 : 7;
   const title =
     view === 'day'
@@ -119,7 +113,7 @@ export default function AppointmentsPage() {
       ) : (
         <>
           <AgendaGrid
-            days={shownDays}
+            days={days}
             appointments={appointments}
             onSlotClick={(start) => setBooking({ startAt: format(start, "yyyy-MM-dd'T'HH:mm") })}
           />

@@ -9,24 +9,6 @@ import { useThemeStore } from '../../stores/themeStore';
 
 import SettingsPage from './SettingsPage';
 
-// Recent Node versions shadow jsdom's localStorage with their own (unusable without a file):
-// give the stores an in-memory one before they are created
-vi.hoisted(() => {
-  const items = new Map<string, string>();
-  const storage = {
-    getItem: (key: string) => items.get(key) ?? null,
-    setItem: (key: string, value: string) => void items.set(key, String(value)),
-    removeItem: (key: string) => void items.delete(key),
-    clear: () => items.clear(),
-    key: (i: number) => [...items.keys()][i] ?? null,
-    get length() {
-      return items.size;
-    },
-  };
-  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true });
-  Object.defineProperty(window, 'localStorage', { value: storage, configurable: true });
-});
-
 const api = vi.hoisted(() => ({
   get: vi.fn(),
   patch: vi.fn(),

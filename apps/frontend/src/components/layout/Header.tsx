@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router';
 import { useCurrentUser, useLogout } from '../../hooks/useAuth';
 import { NotificationCenter } from '../notifications/NotificationCenter';
 import { GlobalSearchDialog } from '../search/GlobalSearchDialog';
-import { Button } from '../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,65 +19,70 @@ export function Header() {
   const { mutate: logout } = useLogout();
   const user = useCurrentUser();
   const navigate = useNavigate();
+  const canSearch = !!user && user.role !== 'ADMIN';
 
   // Ctrl+K shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        if (user?.role !== 'ADMIN') setSearchOpen(true);
+        if (canSearch) setSearchOpen(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [user?.role]);
+  }, [canSearch]);
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center px-6 gap-4 shrink-0">
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 lg:px-6">
       {/* Search trigger (patients' data: not for admins) */}
-      {user?.role !== 'ADMIN' && (
-      <button
-        onClick={() => setSearchOpen(true)}
-        className="flex-1 max-w-md flex items-center gap-2 px-3 py-2 text-sm bg-muted border border-border rounded-lg text-muted-foreground hover:border-primary/30 transition-colors cursor-pointer"
-      >
-        <Search className="w-4 h-4" />
-        <span>Rechercher un patient, RDV, note...</span>
-        <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          Ctrl K
-        </kbd>
-      </button>
+      {canSearch && (
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="flex h-11 min-w-0 flex-1 max-w-xl cursor-pointer items-center gap-3 rounded-lg border border-input bg-muted px-3 text-base text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Search className="size-5 shrink-0" aria-hidden />
+          <span className="truncate">
+            <span className="sm:hidden">Rechercher</span>
+            <span className="hidden sm:inline">Rechercher un patient, un rendez-vous…</span>
+          </span>
+          <kbd className="ml-auto hidden shrink-0 items-center rounded border border-border bg-card px-1.5 py-0.5 text-xs font-medium text-muted-foreground lg:inline-flex">
+            Ctrl K
+          </kbd>
+        </button>
       )}
 
-      <div className="flex items-center gap-1.5 ml-auto">
+      <div className="ml-auto flex items-center gap-1">
         <ThemeToggle />
         <NotificationCenter />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <User className="w-4 h-4" />
-            </Button>
+            <button
+              type="button"
+              aria-label="Mon compte"
+              className="ml-1 inline-flex size-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {user ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}` : <User />}
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-64">
             <div className="px-3 py-2">
-              <p className="text-sm font-medium">
+              <p className="text-base font-medium">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/profile')}>
-              <User className="w-4 h-4" />
-              Profil
-            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate('/settings')}>
-              <Settings className="w-4 h-4" />
-              Parametres
+              <Settings />
+              Paramètres
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => logout()}>
-              <LogOut className="w-4 h-4" />
-              Deconnexion
+              <LogOut />
+              Se déconnecter
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

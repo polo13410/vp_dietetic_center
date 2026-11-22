@@ -3,6 +3,7 @@
 /* dark: styles follow the app's theme toggle (.dark on <html>), not the OS setting */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Palette, type scale and usage rules: docs/DESIGN.md. Every text pair below meets WCAG AA. */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -23,6 +24,42 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  /* Semantic tones (badges, alerts): strong colour for text/icons, soft colour for backgrounds */
+  --color-success: hsl(var(--success));
+  --color-success-soft: hsl(var(--success-soft));
+  --color-warning: hsl(var(--warning));
+  --color-warning-soft: hsl(var(--warning-soft));
+  --color-danger: hsl(var(--danger));
+  --color-danger-soft: hsl(var(--danger-soft));
+  --color-info: hsl(var(--info));
+  --color-info-soft: hsl(var(--info-soft));
+  --color-neutral: hsl(var(--neutral));
+  --color-neutral-soft: hsl(var(--neutral-soft));
+
+  /* One colour per area of the app (sidebar, page headers, section icons) */
+  --color-area-home: hsl(var(--area-home));
+  --color-area-home-soft: hsl(var(--area-home-soft));
+  --color-area-patients: hsl(var(--area-patients));
+  --color-area-patients-soft: hsl(var(--area-patients-soft));
+  --color-area-agenda: hsl(var(--area-agenda));
+  --color-area-agenda-soft: hsl(var(--area-agenda-soft));
+  --color-area-invoices: hsl(var(--area-invoices));
+  --color-area-invoices-soft: hsl(var(--area-invoices-soft));
+  --color-area-settings: hsl(var(--area-settings));
+  --color-area-settings-soft: hsl(var(--area-settings-soft));
+  --color-area-users: hsl(var(--area-users));
+  --color-area-users-soft: hsl(var(--area-users-soft));
+  --color-area-audit: hsl(var(--area-audit));
+  --color-area-audit-soft: hsl(var(--area-audit-soft));
+
+  /* Logo colours: decoration only (mascot, illustrations), never text */
+  --color-brand-leaf: #7daa4f;
+  --color-brand-teal: #4dbfa8;
+  --color-brand-pear: #d6e87c;
+  --color-brand-ink: #1f3a2b;
+  --color-brand-blush: #f2a7a0;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -31,57 +68,115 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 238 84% 56%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 238 84% 56%;
-    --radius: 0.5rem;
-    --sidebar-width: 240px;
+    --background: 84 26.3% 96.3%; /* #F6F8F3 */
+    --foreground: 144 21.7% 13.5%; /* #1B2A21 */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 144 21.7% 13.5%; /* #1B2A21 */
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 144 21.7% 13.5%; /* #1B2A21 */
+    --primary: 106.9 47% 32.5%; /* #3D7A2C leaf green */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --secondary: 164 36.6% 92%; /* #E3F2EE soft teal */
+    --secondary-foreground: 169.6 63.3% 21.4%; /* #14594D */
+    --muted: 86.7 24.3% 92.7%; /* #EDF1E8 */
+    --muted-foreground: 140 8% 36.7%; /* #56655B */
+    --accent: 72.4 63% 89.4%; /* #EEF5D3 soft pear */
+    --accent-foreground: 95.7 46.5% 19.8%; /* #2E4A1B */
+    --destructive: 3.8 66.7% 42.4%; /* #B42D24 */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
+    --border: 92.3 17.3% 85.3%; /* #D9E0D3 */
+    --input: 104.2 8.4% 55.9%; /* #8A9885 */
+    --ring: 106.9 47% 32.5%; /* #3D7A2C */
+
+    --success: 128.8 44.4% 33.1%; /* #2F7A3A */
+    --success-soft: 116.5 41.5% 92%; /* #E3F3E2 */
+    --warning: 39.1 100% 27.1%; /* #8A5A00 */
+    --warning-soft: 42.6 86.4% 91.4%; /* #FCF1D6 */
+    --danger: 3.8 66.7% 42.4%; /* #B42D24 */
+    --danger-soft: 7.5 75% 93.7%; /* #FBE6E3 */
+    --info: 203.9 64.6% 34.3%; /* #1F6390 */
+    --info-soft: 206.1 62.2% 92.7%; /* #E1EEF8 */
+    --neutral: 140 8% 36.7%; /* #56655B */
+    --neutral-soft: 86.7 24.3% 92.7%; /* #EDF1E8 */
+
+    --area-home: 106.9 47% 32.5%; /* #3D7A2C */
+    --area-home-soft: 95.3 43.6% 92.4%; /* #EAF4E3 */
+    --area-patients: 169.9 68.3% 27.3%; /* #167565 */
+    --area-patients-soft: 165 41.7% 90.6%; /* #DDF1EC */
+    --area-agenda: 211.2 63.5% 39.8%; /* #2563A6 */
+    --area-agenda-soft: 211.3 62.2% 92.7%; /* #E1ECF8 */
+    --area-invoices: 33.6 86.7% 32.4%; /* #9A5B0B */
+    --area-invoices-soft: 35.6 80% 92.2%; /* #FBEEDB */
+    --area-settings: 208.9 14.1% 37.5%; /* #52606D */
+    --area-settings-soft: 205.7 18.9% 92.7%; /* #E9EDF0 */
+    --area-users: 321.3 38.5% 40.2%; /* #8E3F72 */
+    --area-users-soft: 323.3 50% 92.9%; /* #F6E4EF */
+    --area-audit: 244.8 30.6% 48%; /* #5B55A0 */
+    --area-audit-soft: 249.2 44.8% 94.3%; /* #ECEAF7 */
+
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 47% 11.2%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 47% 11.2%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 238 84% 66%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 50.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 22%;
-    --input: 217.2 32.6% 22%;
-    --ring: 238 84% 66%;
+    --background: 142.5 21.1% 7.5%; /* #0F1712 */
+    --foreground: 127.5 17.4% 91%; /* #E4ECE5 */
+    --card: 141.8 19.3% 11.2%; /* #17221B */
+    --card-foreground: 127.5 17.4% 91%; /* #E4ECE5 */
+    --popover: 141.8 19.3% 11.2%; /* #17221B */
+    --popover-foreground: 127.5 17.4% 91%; /* #E4ECE5 */
+    --primary: 100 44.1% 58.6%; /* #86C467 */
+    --primary-foreground: 107.1 36.8% 7.5%; /* #0F1A0C */
+    --secondary: 168.9 48.7% 15.3%; /* #143A33 */
+    --secondary-foreground: 167.1 51.2% 75.1%; /* #9FE0D2 */
+    --muted: 143.1 17.3% 14.7%; /* #1F2C24 */
+    --muted-foreground: 138.8 9.5% 67.1%; /* #A3B3A8 */
+    --accent: 95 30% 15.7%; /* #26341C */
+    --accent-foreground: 76.5 63.3% 78.6%; /* #D8EBA6 */
+    --destructive: 4.4 72.3% 63.1%; /* #E5675D */
+    --destructive-foreground: 6 62.5% 6.3%; /* #1A0806 */
+    --border: 144 14.9% 19.8%; /* #2B3A31 */
+    --input: 141 8.6% 45.5%; /* #6A7E71 */
+    --ring: 100 44.1% 58.6%; /* #86C467 */
+
+    --success: 125.5 42.2% 64.7%; /* #7FCB86 */
+    --success-soft: 143.6 37.8% 14.5%; /* #173322 */
+    --warning: 39.9 76.5% 63.3%; /* #E9B95A */
+    --warning-soft: 39 55.6% 14.1%; /* #382A10 */
+    --danger: 5.4 78.9% 72.2%; /* #F08A80 */
+    --danger-soft: 4.7 45.2% 16.5%; /* #3D1A17 */
+    --info: 206.9 69.9% 70%; /* #7DB8E8 */
+    --info-soft: 206.8 55.3% 16.7%; /* #132D42 */
+    --neutral: 138.8 9.5% 67.1%; /* #A3B3A8 */
+    --neutral-soft: 143.1 17.3% 14.7%; /* #1F2C24 */
+
+    --area-home: 100 44.1% 58.6%; /* #86C467 */
+    --area-home-soft: 104.4 36% 14.7%; /* #1F3318 */
+    --area-patients: 167.8 53.1% 58.2%; /* #5CCDB6 */
+    --area-patients-soft: 170 50% 14.1%; /* #123630 */
+    --area-agenda: 212.4 74.5% 70.8%; /* #7DB0EC */
+    --area-agenda-soft: 212.5 53.3% 17.6%; /* #152B45 */
+    --area-invoices: 35.4 74.3% 63.3%; /* #E7AE5C */
+    --area-invoices-soft: 35.7 56.8% 14.5%; /* #3A2910 */
+    --area-settings: 208.8 17% 71.2%; /* #A9B6C2 */
+    --area-settings-soft: 206.3 18.6% 16.9%; /* #232C33 */
+    --area-users: 321.4 57.5% 71.4%; /* #E08CC2 */
+    --area-users-soft: 317.6 41.5% 16.1%; /* #3A1830 */
+    --area-audit: 245.4 57.3% 77.1%; /* #A9A3E6 */
+    --area-audit-soft: 244.1 29.9% 19%; /* #24223F */
   }
 
   * {
     @apply border-border;
   }
 
+  html {
+    /* 16 px base: every rem-based size scales with the user's browser setting */
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans text-base antialiased;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
@@ -89,14 +184,14 @@
 
   /* Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
-    border-radius: 3px;
+    border-radius: 4px;
   }
 }

@@ -1,43 +1,28 @@
-import type { UserDto } from '@vp/types';
-import { MoreHorizontal, Pencil, Plus, Search, Trash2, UserX } from 'lucide-react';
+import type { CreateUserDto, UpdateUserDto, UserDto } from '@vp/types';
+import { Pencil, Plus, Search, UserX, Users } from 'lucide-react';
 import { useState } from 'react';
 
 import { UserFormDialog } from '../../components/admin/UserFormDialog';
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { EmptyState } from '../../components/shared/EmptyState';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { Section } from '../../components/shared/Section';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent } from '../../components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
+import { Input } from '../../components/ui/input';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { useIsRole } from '../../hooks/useAuth';
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../../hooks/useUsers';
 
-// ─── Labels ──────────────────────────────────────────────────────────────────
-
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Admin',
+  ADMIN: 'Administratrice',
   PRATICIENNE: 'Praticienne',
   ASSISTANTE: 'Assistante',
 };
 
-const ROLE_COLORS: Record<string, string> = {
-  ADMIN: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
-  PRATICIENNE: 'bg-primary/10 text-primary',
-  ASSISTANTE: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-};
-
-// ─── Page ────────────────────────────────────────────────────────────────────
+function countLabel(count: number) {
+  return `${count} compte${count > 1 ? 's' : ''}`;
+}
 
 export default function UsersPage() {
   const isAdmin = useIsRole('ADMIN');
@@ -53,15 +38,14 @@ export default function UsersPage() {
 
   if (!isAdmin) return null;
 
-  const filtered = users?.filter((u) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      u.firstName.toLowerCase().includes(q) ||
-      u.lastName.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
-    );
-  });
+  const query = search.trim().toLowerCase();
+  const filtered = users?.filter(
+    (u) =>
+      !query ||
+      u.firstName.toLowerCase().includes(query) ||
+      u.lastName.toLowerCase().includes(query) ||
+      u.email.toLowerCase().includes(query),
+  );
 
   const handleCreate = () => {
     setEditingUser(null);
@@ -73,14 +57,14 @@ export default function UsersPage() {
     setFormOpen(true);
   };
 
-  const handleFormSubmit = (data: any) => {
+  const handleFormSubmit = (data: CreateUserDto | UpdateUserDto) => {
     if (editingUser) {
       updateUser.mutate(
-        { id: editingUser.id, dto: data },
+        { id: editingUser.id, dto: data as UpdateUserDto },
         { onSuccess: () => setFormOpen(false) },
       );
     } else {
-      createUser.mutate(data, { onSuccess: () => setFormOpen(false) });
+      createUser.mutate(data as CreateUserDto, { onSuccess: () => setFormOpen(false) });
     }
   };
 
@@ -90,123 +74,126 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Utilisateurs</h1>
-            {users && (
-              <p className="text-sm text-muted-foreground">
-                {users.length} compte{users.length > 1 ? 's' : ''}
-              </p>
-            )}
+    <>
+      <PageHeader
+        area="users"
+        title="Utilisateurs"
+        subtitle="Les personnes qui peuvent se connecter à l’application."
+        actions={
+          <Button onClick={handleCreate}>
+            <Plus /> Nouveau compte
+          </Button>
+        }
+      />
+
+      <Section
+        icon={Users}
+        area="users"
+        title="Comptes"
+        description={users ? countLabel(users.length) : undefined}
+        flush
+      >
+        <div className="border-b border-border px-5 pb-5 sm:px-6">
+          <label htmlFor="users-search" className="sr-only">
+            Rechercher un compte
+          </label>
+          <div className="relative max-w-md">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="users-search"
+              type="search"
+              placeholder="Rechercher par nom ou e-mail"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="w-4 h-4" /> Nouveau compte
-        </Button>
-      </div>
 
-      {/* Search */}
-      <Card><CardContent className="p-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="search"
-            placeholder="Rechercher par nom ou email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-      </CardContent></Card>
-
-      {/* Table */}
-      <Card className="overflow-hidden">
         {isLoading ? (
           <LoadingSpinner />
         ) : !filtered?.length ? (
-          <div className="text-center py-12">
-            <UserX className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Aucun utilisateur trouvé</p>
-          </div>
+          query ? (
+            <EmptyState
+              icon={UserX}
+              area="users"
+              title="Aucun compte ne correspond à cette recherche."
+              description="Vérifiez l’orthographe du nom ou de l’adresse e-mail."
+              action={
+                <Button variant="outline" onClick={() => setSearch('')}>
+                  Effacer la recherche
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              illustration="pear"
+              title="Aucun compte pour l’instant."
+              action={
+                <Button onClick={handleCreate}>
+                  <Plus /> Nouveau compte
+                </Button>
+              }
+            />
+          )
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Nom
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Email
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Rôle
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Statut
-                </th>
-                <th className="w-12" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((user) => (
-                <tr key={user.id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-3 font-medium">
-                    {user.firstName} {user.lastName}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ''}`}
-                    >
-                      {ROLE_LABELS[user.role] ?? user.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        user.isActive
-                          ? 'bg-green-500/15 text-green-600 dark:text-green-400'
-                          : 'bg-red-500/15 text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {user.isActive ? 'Actif' : 'Désactivé'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(user)}>
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Modifier
-                        </DropdownMenuItem>
-                        {user.isActive && (
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setDeleteTarget(user)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Désactiver
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
+          <ul className="divide-y divide-border">
+            {filtered.map((user) => (
+              <li
+                key={user.id}
+                className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 sm:px-6"
+              >
+                <div className="flex min-w-[14rem] flex-1 items-center gap-3">
+                  <span
+                    className="flex size-11 shrink-0 items-center justify-center rounded-full bg-area-users-soft text-base font-semibold text-area-users"
+                    aria-hidden
+                  >
+                    {user.firstName[0]}
+                    {user.lastName[0]}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-medium">
+                      {user.firstName} {user.lastName}
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                  </div>
+                </div>
 
-      {/* Create / Edit dialog */}
+                <div className="flex w-52 items-center gap-3">
+                  <span className="text-base text-foreground">
+                    {ROLE_LABELS[user.role] ?? user.role}
+                  </span>
+                  {user.isActive ? (
+                    <StatusBadge status="ACTIVE" label="Actif" tone="success" />
+                  ) : (
+                    <StatusBadge status="DISABLED" label="Désactivé" tone="danger" />
+                  )}
+                </div>
+
+                <div className="ml-auto flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
+                    <Pencil /> Modifier
+                  </Button>
+                  {user.isActive && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:bg-danger-soft hover:text-destructive"
+                      onClick={() => setDeleteTarget(user)}
+                    >
+                      Désactiver
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
       <UserFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -215,29 +202,16 @@ export default function UsersPage() {
         isPending={createUser.isPending || updateUser.isPending}
       />
 
-      {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Désactiver le compte</DialogTitle>
-            <DialogDescription>
-              Êtes-vous sûr de vouloir désactiver le compte de{' '}
-              <strong>
-                {deleteTarget?.firstName} {deleteTarget?.lastName}
-              </strong>{' '}
-              ? Cette personne ne pourra plus se connecter.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteUser.isPending}>
-              Désactiver
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={`Désactiver le compte de ${deleteTarget?.firstName ?? ''} ${deleteTarget?.lastName ?? ''} ?`}
+        description="Cette personne ne pourra plus se connecter. Ses données restent dans l’application."
+        confirmLabel="Désactiver le compte"
+        variant="destructive"
+        loading={deleteUser.isPending}
+        onConfirm={handleDelete}
+      />
+    </>
   );
 }

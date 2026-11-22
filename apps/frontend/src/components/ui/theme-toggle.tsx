@@ -27,23 +27,21 @@ export function ThemeToggle() {
   };
 
   if (!mounted) {
-    return <Button variant="ghost" size="icon" className="opacity-0 w-10 h-10" />;
+    return <Button variant="ghost" size="icon" className="opacity-0" aria-hidden />;
   }
+
+  const label = theme === 'light' ? 'Passer en mode sombre' : 'Passer en mode clair';
 
   return (
     <Button
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      title={theme === 'light' ? 'Passer en mode sombre' : 'Passer en mode clair'}
-      className="rounded-full"
+      aria-label={label}
+      title={label}
+      className="rounded-full text-muted-foreground hover:text-foreground"
     >
-      {theme === 'light' ? (
-        <Moon className="w-4 h-4 text-primary" />
-      ) : (
-        <Sun className="w-4 h-4 text-primary" />
-      )}
-      <span className="sr-only">Toggle theme</span>
+      {theme === 'light' ? <Moon /> : <Sun />}
     </Button>
   );
 }

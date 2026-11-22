@@ -1,132 +1,218 @@
-import { CalendarDays, LayoutDashboard, ScrollText, Settings, UserCog, Users, X } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
-import { NavLink } from 'react-router';
+import { type LucideIcon, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router';
 
 import { useLocalStorage } from '../../hooks/use-local-storage';
+import { useMediaQuery } from '../../hooks/use-media-query';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 
+import { type Area, AREAS } from './areas';
+
+interface NavItem {
+  to: string;
+  label: string;
+  area: Area;
+}
+
 // Practitioners work with their patients; notes, documents and tasks live in each patient's file
-const clinicalItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
-  { to: '/patients', icon: Users, label: 'Patients' },
-  { to: '/appointments', icon: CalendarDays, label: 'Rendez-vous' },
-  { to: '/settings', icon: Settings, label: 'Paramètres' },
+const clinicalItems: NavItem[] = [
+  { to: '/dashboard', label: 'Accueil', area: 'home' },
+  { to: '/patients', label: 'Patients', area: 'patients' },
+  { to: '/appointments', label: 'Agenda', area: 'agenda' },
+  { to: '/settings', label: 'Paramètres', area: 'settings' },
 ];
 
 // Admins manage the app and its users, never patients
-const adminItems = [
-  { to: '/admin/users', icon: UserCog, label: 'Utilisateurs' },
-  { to: '/admin/audit', icon: ScrollText, label: 'Journal d’accès' },
-  { to: '/settings', icon: Settings, label: 'Paramètres' },
+const adminItems: NavItem[] = [
+  { to: '/admin/users', label: 'Utilisateurs', area: 'users' },
+  { to: '/admin/audit', label: 'Journal d’accès', area: 'audit' },
+  { to: '/settings', label: 'Paramètres', area: 'settings' },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Administrateur',
+  ADMIN: 'Administratrice',
   PRATICIENNE: 'Praticienne',
   ASSISTANTE: 'Assistante',
 };
 
-interface SidebarProps {
-  onWidthChange?: (width: number) => void;
-}
+/** iPad landscape and desktop keep the full sidebar; narrower screens get an icon rail. */
+const WIDE_SCREEN = '(min-width: 1024px)';
 
-export function Sidebar({ onWidthChange }: SidebarProps) {
-  const user = useCurrentUser();
+/**
+ * Wide screens: open sidebar that the user can shrink to a rail (remembered, Alt+S).
+ * iPad portrait and narrower: rail by default, "Menu" opens the full sidebar over the page.
+ */
+export function Sidebar() {
+  const isWide = useMediaQuery(WIDE_SCREEN);
   const [collapsed, setCollapsed] = useLocalStorage('sidebarCollapsed', false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { pathname } = useLocation();
 
-  const sidebarWidth = collapsed ? 64 : 256;
-  const visibleNavItems = user?.role === 'ADMIN' ? adminItems : clinicalItems;
+  const toggle = useCallback(() => {
+    if (isWide) setCollapsed((prev: boolean) => !prev);
+    else setDrawerOpen((prev) => !prev);
+  }, [isWide, setCollapsed]);
 
-  useEffect(() => {
-    onWidthChange?.(sidebarWidth);
-  }, [collapsed, onWidthChange, sidebarWidth]);
+  // Close the drawer when the page changes or the screen gets wide enough
+  useEffect(() => setDrawerOpen(false), [pathname, isWide]);
 
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev: boolean) => !prev);
-  }, [setCollapsed]);
-
-  // Alt+S keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.altKey && event.key === 's') {
-        toggleCollapsed();
-      }
+      if (event.altKey && event.key === 's') toggle();
+      if (event.key === 'Escape') setDrawerOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleCollapsed]);
+  }, [toggle]);
+
+  if (isWide) {
+    return (
+      <SidebarPanel
+        expanded={!collapsed}
+        onToggle={toggle}
+        toggleIcon={collapsed ? PanelLeftOpen : PanelLeftClose}
+        toggleLabel={collapsed ? 'Agrandir le menu' : 'Réduire le menu'}
+      />
+    );
+  }
+
+  return (
+    <>
+      <SidebarPanel
+        expanded={false}
+        onToggle={toggle}
+        toggleIcon={Menu}
+        toggleLabel="Ouvrir le menu"
+      />
+      {drawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            aria-hidden
+            onClick={() => setDrawerOpen(false)}
+          />
+          <SidebarPanel
+            expanded
+            overlay
+            onToggle={() => setDrawerOpen(false)}
+            toggleIcon={X}
+            toggleLabel="Fermer le menu"
+          />
+        </>
+      )}
+    </>
+  );
+}
+
+interface SidebarPanelProps {
+  expanded: boolean;
+  overlay?: boolean;
+  onToggle: () => void;
+  toggleIcon: LucideIcon;
+  toggleLabel: string;
+}
+
+function SidebarPanel({
+  expanded,
+  overlay,
+  onToggle,
+  toggleIcon: ToggleIcon,
+  toggleLabel,
+}: SidebarPanelProps) {
+  const user = useCurrentUser();
+  const items = user?.role === 'ADMIN' ? adminItems : clinicalItems;
 
   return (
     <aside
+      aria-label="Menu principal"
       className={cn(
-        'shrink-0 bg-card border-r border-border flex flex-col transition-all duration-300',
-        collapsed ? 'w-16' : 'w-64',
+        'flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200',
+        expanded ? 'w-64' : 'w-[76px]',
+        overlay && 'fixed inset-y-0 left-0 z-50 w-72 shadow-xl',
       )}
     >
-      {/* Logo + Toggle */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-        {collapsed ? (
-          <button onClick={toggleCollapsed} className="p-1 rounded-md hover:bg-muted mx-auto" title="Alt+S">
-            <img src="/logo_small.png" alt="VP Dietetic Center" className="w-7 h-7" />
-          </button>
-        ) : (
-          <>
-            <div className="flex items-center gap-2.5">
-              <img src="/logo_small.png" alt="VP Dietetic Center" className="w-7 h-7" />
-              <span className="font-semibold text-sm text-foreground">Dietetic Center</span>
-            </div>
-            <button onClick={toggleCollapsed} className="p-2 rounded-md hover:bg-muted" title="Alt+S">
-              <X className="w-5 h-5" />
-            </button>
-          </>
+      {/* Logo + toggle */}
+      <div
+        className={cn(
+          'flex h-16 shrink-0 items-center border-b border-border px-4',
+          expanded ? 'justify-between' : 'justify-center px-0',
         )}
+      >
+        {expanded && (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img src="/logo_small.png" alt="" className="size-9" />
+            <span className="truncate text-base font-semibold text-foreground">
+              Dietetic Center
+            </span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={toggleLabel}
+          aria-expanded={expanded}
+          className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ToggleIcon className="size-6" />
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
-        {visibleNavItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                collapsed && 'justify-center px-2',
-              )
-            }
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            {!collapsed && label}
-          </NavLink>
-        ))}
-
+      <nav className={cn('flex-1 space-y-1 overflow-y-auto py-4', expanded ? 'px-3' : 'px-2')}>
+        {items.map(({ to, label, area }) => {
+          const style = AREAS[area];
+          const Icon = style.icon;
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              aria-label={expanded ? undefined : label}
+              className={({ isActive }) =>
+                cn(
+                  'group relative flex min-h-12 items-center gap-3 rounded-lg text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  expanded ? 'px-3' : 'justify-center',
+                  isActive
+                    ? cn(style.soft, style.text, 'font-semibold')
+                    : 'text-foreground hover:bg-muted',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      className={cn('absolute inset-y-2 left-0 w-1 rounded-r-full', style.solid)}
+                      aria-hidden
+                    />
+                  )}
+                  <Icon className={cn('size-6 shrink-0', style.text)} aria-hidden />
+                  {expanded && <span className="truncate">{label}</span>}
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-border">
-        <div
-          className={cn(
-            'flex items-center gap-2.5 px-2 py-1.5 rounded-lg',
-            collapsed && 'justify-center px-0',
-          )}
-        >
-          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-            <span className="text-xs font-medium text-primary">
+      <div className="border-t border-border p-3">
+        <div className={cn('flex items-center gap-3 px-1 py-1', !expanded && 'justify-center px-0')}>
+          <div
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent"
+            aria-hidden
+          >
+            <span className="text-sm font-semibold text-accent-foreground">
               {user?.firstName?.[0]}
               {user?.lastName?.[0]}
             </span>
           </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">
+          {expanded && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-medium text-foreground">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="truncate text-sm text-muted-foreground">
                 {user ? ROLE_LABELS[user.role] : ''}
               </p>
             </div>

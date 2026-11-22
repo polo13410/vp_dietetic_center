@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
+import { SessionEndDialog } from '../../components/consultations/SessionEndDialog';
 import { GpReportsSection } from '../../components/gp-reports/GpReportsSection';
 import { PatientInvoices } from '../../components/invoices/PatientInvoices';
 import { FilePanel } from '../../components/patient-file/FilePanel';
@@ -74,6 +75,7 @@ export default function PatientDetailPage() {
       ) : (
         <PatientTabs patient={patient} appointments={appointments} />
       )}
+      {!isAssistant && <SessionEndDialog patientId={id} />}
     </div>
   );
 }

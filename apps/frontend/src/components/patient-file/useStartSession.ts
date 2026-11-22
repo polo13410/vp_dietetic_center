@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router';
 
 import api from '../../lib/api';
 import { type Consultation, useInvalidatePatientFile } from '../../lib/patient-file';
+import type { SessionRouteState } from '../consultations/session-route';
 import { toast } from '../ui/toaster';
 
 /**
- * Starts a session (from an appointment or not) and opens it. Starting again from the same
- * appointment reopens the existing session.
+ * Starts a session (from an appointment or not) and opens it on « Avant de commencer ». Starting
+ * again from the same appointment reopens the existing session.
  */
 export function useStartSession(patientId: string) {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export function useStartSession(patientId: string) {
       (await api.post<Consultation>(`/patients/${patientId}/consultations`, body)).data,
     onSuccess: (session) => {
       invalidate(patientId);
-      navigate(`/consultations/${session.id}`);
+      navigate(`/consultations/${session.id}`, { state: { startedSession: session.id } satisfies SessionRouteState });
     },
     onError: (error: any) =>
       toast({

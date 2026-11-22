@@ -148,7 +148,6 @@ export const METRICS: Record<MetricType, { label: string; unit: string; step: nu
   BODY_FAT: { label: 'Masse grasse', unit: '%', step: 0.1 },
   MUSCLE_MASS: { label: 'Masse musculaire', unit: 'kg', step: 0.1 },
 };
-export const METRIC_TYPES = Object.keys(METRICS) as MetricType[];
 
 /** Sections of the medical file, with her labels, in her order. */
 export const FILE_FIELDS: Record<FileField, string> = {
@@ -260,10 +259,19 @@ export function useFileSections(patientId: string | undefined) {
   });
 }
 
-export function usePatientBrief(patientId: string | undefined) {
+/**
+ * The summary before a session. With `beforeSessionId`, as it was before that session (its
+ * « Rappel »): the session itself and later ones are left out.
+ */
+export function usePatientBrief(patientId: string | undefined, beforeSessionId?: string) {
   return useQuery({
-    queryKey: [...fileKey(patientId ?? ''), 'brief'],
-    queryFn: async () => (await api.get<Brief>(`/patients/${patientId}/brief`)).data,
+    queryKey: [...fileKey(patientId ?? ''), 'brief', ...(beforeSessionId ? [beforeSessionId] : [])],
+    queryFn: async () =>
+      (
+        await api.get<Brief>(`/patients/${patientId}/brief`, {
+          params: beforeSessionId ? { before: beforeSessionId } : undefined,
+        })
+      ).data,
     enabled: !!patientId,
   });
 }

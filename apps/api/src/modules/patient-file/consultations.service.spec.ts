@@ -90,6 +90,77 @@ describe('ConsultationsService', () => {
       );
     });
 
+    describe('prefills', () => {
+      const formulas = [
+        { id: 'f-bilan', label: 'Bilan', priceCents: 6000, practitionerId: 'user-1', archivedAt: null },
+        { id: 'f-suivi', label: 'Suivi', priceCents: 5000, practitionerId: 'user-1', archivedAt: null },
+      ];
+      beforeEach(() => {
+        mockPrisma.formula.findMany.mockResolvedValue(formulas.map(({ id, label }) => ({ id, label })));
+        mockPrisma.formula.findUnique.mockImplementation(async ({ where }: any) =>
+          formulas.find((f) => f.id === where.id),
+        );
+        mockPrisma.consultation.create.mockResolvedValue({ id: 'c1' });
+      });
+
+      it('chooses « Bilan » for the first session', async () => {
+        mockPrisma.consultation.count.mockResolvedValue(0);
+        mockPrisma.consultation.findFirst.mockResolvedValue(null);
+
+        await service.create(user as any, 'p1', {});
+
+        expect(mockPrisma.formula.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { practitionerId: 'user-1', archivedAt: null } }),
+        );
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({
+          formulaId: 'f-bilan',
+          formulaLabel: 'Bilan',
+          priceCents: 6000,
+          paymentMethod: undefined,
+        });
+      });
+
+      it('chooses « Suivi » after, with the patient’s last payment method', async () => {
+        mockPrisma.consultation.count.mockResolvedValue(3);
+        mockPrisma.consultation.findFirst.mockResolvedValue({ paymentMethod: 'CARD' });
+
+        await service.create(user as any, 'p1', {});
+
+        expect(mockPrisma.consultation.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { patientId: 'p1', paymentMethod: { not: 'NONE' } } }),
+        );
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({
+          formulaId: 'f-suivi',
+          formulaLabel: 'Suivi',
+          paymentMethod: 'CARD',
+        });
+      });
+
+      it('finds her formula whatever its case or accents, and leaves it empty without one', async () => {
+        mockPrisma.consultation.count.mockResolvedValue(1);
+        mockPrisma.formula.findMany.mockResolvedValueOnce([{ id: 'f-suivi', label: 'SUIVI (45 min)' }]);
+        await service.create(user as any, 'p1', {});
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data.formulaId).toBe('f-suivi');
+
+        mockPrisma.formula.findMany.mockResolvedValueOnce([{ id: 'f-x', label: 'Consultation' }]);
+        await service.create(user as any, 'p1', {});
+        expect(mockPrisma.consultation.create.mock.calls[1][0].data).not.toHaveProperty('formulaId');
+      });
+
+      it('keeps what is given', async () => {
+        mockPrisma.consultation.count.mockResolvedValue(0);
+        mockPrisma.consultation.findFirst.mockResolvedValue({ paymentMethod: 'CARD' });
+
+        await service.create(user as any, 'p1', { formulaId: 'f-suivi', paymentMethod: 'CASH' });
+
+        expect(mockPrisma.formula.findMany).not.toHaveBeenCalled();
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({
+          formulaId: 'f-suivi',
+          paymentMethod: 'CASH',
+        });
+      });
+    });
+
     it('returns the existing session when started again from the same appointment', async () => {
       mockPrisma.consultation.findUnique.mockResolvedValue(session);
       await expect(service.create(user as any, 'p1', { appointmentId: 'a1' })).resolves.toBe(session);

@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useAutosave } from '../../hooks/useAutosave';
+import { useGrowingTextarea } from '../../hooks/useGrowingTextarea';
 import api from '../../lib/api';
 import {
   FILE_FIELD_TYPES,
@@ -118,7 +119,6 @@ export function FileSectionEditor({
   const invalidate = useInvalidatePatientFile();
   const [content, setContent] = useState(current);
   const focused = useRef(false);
-  const ref = useRef<HTMLTextAreaElement>(null);
   const autosave = useAutosave(async (text: string) => {
     await api.put(`/patients/${patientId}/file/${field}`, { content: text, consultationId });
     invalidate(patientId);
@@ -131,12 +131,7 @@ export function FileSectionEditor({
     if (!focused.current && !autosave.hasPending()) setContent(current);
   }
 
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight + 2}px`;
-  }, [content]);
+  const ref = useGrowingTextarea(content);
 
   return (
     <div className="space-y-1">

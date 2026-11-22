@@ -4,6 +4,8 @@
  * realistic follow-ups (sessions, weights, medical file with its history, life events).
  * Martine Roux is the test case of docs/REFONTE.md § 3.1: woman, 56, 1.59 m, 79 → 78.2 →
  * 76.5 kg (BMI 31.25, BMR 5.86 / 5.83 / 5.77 MJ, 1 400.3 / 1 393.5 / 1 378.9 kcal).
+ * Past sessions are invoiced through the app's own rules, except the two latest (« à facturer »);
+ * one invoice was corrected (credit note + new invoice).
  * Dates are relative to today, so the dashboard always has something to show.
  * Re-running the seed rebuilds the demo patients from scratch.
  */
@@ -22,6 +24,9 @@ import {
   UserRole,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+
+import { PatientAccessService } from '../src/common/access/patient-access.service';
+import { InvoicesService } from '../src/modules/invoices/invoices.service';
 
 const prisma = new PrismaClient();
 
@@ -114,18 +119,49 @@ async function upsertPractice(userId: string) {
 /** Removes the demo patients and everything attached to them. */
 async function resetDemoPatients() {
   const patientId = { in: Object.values(PATIENT_IDS) };
-  await prisma.$transaction([
-    prisma.gpReport.deleteMany({ where: { patientId } }),
-    prisma.fileEntry.deleteMany({ where: { patientId } }),
-    prisma.measurement.deleteMany({ where: { patientId } }),
-    prisma.lifeEvent.deleteMany({ where: { patientId } }),
-    prisma.consultation.deleteMany({ where: { patientId } }),
-    prisma.task.deleteMany({ where: { patientId } }),
-    prisma.document.deleteMany({ where: { patientId } }),
-    prisma.appointment.deleteMany({ where: { patientId } }),
-    prisma.consent.deleteMany({ where: { patientId } }),
-    prisma.patient.deleteMany({ where: { id: patientId } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    // Demo invoices only: issued invoices are otherwise never deleted (database guard)
+    await tx.$executeRawUnsafe("SET LOCAL app.allow_invoice_delete = 'on'");
+    await tx.invoice.deleteMany({ where: { patientId } });
+    await tx.gpReport.deleteMany({ where: { patientId } });
+    await tx.fileEntry.deleteMany({ where: { patientId } });
+    await tx.measurement.deleteMany({ where: { patientId } });
+    await tx.lifeEvent.deleteMany({ where: { patientId } });
+    await tx.consultation.deleteMany({ where: { patientId } });
+    await tx.task.deleteMany({ where: { patientId } });
+    await tx.document.deleteMany({ where: { patientId } });
+    await tx.appointment.deleteMany({ where: { patientId } });
+    await tx.consent.deleteMany({ where: { patientId } });
+    await tx.patient.deleteMany({ where: { id: patientId } });
+  });
+}
+
+/**
+ * Invoices of the past sessions, issued with the app's own rules (numbering, copies, credit
+ * notes) one hour after each session. The two latest sessions are left « à facturer ».
+ * Martine's « Suivi 1 » was invoiced « Non réglé », the cheque was noted afterwards: its invoice
+ * is corrected today (credit note + new invoice).
+ */
+async function seedInvoices(practitionerId: string) {
+  const user = { id: practitionerId, role: UserRole.PRATICIENNE };
+  const invoices = new InvoicesService(prisma as any, new PatientAccessService(prisma as any));
+  const sessions = await prisma.consultation.findMany({
+    where: { practitionerId, patientId: { in: Object.values(PATIENT_IDS) } },
+    orderBy: { date: 'asc' },
+  });
+  const corrected = sessions.filter((s) => s.patientId === PATIENT_IDS.martine)[1];
+  let toCorrect: string | null = null;
+  for (const s of sessions.slice(0, -2)) {
+    const issuedAt = new Date(s.date.getTime() + 3600 * 1000);
+    if (s.id !== corrected.id) {
+      await invoices.issue(user, s.id, issuedAt);
+      continue;
+    }
+    await prisma.consultation.update({ where: { id: s.id }, data: { paymentMethod: PaymentMethod.NONE } });
+    toCorrect = (await invoices.issue(user, s.id, issuedAt)).id;
+    await prisma.consultation.update({ where: { id: s.id }, data: { paymentMethod: PaymentMethod.CHECK } });
+  }
+  if (toCorrect) await invoices.correct(user, toCorrect, at(0, 9));
 }
 
 /** A past appointment and its session (a row of her follow-up sheet), with what was recorded. */
@@ -530,6 +566,9 @@ async function main() {
   }
   console.log('✅ Upcoming appointments');
 
+  // ── Invoices ────────────────────────────────────────────────────────────────
+  await seedInvoices(pract.id);
+
   // ── Tasks ───────────────────────────────────────────────────────────────────
   const tasks = [
     { patientId: PATIENT_IDS.martine, title: 'Relire et envoyer le compte rendu au Dr Garnier', priority: TaskPriority.HIGH, dueAt: at(2) },
@@ -560,6 +599,7 @@ Comptes :
 
 6 patients suivis par Valérie Perrot (formules Bilan 60 € et Suivi 50 €), dont Martine Roux,
 le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg).
+Séances passées facturées (sauf les deux dernières), une facture corrigée par un avoir.
   `);
 }
 

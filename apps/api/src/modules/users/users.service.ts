@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { ensureDefaultFormulas } from '../me/default-formulas';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -41,7 +42,6 @@ export class UsersService {
         lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
-        preferences: true,
       },
     });
   }
@@ -55,23 +55,28 @@ export class UsersService {
     if (existing) throw new ConflictException('Cet email est déjà utilisé');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    return this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        role: dto.role ?? UserRole.ASSISTANTE,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          role: dto.role ?? UserRole.ASSISTANTE,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+        },
+      });
+      // A new practitioner starts with « Bilan » and « Suivi », prices to fill in
+      if (user.role === UserRole.PRATICIENNE) await ensureDefaultFormulas(tx, user.id);
+      return user;
     });
   }
 
@@ -85,18 +90,25 @@ export class UsersService {
       delete data.password;
     }
 
-    return this.prisma.user.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isActive: true,
-        updatedAt: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id },
+        data,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          updatedAt: true,
+        },
+      });
+      // Becoming a practitioner: she gets the default formulas if she has none
+      if (user.role !== UserRole.PRATICIENNE && updated.role === UserRole.PRATICIENNE) {
+        await ensureDefaultFormulas(tx, id);
+      }
+      return updated;
     });
   }
 

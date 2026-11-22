@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, MetricType, Prisma } from '@prisma/client';
+import { AppointmentStatus, MetricType, PaymentMethod, Prisma } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -67,7 +67,11 @@ export class ConsultationsService {
     return this.withFigures(session);
   }
 
-  /** Starts a session. Starting it again from the same appointment returns the existing one. */
+  /**
+   * Starts a session. Starting it again from the same appointment returns the existing one.
+   * Unless given, the formula is « Bilan » for the first session and « Suivi » after (her
+   * formulas with those names), and the payment method the patient's last one.
+   */
   async create(user: AccessUser, patientId: string, dto: CreateConsultationDto) {
     const { practitionerId } = await this.access.assertPatient(user, patientId);
 
@@ -88,13 +92,14 @@ export class ConsultationsService {
       if (!dto.date) date = appointment.startAt;
     }
 
+    const formulaId = dto.formulaId ?? (await this.defaultFormulaId(practitionerId, patientId));
     const data = {
       patientId,
       practitionerId,
       appointmentId: dto.appointmentId,
       date,
-      paymentMethod: dto.paymentMethod,
-      ...(dto.formulaId ? await this.formulaCopy(practitionerId, dto.formulaId) : {}),
+      paymentMethod: dto.paymentMethod ?? (await this.lastPaymentMethod(patientId)),
+      ...(formulaId ? await this.formulaCopy(practitionerId, formulaId) : {}),
     };
     if (!dto.appointmentId) return this.prisma.consultation.create({ data });
     const [session] = await this.prisma.$transaction([
@@ -173,6 +178,30 @@ export class ConsultationsService {
     );
   }
 
+  /** Her « Bilan » formula for the first session, « Suivi » after; none if she has no such name. */
+  private async defaultFormulaId(practitionerId: string, patientId: string) {
+    const [done, formulas] = await Promise.all([
+      this.prisma.consultation.count({ where: { patientId } }),
+      this.prisma.formula.findMany({
+        where: { practitionerId, archivedAt: null },
+        orderBy: { position: 'asc' },
+        select: { id: true, label: true },
+      }),
+    ]);
+    const name = done ? 'suivi' : 'bilan';
+    return (formulas ?? []).find((f) => plain(f.label).startsWith(name))?.id;
+  }
+
+  /** The patient's last payment method (« Non réglé » does not count as one). */
+  private async lastPaymentMethod(patientId: string) {
+    const last = await this.prisma.consultation.findFirst({
+      where: { patientId, paymentMethod: { not: PaymentMethod.NONE } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: { paymentMethod: true },
+    });
+    return last?.paymentMethod;
+  }
+
   /** The formula's label and price, copied so later price changes leave the session as it was. */
   private async formulaCopy(practitionerId: string, formulaId: string) {
     const formula = await this.prisma.formula.findUnique({ where: { id: formulaId } });
@@ -191,3 +220,7 @@ export class ConsultationsService {
     return session;
   }
 }
+
+/** « Bilan », « bilan » and « BILAN » alike, accents ignored. */
+const plain = (label: string) =>
+  label.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim().toLowerCase();

@@ -6,7 +6,7 @@ import { RequireRole, RoleHome } from './components/auth/RequireRole';
 import { AppLayout } from './components/layout/AppLayout';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { LoadingScreen } from './components/ui/loading-screen';
-import { ADMIN_ROLES, CLINICAL_ROLES } from './lib/roles';
+import { ADMIN_ROLES, CLINICAL_ROLES, PRACTITIONER_ROLES } from './lib/roles';
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
@@ -19,6 +19,7 @@ const PatientNewPage = lazy(() => import('./pages/patients/PatientNewPage'));
 const AppointmentsPage = lazy(() => import('./pages/appointments/AppointmentsPage'));
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/AppointmentDetailPage'));
 const ConsultationPage = lazy(() => import('./pages/consultations/ConsultationPage'));
+const InvoicesPage = lazy(() => import('./pages/invoices/InvoicesPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AuditPage = lazy(() => import('./pages/admin/AuditPage'));
@@ -58,6 +59,11 @@ export function AppRouter() {
             {/* Rendez-vous */}
             <Route path="/appointments" element={<AppointmentsPage />} />
             <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
+          </Route>
+
+          {/* Factures: the practitioner's own */}
+          <Route element={<RequireRole roles={PRACTITIONER_ROLES} />}>
+            <Route path="/invoices" element={<InvoicesPage />} />
           </Route>
 
           {/* Administration: the app and its users */}

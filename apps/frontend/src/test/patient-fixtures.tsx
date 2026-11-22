@@ -1,6 +1,6 @@
 /** The seed's test patient (docs/REFONTE.md § 3.1): woman, 56, 1.59 m, 79 → 78.2 → 76.5 kg. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render } from '@testing-library/react';
+import { render, type RenderResult } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
@@ -169,7 +169,7 @@ export const ROUTES = {
 };
 
 /** Renders with a fresh query cache, inside a router (other paths show their name). */
-export function renderWithProviders(ui: ReactNode, path = '/') {
+export function renderWithProviders(ui: ReactNode, path = '/'): RenderResult {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>

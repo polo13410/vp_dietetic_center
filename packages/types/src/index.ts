@@ -493,3 +493,121 @@ export interface DashboardSummary {
   }[];
   tasks: TaskDto[];
 }
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+/** INVOICE: « facture » (2026-0001). CREDIT_NOTE: « avoir » (A-2026-0001), cancels an invoice. */
+export enum InvoiceType {
+  INVOICE = 'INVOICE',
+  CREDIT_NOTE = 'CREDIT_NOTE',
+}
+
+/** Another document an invoice is linked to */
+export interface InvoiceLinkDto {
+  id: string;
+  number: string;
+  issuedAt: string;
+}
+
+/**
+ * An invoice or a credit note. Never changed once issued: it keeps copies of the practice,
+ * the patient and the session as they were then (patientId / consultationId become null
+ * when those are deleted).
+ */
+export interface InvoiceDto {
+  id: string;
+  practitionerId: string;
+  patientId: string | null;
+  consultationId: string | null;
+  type: InvoiceType;
+  year: number;
+  sequence: number;
+  /** "2026-0001" or "A-2026-0001" */
+  number: string;
+  issuedAt: string;
+  /** Negative for a credit note */
+  amountCents: number;
+  paymentMethod: PaymentMethod;
+  /** Formula of the session */
+  serviceLabel: string;
+  /** Date of the session */
+  serviceDate: string;
+  practiceName: string;
+  practiceAddress: string | null;
+  practiceZipCode: string | null;
+  practiceCity: string | null;
+  siret: string | null;
+  adeliRpps: string | null;
+  vatMention: string | null;
+  invoiceFooter: string | null;
+  patientFirstName: string;
+  patientLastName: string;
+  patientAddress: string | null;
+  patientZipCode: string | null;
+  patientCity: string | null;
+  /** Invoices: set once cancelled by a credit note */
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  creditNoteId: string | null;
+  replacedById: string | null;
+  createdAt: string;
+  /** Invoices: the credit note that cancels it */
+  creditNote: InvoiceLinkDto | null;
+  /** Invoices: the invoice issued in its place */
+  replacedBy: InvoiceLinkDto | null;
+  /** Credit notes: the invoice it cancels */
+  cancels: InvoiceLinkDto | null;
+  /** The invoice this one replaces */
+  replaces: InvoiceLinkDto | null;
+}
+
+/** What an invoice no longer matches in its session */
+export type InvoiceMismatch = 'formula' | 'price' | 'paymentMethod' | 'date';
+
+/** Totals of invoices in force (cancelled invoices and credit notes are left out). */
+export interface InvoiceTotalsDto {
+  /** Paid by any means (« encaissé ») */
+  collectedCents: number;
+  /** Invoiced « Non réglé » */
+  unpaidCents: number;
+  count: number;
+  byPaymentMethod: Record<PaymentMethod, number>;
+}
+
+/** GET /invoices?from=&to= (Paris days, both included) */
+export interface InvoiceListDto {
+  from: string;
+  to: string;
+  invoices: InvoiceDto[];
+  totals: InvoiceTotalsDto & { byMonth: (InvoiceTotalsDto & { month: string })[] };
+}
+
+/** GET /patients/:id/invoices (latest first) */
+export interface PatientInvoicesDto {
+  invoices: InvoiceDto[];
+  totals: InvoiceTotalsDto;
+}
+
+/** GET /consultations/:id/invoices */
+export interface SessionInvoicesDto {
+  /** The invoice in force, if the session was invoiced */
+  current: InvoiceDto | null;
+  mismatches: InvoiceMismatch[];
+  /** Cancelled invoices and credit notes of the session, latest first */
+  history: InvoiceDto[];
+}
+
+/** GET /invoices/to-issue: a session without an invoice in force */
+export interface SessionToInvoiceDto {
+  id: string;
+  date: string;
+  formulaLabel: string | null;
+  priceCents: number | null;
+  paymentMethod: PaymentMethod;
+  patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName'>;
+}
+
+/** POST /invoices/:id/cancel */
+export interface CancelInvoiceDto {
+  reason?: string;
+}

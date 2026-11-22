@@ -1,4 +1,5 @@
 /** The audit trail as returned by the API, with French labels. */
+import type { BadgeTone } from '../components/shared/StatusBadge';
 
 export interface AuditEntry {
   id: string;
@@ -13,14 +14,14 @@ export interface AuditEntry {
 
 export type AuditAction = 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'EXPORT';
 
-export const AUDIT_ACTIONS: Record<AuditAction, { label: string; className: string }> = {
-  READ: { label: 'Consultation', className: 'bg-muted text-muted-foreground border-border' },
-  CREATE: { label: 'Création', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
-  UPDATE: { label: 'Modification', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800' },
-  DELETE: { label: 'Suppression', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800' },
-  EXPORT: { label: 'Téléchargement', className: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 border-violet-200 dark:border-violet-800' },
-  LOGIN: { label: 'Connexion', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800' },
-  LOGOUT: { label: 'Déconnexion', className: 'bg-muted text-muted-foreground border-border' },
+export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: BadgeTone }> = {
+  READ: { label: 'Consultation', tone: 'neutral' },
+  CREATE: { label: 'Création', tone: 'success' },
+  UPDATE: { label: 'Modification', tone: 'info' },
+  DELETE: { label: 'Suppression', tone: 'danger' },
+  EXPORT: { label: 'Téléchargement', tone: 'warning' },
+  LOGIN: { label: 'Connexion', tone: 'neutral' },
+  LOGOUT: { label: 'Déconnexion', tone: 'neutral' },
 };
 
 export const AUDIT_ENTITIES: Record<string, string> = {

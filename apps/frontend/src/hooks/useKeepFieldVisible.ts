@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useState } from 'react';
 
 const MARGIN = 24;
 /** Time for the iPad keyboard to slide up before measuring what it hides */
@@ -29,13 +29,13 @@ function scrollParent(el: HTMLElement): HTMLElement {
  * The app scrolls inside `<main>`, which the keyboard covers without resizing: this scrolls it
  * when a field is focused, when the keyboard opens and while a text area grows. `keyboardInset`
  * is the height hidden by the keyboard, to add below the content so the last field can rise.
+ * `ref` is a callback ref, so it also works on an element mounted later (a dialog's content).
  */
 export function useKeepFieldVisible<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  const [root, setRoot] = useState<T | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
 
   useEffect(() => {
-    const root = ref.current;
     if (!root) return;
     const viewport = window.visualViewport;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -74,9 +74,9 @@ export function useKeepFieldVisible<T extends HTMLElement>() {
       root.removeEventListener('input', onInput);
       viewport?.removeEventListener('resize', onResize);
     };
-  }, []);
+  }, [root]);
 
-  return { ref, keyboardInset };
+  return { ref: setRoot, node: root, keyboardInset };
 }
 
 /**

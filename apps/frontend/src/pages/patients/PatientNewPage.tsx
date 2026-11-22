@@ -97,7 +97,7 @@ export default function PatientNewPage() {
   const measurements = useMeasurements(patientId);
   const invalidate = useInvalidatePatientFile();
   const startSession = useStartSession(patientId ?? '');
-  const { ref, keyboardInset } = useKeepFieldVisible<HTMLDivElement>();
+  const { ref, node, keyboardInset } = useKeepFieldVisible<HTMLDivElement>();
 
   // What was last saved, and what is being typed (kept when going back and forth)
   const [saved, setSaved] = useState<Drafts | null>(patientId ? null : EMPTY);
@@ -137,7 +137,7 @@ export default function PatientNewPage() {
     setShowErrors(false);
     owner.current = id;
     if (id) setParams({ patient: id, step: String(next) }, { replace: true });
-    ref.current?.scrollIntoView?.({ block: 'start' });
+    node?.scrollIntoView?.({ block: 'start' });
   };
 
   /** Saves the current step; returns the patient's id, or undefined when nothing could be saved. */

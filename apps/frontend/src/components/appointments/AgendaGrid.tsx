@@ -4,7 +4,7 @@ import { CheckCircle2, Phone, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
-import { cn } from '../../lib/utils';
+import { cn, formatTime } from '../../lib/utils';
 
 export interface AgendaAppointment {
   id: string;
@@ -17,17 +17,29 @@ export interface AgendaAppointment {
   consultation?: { id: string } | null;
 }
 
-const HOUR_PX = 56;
+/** 45 minutes leave room for the time and the name on two lines */
+const HOUR_PX = 64;
 const DEFAULT_START = 8;
 const DEFAULT_END = 19;
 
+/** Semantic tones (docs/DESIGN.md § 1.2), as StatusBadge uses them */
 const STATUS_STYLE: Record<string, string> = {
-  SCHEDULED: 'border-l-blue-500 bg-blue-50 text-blue-950 dark:bg-blue-950/50 dark:text-blue-100',
-  CONFIRMED: 'border-l-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-950/50 dark:text-indigo-100',
-  COMPLETED: 'border-l-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100',
-  CANCELLED: 'border-l-red-400 bg-muted text-muted-foreground line-through',
-  NO_SHOW: 'border-l-orange-400 bg-orange-50 text-orange-950 dark:bg-orange-950/40 dark:text-orange-100',
+  SCHEDULED: 'border-l-info bg-info-soft text-foreground',
+  CONFIRMED: 'border-l-info bg-info-soft text-foreground',
+  COMPLETED: 'border-l-success bg-success-soft text-foreground',
+  CANCELLED: 'border-l-danger bg-muted text-muted-foreground line-through',
+  NO_SHOW: 'border-l-warning bg-warning-soft text-foreground',
 };
+
+const COLUMNS = (days: number) => `3.5rem repeat(${days}, minmax(0, 1fr))`;
+
+const TYPE_ICONS: Record<string, { icon: typeof Video; label: string }> = {
+  VIDEO: { icon: Video, label: 'Vidéo' },
+  PHONE: { icon: Phone, label: 'Téléphone' },
+};
+
+/** « 9 h » */
+const hourLabel = (hour: number) => `${hour} h`;
 
 /**
  * A time grid (one column per day). Appointments are placed by time and length; clicking an
@@ -58,25 +70,27 @@ export function AgendaGrid({
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
       <div className="min-w-[640px]">
         {/* Day headers */}
-        <div className="grid border-b border-border" style={{ gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))` }}>
+        <div className="grid border-b border-border" style={{ gridTemplateColumns: COLUMNS(days.length) }}>
           <div />
           {days.map((day) => (
             <div
               key={day.toISOString()}
               className={cn('border-l border-border px-2 py-2 text-center', isToday(day) && 'bg-primary/5')}
             >
-              <p className="text-xs uppercase text-muted-foreground">{format(day, 'EEE', { locale: fr })}</p>
-              <p className={cn('text-sm font-semibold', isToday(day) && 'text-primary')}>{format(day, 'd MMM', { locale: fr })}</p>
+              <p className="text-sm text-muted-foreground">{format(day, 'EEEE', { locale: fr })}</p>
+              <p className={cn('text-base font-semibold', isToday(day) && 'text-primary')}>
+                {format(day, 'd MMM', { locale: fr })}
+              </p>
             </div>
           ))}
         </div>
 
         {/* Time grid */}
-        <div className="grid" style={{ gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))` }}>
+        <div className="grid" style={{ gridTemplateColumns: COLUMNS(days.length) }}>
           <div>
             {hourLabels.map((h) => (
-              <div key={h} className="relative text-right pr-2 text-[11px] text-muted-foreground" style={{ height: HOUR_PX }}>
-                <span className="relative -top-2">{`${h}:00`}</span>
+              <div key={h} className="relative pr-2 text-right text-xs text-muted-foreground" style={{ height: HOUR_PX }}>
+                <span className="relative -top-2">{hourLabel(h)}</span>
               </div>
             ))}
           </div>
@@ -98,19 +112,19 @@ export function AgendaGrid({
                         onSlotClick(start);
                       }}
                       className={cn(
-                        'block w-full hover:bg-primary/10 transition-colors',
+                        'block w-full transition-colors hover:bg-primary/10 focus-visible:bg-primary/10 focus-visible:outline-none',
                         m === 0 ? 'border-t border-border' : 'border-t border-dashed border-border/50',
                       )}
                       style={{ height: HOUR_PX / 2 }}
-                      title={`Nouveau rendez-vous le ${format(day, 'd MMM', { locale: fr })} à ${h}:${m === 0 ? '00' : '30'}`}
+                      aria-label={`Nouveau rendez-vous le ${format(day, 'EEEE d MMMM', { locale: fr })} à ${h} h ${m === 0 ? '00' : '30'}`}
                     />
                   )),
                 )}
 
                 {/* Now */}
                 {isToday(day) && nowTop >= 0 && nowTop <= hourLabels.length * HOUR_PX && (
-                  <div className="pointer-events-none absolute left-0 right-0 z-10 h-0.5 bg-red-500" style={{ top: nowTop }}>
-                    <span className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+                  <div className="pointer-events-none absolute left-0 right-0 z-10 h-0.5 bg-danger" style={{ top: nowTop }}>
+                    <span className="absolute -left-1 -top-1 size-2.5 rounded-full bg-danger" />
                   </div>
                 )}
 
@@ -129,27 +143,33 @@ export function AgendaGrid({
 function AppointmentBlock({ appt, startHour }: { appt: AgendaAppointment; startHour: number }) {
   const start = new Date(appt.startAt);
   const top = ((start.getHours() - startHour) * 60 + start.getMinutes()) * (HOUR_PX / 60);
-  const height = Math.max(appt.duration * (HOUR_PX / 60), 22);
-  const TypeIcon = appt.type === 'VIDEO' ? Video : appt.type === 'PHONE' ? Phone : null;
+  const height = Math.max(appt.duration * (HOUR_PX / 60), 24);
+  const type = TYPE_ICONS[appt.type];
+  const name = `${appt.patient?.firstName ?? ''} ${appt.patient?.lastName ?? ''}`.trim();
   return (
     <Link
       to={`/appointments/${appt.id}`}
       className={cn(
-        'absolute left-1 right-1 z-20 overflow-hidden rounded-md border-l-4 px-2 py-1 text-xs shadow-sm hover:shadow-md transition-shadow',
+        'absolute left-1 right-1 z-20 overflow-hidden rounded-md border-l-4 px-2 py-1 text-sm leading-5 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         STATUS_STYLE[appt.status] ?? STATUS_STYLE.SCHEDULED,
       )}
       style={{ top, height }}
-      title={`${format(start, 'HH:mm')} · ${appt.patient?.firstName} ${appt.patient?.lastName}${appt.reason ? ` · ${appt.reason}` : ''}`}
+      aria-label={[
+        `${formatTime(start)}, ${name}`,
+        type?.label,
+        appt.consultation ? 'séance commencée' : null,
+        appt.status === 'CANCELLED' ? 'annulé' : appt.status === 'NO_SHOW' ? 'absent' : null,
+      ]
+        .filter(Boolean)
+        .join(', ')}
     >
       <div className="flex items-center gap-1">
-        <span className="font-semibold tabular-nums">{format(start, 'HH:mm')}</span>
-        {TypeIcon && <TypeIcon className="h-3 w-3 opacity-70" />}
-        {appt.consultation && <CheckCircle2 className="ml-auto h-3 w-3" />}
+        <span className="font-semibold tabular-nums">{formatTime(start)}</span>
+        {type && <type.icon className="size-3.5 text-muted-foreground" aria-hidden />}
+        {appt.consultation && <CheckCircle2 className="ml-auto size-3.5 text-success" aria-hidden />}
       </div>
-      <p className="truncate font-medium">
-        {appt.patient?.firstName} {appt.patient?.lastName}
-      </p>
-      {height > 48 && appt.reason && <p className="truncate opacity-70">{appt.reason}</p>}
+      <p className="truncate font-medium">{name}</p>
+      {height > 64 && appt.reason && <p className="truncate text-muted-foreground">{appt.reason}</p>}
     </Link>
   );
 }

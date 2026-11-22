@@ -20,7 +20,7 @@ import { type SessionToInvoiceDto, useIssueInvoice, useSessionsToInvoice } from 
 import { formatPrice } from '../../lib/patient-file';
 import { cn, formatLongDate, formatTime, todayISO } from '../../lib/utils';
 
-const TYPE_LABELS: Record<string, string> = { IN_PERSON: 'En cabinet', VIDEO: 'Visio', PHONE: 'Téléphone' };
+const TYPE_LABELS: Record<string, string> = { IN_PERSON: 'En cabinet', VIDEO: 'Vidéo', PHONE: 'Téléphone' };
 const UPCOMING = ['SCHEDULED', 'CONFIRMED'];
 /** « Factures à faire » shows this many sessions before « Voir les N autres » */
 const INVOICES_SHOWN = 5;

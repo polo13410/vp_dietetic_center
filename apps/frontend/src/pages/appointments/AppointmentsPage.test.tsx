@@ -31,7 +31,7 @@ describe('AppointmentsPage week view', () => {
 
   it('books an appointment on the Sunday slot that was clicked', () => {
     renderAgenda('/appointments?view=week&date=2026-11-25');
-    fireEvent.click(screen.getByTitle('Nouveau rendez-vous le 29 nov. à 10:00'));
+    fireEvent.click(screen.getByRole('button', { name: 'Nouveau rendez-vous le dimanche 29 novembre à 10 h 00' }));
     expect(screen.getByDisplayValue('2026-11-29T10:00')).toBeInTheDocument();
   });
 });

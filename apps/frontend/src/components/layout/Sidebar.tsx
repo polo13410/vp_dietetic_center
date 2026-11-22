@@ -13,6 +13,8 @@ interface NavItem {
   to: string;
   label: string;
   area: Area;
+  /** Only for these roles (default: everyone the list is for) */
+  roles?: string[];
 }
 
 // Practitioners work with their patients; notes, documents and tasks live in each patient's file
@@ -20,6 +22,7 @@ const clinicalItems: NavItem[] = [
   { to: '/dashboard', label: 'Accueil', area: 'home' },
   { to: '/patients', label: 'Patients', area: 'patients' },
   { to: '/appointments', label: 'Agenda', area: 'agenda' },
+  { to: '/invoices', label: 'Factures', area: 'invoices', roles: ['PRATICIENNE'] },
   { to: '/settings', label: 'Paramètres', area: 'settings' },
 ];
 
@@ -121,7 +124,9 @@ function SidebarPanel({
   toggleLabel,
 }: SidebarPanelProps) {
   const user = useCurrentUser();
-  const items = user?.role === 'ADMIN' ? adminItems : clinicalItems;
+  const items = (user?.role === 'ADMIN' ? adminItems : clinicalItems).filter(
+    (item) => !item.roles || (user && item.roles.includes(user.role)),
+  );
 
   return (
     <aside

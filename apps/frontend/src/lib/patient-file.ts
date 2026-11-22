@@ -298,6 +298,8 @@ export function useInvalidatePatientFile() {
     queryClient.invalidateQueries({ queryKey: ['patient', patientId] });
     queryClient.invalidateQueries({ queryKey: ['patients'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    // An invoice may no longer match its session
+    queryClient.invalidateQueries({ queryKey: ['invoices'] });
   };
 }
 

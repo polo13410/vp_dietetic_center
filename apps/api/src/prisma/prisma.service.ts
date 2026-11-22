@@ -26,6 +26,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       throw new Error('cleanDatabase is not allowed in production');
     }
     const tableNames = [
+      'invoice',
       'audit_log',
       'task',
       'document',

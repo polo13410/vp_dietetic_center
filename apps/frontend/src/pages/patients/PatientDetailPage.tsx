@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
 import { AppointmentFormDialog } from '../../components/appointments/AppointmentFormDialog';
+import { PatientInvoices } from '../../components/invoices/PatientInvoices';
 import { FilePanel } from '../../components/patient-file/FilePanel';
 import { PatientRecap } from '../../components/patient-file/PatientRecap';
 import { SessionsPanel } from '../../components/patient-file/SessionsPanel';
@@ -37,11 +38,12 @@ import {
 } from '../../lib/patient-file';
 import { ageInYears } from '../../lib/utils';
 
-/** Her Numbers tabs, in her order. « Factures » arrives with invoicing (lot 5). */
+/** Her Numbers tabs, in her order. */
 const TABS = [
   { value: 'recapitulatif', label: 'Récapitulatif' },
   { value: 'dossier', label: 'Dossier médical' },
   { value: 'suivi', label: 'Suivi' },
+  { value: 'factures', label: 'Factures' },
   { value: 'documents', label: 'Documents' },
 ] as const;
 type Tab = (typeof TABS)[number]['value'];
@@ -119,6 +121,9 @@ function PatientTabs({ patient, appointments }: { patient: Patient; appointments
       </TabsContent>
       <TabsContent value="suivi" className="mt-3">
         <SessionsPanel patientId={patient.id} onStart={start.run} starting={start.isPending} />
+      </TabsContent>
+      <TabsContent value="factures" className="mt-3">
+        <PatientInvoices patientId={patient.id} />
       </TabsContent>
       <TabsContent value="documents" className="mt-3">
         <PatientDocuments patientId={patient.id} />

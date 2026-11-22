@@ -1,49 +1,69 @@
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/badge';
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+/** Semantic tones from globals.css (docs/DESIGN.md § 1.2): strong text on a soft background */
+export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+
+const TONE_CLASSES: Record<BadgeTone, string> = {
+  success: 'bg-success-soft text-success border-success/25',
+  warning: 'bg-warning-soft text-warning border-warning/25',
+  danger: 'bg-danger-soft text-danger border-danger/25',
+  info: 'bg-info-soft text-info border-info/25',
+  neutral: 'bg-neutral-soft text-neutral border-neutral/25',
+};
+
+const STATUS_CONFIG: Record<string, { label: string; tone: BadgeTone }> = {
   // Appointment statuses
-  SCHEDULED: { label: 'Planifie', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-  CONFIRMED: { label: 'Confirme', className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800' },
-  COMPLETED: { label: 'Termine', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-  CANCELLED: { label: 'Annule', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800' },
-  NO_SHOW: { label: 'Absent', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
+  SCHEDULED: { label: 'Planifié', tone: 'info' },
+  CONFIRMED: { label: 'Confirmé', tone: 'info' },
+  COMPLETED: { label: 'Terminé', tone: 'success' },
+  CANCELLED: { label: 'Annulé', tone: 'danger' },
+  NO_SHOW: { label: 'Absent', tone: 'warning' },
 
   // Task statuses
-  PENDING: { label: 'En attente', className: 'bg-muted text-muted-foreground border-border' },
-  IN_PROGRESS: { label: 'En cours', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-  DONE: { label: 'Terminée', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
+  PENDING: { label: 'En attente', tone: 'neutral' },
+  IN_PROGRESS: { label: 'En cours', tone: 'info' },
+  DONE: { label: 'Terminée', tone: 'success' },
 
   // Task priorities
-  LOW: { label: 'Basse', className: 'bg-muted text-muted-foreground border-border' },
-  MEDIUM: { label: 'Moyenne', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800' },
-  HIGH: { label: 'Haute', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
-  URGENT: { label: 'Urgente', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800' },
+  LOW: { label: 'Basse', tone: 'neutral' },
+  MEDIUM: { label: 'Moyenne', tone: 'info' },
+  HIGH: { label: 'Haute', tone: 'warning' },
+  URGENT: { label: 'Urgente', tone: 'danger' },
 
   // Document types
-  ANALYSIS: { label: 'Analyse', className: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800' },
-  PRESCRIPTION: { label: 'Ordonnance', className: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400 border-violet-200 dark:border-violet-800' },
-  REPORT: { label: 'Compte rendu', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-  CONSENT: { label: 'Consentement', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-  OTHER: { label: 'Autre', className: 'bg-muted text-muted-foreground border-border' },
+  ANALYSIS: { label: 'Analyse', tone: 'info' },
+  PRESCRIPTION: { label: 'Ordonnance', tone: 'info' },
+  REPORT: { label: 'Compte rendu', tone: 'info' },
+  CONSENT: { label: 'Consentement', tone: 'success' },
+  OTHER: { label: 'Autre', tone: 'neutral' },
 
   // Appointment types
-  IN_PERSON: { label: 'En cabinet', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-  VIDEO: { label: 'Video', className: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400 border-violet-200 dark:border-violet-800' },
-  PHONE: { label: 'Telephone', className: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800' },
+  IN_PERSON: { label: 'En cabinet', tone: 'neutral' },
+  VIDEO: { label: 'Vidéo', tone: 'neutral' },
+  PHONE: { label: 'Téléphone', tone: 'neutral' },
 };
 
 interface StatusBadgeProps {
   status: string;
+  /** Overrides the label (e.g. a status the table does not know yet) */
+  label?: string;
+  /** Overrides the tone */
+  tone?: BadgeTone;
   className?: string;
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status] ?? { label: status, className: 'bg-muted text-muted-foreground border-border' };
+/** Every status or type shown as a pill. Add new statuses to the table above, in French. */
+export function StatusBadge({ status, label, tone, className }: StatusBadgeProps) {
+  const config = STATUS_CONFIG[status];
 
   return (
-    <Badge variant="outline" className={cn(config.className, className)}>
-      {config.label}
+    <Badge
+      variant="outline"
+      data-tone={tone ?? config?.tone ?? 'neutral'}
+      className={cn(TONE_CLASSES[tone ?? config?.tone ?? 'neutral'], className)}
+    >
+      {label ?? config?.label ?? status}
     </Badge>
   );
 }

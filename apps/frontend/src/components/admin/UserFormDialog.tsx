@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { UserDto, UserRole } from '@vp/types';
+import { type CreateUserDto, type UpdateUserDto, type UserDto, UserRole } from '@vp/types';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -14,34 +15,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
-const createSchema = z.object({
-  firstName: z.string().min(1, 'Prénom requis'),
-  lastName: z.string().min(1, 'Nom requis'),
-  email: z.string().email('Email invalide'),
-  password: z
-    .string()
-    .min(8, 'Minimum 8 caractères')
-    .regex(/[A-Z]/, 'Au moins une majuscule')
-    .regex(/\d/, 'Au moins un chiffre'),
-  role: z.enum(['ADMIN', 'PRATICIENNE', 'ASSISTANTE']),
+const password = z
+  .string()
+  .min(8, 'Le mot de passe doit faire 8 caractères au moins.')
+  .regex(/[A-Z]/, 'Ajoutez au moins une majuscule.')
+  .regex(/\d/, 'Ajoutez au moins un chiffre.');
+
+const baseSchema = z.object({
+  firstName: z.string().trim().min(1, 'Indiquez le prénom.'),
+  lastName: z.string().trim().min(1, 'Indiquez le nom.'),
+  email: z.string().email('L’adresse e-mail n’est pas valide.'),
+  role: z.enum(UserRole),
 });
 
-const editSchema = z.object({
-  firstName: z.string().min(1, 'Prénom requis'),
-  lastName: z.string().min(1, 'Nom requis'),
-  email: z.string().email('Email invalide'),
-  password: z
-    .string()
-    .min(8, 'Minimum 8 caractères')
-    .regex(/[A-Z]/, 'Au moins une majuscule')
-    .regex(/\d/, 'Au moins un chiffre')
-    .or(z.literal('')),
-  role: z.enum(['ADMIN', 'PRATICIENNE', 'ASSISTANTE']),
-});
+const createSchema = baseSchema.extend({ password });
+const editSchema = baseSchema.extend({ password: password.or(z.literal('')) });
 
 type UserFormData = z.infer<typeof createSchema>;
 
@@ -53,13 +46,16 @@ const ROLE_LABELS: Record<string, string> = {
   ASSISTANTE: 'Assistante',
 };
 
+const ROLE_HINT =
+  'Les praticiennes et assistantes voient les patients ; l’administratrice gère les comptes.';
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface UserFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: UserDto | null;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: CreateUserDto | UpdateUserDto) => void;
   isPending: boolean;
 }
 
@@ -85,7 +81,7 @@ export function UserFormDialog({
       lastName: '',
       email: '',
       password: '',
-      role: 'PRATICIENNE' as UserRole,
+      role: UserRole.PRATICIENNE,
     },
   });
 
@@ -105,7 +101,7 @@ export function UserFormDialog({
               lastName: '',
               email: '',
               password: '',
-              role: 'PRATICIENNE' as UserRole,
+              role: UserRole.PRATICIENNE,
             },
       );
     }
@@ -113,7 +109,7 @@ export function UserFormDialog({
 
   const handleFormSubmit = (data: UserFormData) => {
     if (isEdit) {
-      const payload: Record<string, unknown> = {
+      const payload: UpdateUserDto & { password?: string } = {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
@@ -130,51 +126,44 @@ export function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Modifier l\u2019utilisateur' : 'Nouvel utilisateur'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Modifier le compte' : 'Nouveau compte'}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? 'Modifiez les informations du compte.'
-              : 'Créez un nouveau compte utilisateur.'}
+              ? 'Les changements prennent effet à la prochaine connexion.'
+              : 'La personne se connectera avec cette adresse e-mail et ce mot de passe.'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Prénom *" error={errors.firstName?.message}>
-              <input {...register('firstName')} placeholder="Marie" className={inputClass} />
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5" noValidate>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Prénom" required error={errors.firstName?.message}>
+              <Input {...register('firstName')} autoComplete="off" />
             </Field>
-            <Field label="Nom *" error={errors.lastName?.message}>
-              <input {...register('lastName')} placeholder="Dupont" className={inputClass} />
+            <Field label="Nom" required error={errors.lastName?.message}>
+              <Input {...register('lastName')} autoComplete="off" />
             </Field>
           </div>
 
-          <Field label="Email *" error={errors.email?.message}>
-            <input
-              type="email"
-              {...register('email')}
-              placeholder="praticienne@exemple.fr"
-              className={inputClass}
-            />
+          <Field label="Adresse e-mail" required error={errors.email?.message}>
+            <Input type="email" {...register('email')} autoComplete="off" />
           </Field>
 
           <Field
-            label={isEdit ? 'Nouveau mot de passe' : 'Mot de passe *'}
+            label={isEdit ? 'Nouveau mot de passe' : 'Mot de passe'}
+            required={!isEdit}
+            hint={
+              isEdit
+                ? 'Laissez vide pour garder le mot de passe actuel.'
+                : '8 caractères au moins, dont une majuscule et un chiffre.'
+            }
             error={errors.password?.message}
           >
-            <input
-              type="password"
-              {...register('password')}
-              placeholder={isEdit ? 'Laisser vide pour ne pas changer' : '••••••••'}
-              className={inputClass}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Min. 8 caractères, 1 majuscule, 1 chiffre
-            </p>
+            <Input type="password" {...register('password')} autoComplete="new-password" />
           </Field>
 
-          <Field label="Rôle *">
+          <Field label="Rôle" required hint={ROLE_HINT}>
             <Controller
               control={control}
               name="role"
@@ -200,40 +189,12 @@ export function UserFormDialog({
               Annuler
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : isEdit ? (
-                'Enregistrer'
-              ) : (
-                'Créer le compte'
-              )}
+              {isPending && <Loader2 className="animate-spin" />}
+              {isEdit ? 'Enregistrer' : 'Créer le compte'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const inputClass =
-  'w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50';
-
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-foreground mb-1.5">{label}</label>
-      {children}
-      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-    </div>
   );
 }

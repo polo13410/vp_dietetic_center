@@ -1,15 +1,17 @@
 import { BMI_CATEGORIES, type Bmi } from '../../lib/patient-file';
-import { cn } from '../../lib/utils';
-import { Badge } from '../ui/badge';
+import { cn, formatNumber } from '../../lib/utils';
+import { StatusBadge } from '../shared/StatusBadge';
 
-/** "IMC 27,3 · Surpoids", colored by category. */
+/** « IMC 27,3 · Surpoids », coloured by category; `short` shows the category only. */
 export function BmiBadge({ bmi, className, short }: { bmi: Bmi | null | undefined; className?: string; short?: boolean }) {
   if (!bmi) return null;
-  const { label, className: color } = BMI_CATEGORIES[bmi.category];
-  const value = bmi.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  const { label, tone } = BMI_CATEGORIES[bmi.category];
   return (
-    <Badge variant="outline" className={cn(color, 'whitespace-nowrap', className)} title={`IMC ${value}`}>
-      {short ? label : `IMC ${value} · ${label}`}
-    </Badge>
+    <StatusBadge
+      status={bmi.category}
+      tone={tone}
+      label={short ? label : `IMC ${formatNumber(bmi.value, 1)} · ${label}`}
+      className={cn('whitespace-nowrap', className)}
+    />
   );
 }

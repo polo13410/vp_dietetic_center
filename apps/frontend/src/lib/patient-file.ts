@@ -7,15 +7,25 @@ import type {
   FileEntryDto,
   FileField as FileFieldEnum,
   FileSectionDto,
+  GpReportStatus,
   MissingData,
+  PatientDto,
   PaymentMethod as PaymentMethodEnum,
 } from '@vp/types';
+
+import type { BadgeTone } from '../components/shared/StatusBadge';
 
 import api from './api';
 
 // ─── Types (as returned by the API) ──────────────────────────────────────────
 
-export type { Bmi, BmiCategory, FileEntryDto, FileSectionDto };
+export type { Bmi, BmiCategory, FileEntryDto, FileSectionDto, MissingData };
+
+/** The patient as returned by GET /patients/:id (clinical fields only for the practitioner). */
+export interface Patient extends PatientDto {
+  bmi?: Bmi | null;
+  _count?: { appointments: number; consultations: number; documents: number; tasks: number };
+}
 /** The enums' values as plain strings, so labels and literals can be used without the enum */
 export type FileField = `${FileFieldEnum}`;
 export type PaymentMethod = `${PaymentMethodEnum}`;
@@ -57,10 +67,14 @@ export interface Brief {
     dateOfBirth: string | null;
     birthDateEstimated: boolean;
     age: number | null;
+    phone: string | null;
+    email: string | null;
     familySituation: string | null;
     profession: string | null;
     gpName: string | null;
     consultationReason: string | null;
+    referralSource: string | null;
+    createdAt: string;
   };
   consultationCount: number;
   firstConsultationAt: string | null;
@@ -80,6 +94,38 @@ export interface Brief {
   recentEvents: LifeEvent[];
   newEventsSinceLastConsultation: number;
   openTasks: { id: string; title: string; priority: string; dueAt: string | null }[];
+  latestGpReport: { id: string; date: string; status: `${GpReportStatus}`; sentAt: string | null } | null;
+  /** The latest report to the GP is a draft */
+  gpReportToDo: boolean;
+}
+
+/** An appointment, as listed in the patient's file. */
+export interface PatientAppointment {
+  id: string;
+  startAt: string;
+  duration: number;
+  reason?: string | null;
+  type: string;
+  status: string;
+}
+
+/** Today's appointment a session can be started from (« Démarrer la séance du jour »). */
+export function todaysAppointment(appointments: PatientAppointment[], now = new Date()) {
+  const today = now.toDateString();
+  return appointments.find(
+    (a) => new Date(a.startAt).toDateString() === today && ['SCHEDULED', 'CONFIRMED'].includes(a.status),
+  );
+}
+
+export function usePatientAppointments(patientId: string | undefined) {
+  return useQuery({
+    queryKey: ['appointments', { patientId }],
+    queryFn: async () => {
+      const { data } = await api.get('/appointments', { params: { patientId, limit: 50 } });
+      return (data.data ?? data) as PatientAppointment[];
+    },
+    enabled: !!patientId,
+  });
 }
 
 /** A session, as listed (follow-up sheet) or opened (with what was recorded in it). */
@@ -141,29 +187,45 @@ export const EVENT_CATEGORIES: Record<LifeEventCategory, string> = {
   OTHER: 'Autre',
 };
 
-/** BMI categories (thresholds are computed by the API). */
-export const BMI_CATEGORIES: Record<BmiCategory, { label: string; className: string }> = {
-  UNDERWEIGHT: {
-    label: 'Maigreur',
-    className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800',
-  },
-  NORMAL: {
-    label: 'Normal',
-    className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-  },
-  OVERWEIGHT: {
-    label: 'Surpoids',
-    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-  },
-  OBESITY: {
-    label: 'Obésité',
-    className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800',
-  },
-  MASSIVE_OBESITY: {
-    label: 'Obésité massive',
-    className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800',
-  },
+/** BMI categories (thresholds are computed by the API), shown with the semantic tones. */
+export const BMI_CATEGORIES: Record<BmiCategory, { label: string; tone: BadgeTone }> = {
+  UNDERWEIGHT: { label: 'Maigreur', tone: 'info' },
+  NORMAL: { label: 'Normal', tone: 'success' },
+  OVERWEIGHT: { label: 'Surpoids', tone: 'warning' },
+  OBESITY: { label: 'Obésité', tone: 'warning' },
+  MASSIVE_OBESITY: { label: 'Obésité massive', tone: 'danger' },
 };
+
+/** The constant of her BMR formula (§ 3.1), shown « 0,96 » like on her sheet. */
+export function bmrConstant(sex: 'F' | 'M' | null | undefined): number | null {
+  if (sex === 'F') return 0.963;
+  if (sex === 'M') return 1.083;
+  return null;
+}
+
+const MISSING_LABELS: Record<MissingData, string> = {
+  weight: 'le poids',
+  height: 'la taille',
+  sex: 'le sexe',
+  age: 'l’âge',
+};
+
+/**
+ * What to add for a figure, in her words: « Ajoutez la taille pour calculer l’IMC ».
+ * Null when nothing is missing for that figure.
+ */
+export function missingMessage(missing: MissingData[], figure: 'bmi' | 'bmr'): string | null {
+  const needed: MissingData[] = figure === 'bmi' ? ['weight', 'height'] : ['weight', 'height', 'sex', 'age'];
+  const lacking = needed.filter((m) => missing.includes(m)).map((m) => MISSING_LABELS[m]);
+  if (lacking.length === 0) return null;
+  const list = lacking.length === 1 ? lacking[0] : `${lacking.slice(0, -1).join(', ')} et ${lacking.at(-1)}`;
+  return `Ajoutez ${list} pour calculer ${figure === 'bmi' ? 'l’IMC' : 'le MB'}`;
+}
+
+/** A price in cents as « 50 € ». */
+export function formatPrice(cents: number): string {
+  return `${(cents / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`;
+}
 
 export function formatMetric(type: MetricType, value: number): string {
   const n = value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
@@ -180,6 +242,23 @@ export function formatDelta(type: MetricType, delta: number): string {
 // ─── Data hooks ───────────────────────────────────────────────────────────────
 
 const fileKey = (patientId: string) => ['patient-file', patientId] as const;
+
+export function usePatient(patientId: string | undefined) {
+  return useQuery({
+    queryKey: ['patient', patientId],
+    queryFn: async () => (await api.get<Patient>(`/patients/${patientId}`)).data,
+    enabled: !!patientId,
+  });
+}
+
+/** The current value of each section of the medical file, in her order. */
+export function useFileSections(patientId: string | undefined) {
+  return useQuery({
+    queryKey: [...fileKey(patientId ?? ''), 'file'],
+    queryFn: async () => (await api.get<FileSectionDto[]>(`/patients/${patientId}/file`)).data,
+    enabled: !!patientId,
+  });
+}
 
 export function usePatientBrief(patientId: string | undefined) {
   return useQuery({

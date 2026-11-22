@@ -3,10 +3,10 @@ import { ArrowLeft, Check, Flag, Heart, PanelLeftClose, PanelLeftOpen, Ruler, Tr
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { FileSectionEditor, useFileSections } from '../../components/patient-file/FilePanel';
+import { FileSectionEditor } from '../../components/patient-file/FilePanel';
 import { fieldClass, LifeEventForm } from '../../components/patient-file/LifeEventsPanel';
 import { MeasurementsForm } from '../../components/patient-file/MeasurementsForm';
-import { PatientBrief } from '../../components/patient-file/PatientBrief';
+import { PatientRecap } from '../../components/patient-file/PatientRecap';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
@@ -23,6 +23,7 @@ import {
   type PaymentMethod,
   sessionName,
   useConsultation,
+  useFileSections,
   useInvalidatePatientFile,
   useMeasurements,
   usePatientFileMutation,
@@ -55,7 +56,7 @@ export default function ConsultationPage() {
                 <PanelLeftClose className="h-4 w-4" />
               </Button>
             </div>
-            <PatientBrief patientId={session.patientId} compact />
+            <PatientRecap patientId={session.patientId} size="panel" />
           </aside>
         )}
 

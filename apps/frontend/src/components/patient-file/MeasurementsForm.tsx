@@ -4,14 +4,13 @@ import { useState } from 'react';
 import api from '../../lib/api';
 import { METRIC_TYPES, METRICS, type MetricType, useInvalidatePatientFile } from '../../lib/patient-file';
 import { todayISO } from '../../lib/utils';
+import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { toast } from '../ui/toaster';
 
 /** The measurements taken at most sessions; the others are one click away. */
 const COMMON: MetricType[] = ['WEIGHT', 'WAIST'];
-
-const inputClass =
-  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50';
 
 /**
  * Enter several measurements at once. Inside a session they are dated with the session;
@@ -21,12 +20,15 @@ export function MeasurementsForm({
   patientId,
   consultationId,
   needsHeight,
+  types,
   onSaved,
 }: {
   patientId: string;
   consultationId?: string;
   /** No height on file yet: ask for it (BMI needs it). */
   needsHeight?: boolean;
+  /** The measurements offered (all of them, without the « Autres mesures » link) */
+  types?: MetricType[];
   onSaved?: () => void;
 }) {
   const invalidate = useInvalidatePatientFile();
@@ -35,9 +37,8 @@ export function MeasurementsForm({
   const [date, setDate] = useState(todayISO);
   const [saving, setSaving] = useState(false);
 
-  const shown = showAll
-    ? METRIC_TYPES
-    : [...(needsHeight ? (['HEIGHT'] as MetricType[]) : []), ...COMMON];
+  const shown =
+    types ?? (showAll ? METRIC_TYPES : [...(needsHeight ? (['HEIGHT'] as MetricType[]) : []), ...COMMON]);
   const filled = (Object.entries(values) as [MetricType, string][]).filter(([, v]) => v.trim() !== '');
 
   const save = async () => {
@@ -68,43 +69,38 @@ export function MeasurementsForm({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {!consultationId && (
-        <label className="block max-w-[12rem]">
-          <span className="block text-xs font-medium text-muted-foreground mb-1">Date</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
-        </label>
+        <Field label="Date" className="max-w-[14rem]">
+          <Input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />
+        </Field>
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {shown.map((type) => {
           const meta = METRICS[type];
           return (
-            <label key={type} className="block">
-              <span className="block text-xs font-medium text-muted-foreground mb-1">
-                {meta.label} <span className="opacity-70">({meta.unit})</span>
-              </span>
-              <input
+            <Field key={type} label={`${meta.label} (${meta.unit})`}>
+              <Input
                 inputMode="decimal"
                 value={values[type] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [type]: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && save()}
-                className={inputClass}
               />
-            </label>
+            </Field>
           );
         })}
       </div>
-      <div className="flex items-center justify-between">
-        {!showAll ? (
-          <button onClick={() => setShowAll(true)} className="text-xs text-primary hover:underline">
-            <Plus className="inline h-3 w-3" /> Autres mesures
-          </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {!types && !showAll ? (
+          <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>
+            <Plus aria-hidden /> Autres mesures
+          </Button>
         ) : (
           <span />
         )}
-        <Button size="sm" onClick={save} disabled={saving || filled.length === 0}>
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          Enregistrer {filled.length > 1 ? `${filled.length} mesures` : ''}
+        <Button onClick={save} disabled={saving || filled.length === 0}>
+          {saving && <Loader2 className="animate-spin" aria-hidden />}
+          Enregistrer {filled.length > 1 ? `les ${filled.length} mesures` : 'la mesure'}
         </Button>
       </div>
     </div>

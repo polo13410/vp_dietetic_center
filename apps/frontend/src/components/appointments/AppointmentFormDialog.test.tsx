@@ -148,6 +148,9 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
     ]);
     fireEvent.change(field, { target: { value: 'f-bilan' } });
     expect(screen.getByLabelText('Durée en minutes')).toHaveValue(60);
+    // The usual durations follow too
+    expect(screen.getByRole('button', { name: '1 h' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '45 min' })).toHaveAttribute('aria-pressed', 'false');
     fireEvent.change(field, { target: { value: 'f-suivi' } });
     expect(screen.getByLabelText('Durée en minutes')).toHaveValue(45);
     fireEvent.change(screen.getByLabelText('Durée en minutes'), { target: { value: '50' } });

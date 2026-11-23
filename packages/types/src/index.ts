@@ -85,21 +85,6 @@ export enum AuditAction {
   EXPORT = 'EXPORT',
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-
-export interface AuthTokens {
-  accessToken: string;
-  expiresIn: number;
-}
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-  role: UserRole;
-  iat?: number;
-  exp?: number;
-}
-
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 export interface UserDto {
@@ -498,17 +483,6 @@ export interface UpdateAppointmentDto extends Partial<CreateAppointmentDto> {
 
 // ─── Document ─────────────────────────────────────────────────────────────────
 
-export interface DocumentDto {
-  id: string;
-  patientId: string;
-  name: string;
-  type: DocumentType;
-  mimeType: string;
-  sizeBytes: number;
-  uploadedById: string;
-  createdAt: string;
-}
-
 // ─── Task ─────────────────────────────────────────────────────────────────────
 
 export interface TaskDto {
@@ -539,18 +513,6 @@ export interface CreateTaskDto {
 
 // ─── Audit ────────────────────────────────────────────────────────────────────
 
-export interface AuditLogDto {
-  id: string;
-  userId: string;
-  user: Pick<UserDto, 'id' | 'firstName' | 'lastName' | 'email'>;
-  action: AuditAction;
-  entity: string;
-  entityId: string | null;
-  metadata: Record<string, unknown> | null;
-  ipAddress: string | null;
-  createdAt: string;
-}
-
 // ─── Common ───────────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
@@ -561,25 +523,6 @@ export interface PaginatedResponse<T> {
     limit: number;
     totalPages: number;
   };
-}
-
-export interface ApiError {
-  statusCode: number;
-  message: string | string[];
-  error?: string;
-}
-
-export interface SearchResult {
-  patients: PatientListItemDto[];
-  appointments: AppointmentDto[];
-  consultations: ConsultationSummaryDto[];
-}
-
-/** A session as listed on the dashboard or in search results. */
-export interface ConsultationSummaryDto {
-  id: string;
-  date: string;
-  patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName'>;
 }
 
 /** An appointment as shown on the dashboard, with its session if one was started. */

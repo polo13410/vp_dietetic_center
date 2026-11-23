@@ -36,8 +36,8 @@ export function CorpulenceChart({ data, className }: { data: CorpulenceChartData
               type="number"
               domain={[2, 18]}
               ticks={[2, 4, 6, 8, 10, 12, 14, 16, 18]}
+              interval={0}
               allowDuplicatedCategory={false}
-              tickFormatter={(age) => `${age} ans`}
               tick={{ fontSize: 13, fill: 'hsl(var(--muted-foreground))' }}
               stroke="hsl(var(--border))"
             />

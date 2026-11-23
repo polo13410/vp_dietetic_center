@@ -67,7 +67,7 @@ export function MeasuresPanel({ patientId }: { patientId: string }) {
               icon={Baby}
               area="patients"
               title="Courbe de corpulence"
-              description="IMC selon l’âge, avant 18 ans"
+              description="IMC selon l’âge (en années), avant 18 ans"
               id="corpulence"
               size="compact"
               className={heightChanges(measurements) ? undefined : 'lg:col-span-2'}
@@ -204,8 +204,7 @@ function RowView({ row, onEdit, onDelete }: { row: TimelineRow; onEdit: () => vo
   return (
     <div className="flex items-start gap-3">
       <p className="w-28 shrink-0 pt-2.5 text-sm tabular-nums text-muted-foreground sm:w-36">
-        {formatLongDate(row.date, true)}
-        <span className="block">{row.date.slice(0, 4)}</span>
+        {formatLongDate(row.date)}
       </p>
       <div className="min-w-0 flex-1 py-2">
         {row.kind === 'measurement' ? <MeasurementView measurement={row.measurement} /> : <EventView event={row.event} />}
@@ -253,8 +252,8 @@ function MeasurementView({ measurement: m }: { measurement: TimelineMeasurement 
       )}
       {figures?.minor && figures.height && (
         <p className="text-sm text-muted-foreground">
-          Avec la taille de l’époque : {formatMetric('HEIGHT', figures.height.value)}, mesurée le{' '}
-          {formatLongDate(figures.height.measuredAt, true)}
+          Calculé avec la taille du {formatLongDate(figures.height.measuredAt, true)} :{' '}
+          {formatMetric('HEIGHT', figures.height.value)}
         </p>
       )}
       {bmiMissing && <p className="text-sm text-muted-foreground">{bmiMissing.replace('la taille', 'une taille à cette date')}.</p>}

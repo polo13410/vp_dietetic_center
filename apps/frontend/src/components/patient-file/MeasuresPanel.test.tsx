@@ -167,7 +167,7 @@ describe('MeasuresPanel', () => {
     const [weight] = rows();
     expect(weight).toHaveTextContent('Surpoids (IOTF)');
     expect(weight).toHaveTextContent('formule adulte');
-    expect(weight).toHaveTextContent('Avec la taille de l’époque : 140 cm');
+    expect(weight).toHaveTextContent('Calculé avec la taille du 1 juin : 140 cm');
   });
 
   it('guides when nothing was measured yet', async () => {

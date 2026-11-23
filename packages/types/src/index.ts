@@ -352,6 +352,9 @@ export interface ConsultationDto {
   formulaLabel: string | null;
   priceCents: number | null;
   paymentMethod: PaymentMethod;
+  /** Where it took place: its address goes on the invoice */
+  practiceId: string | null;
+  practice?: { id: string; name: string } | null;
   /** Habitudes et évolution */
   habits: string | null;
   /** Travail en consultation */
@@ -372,6 +375,7 @@ export interface UpdateConsultationDto {
   date?: string;
   formulaId?: string | null;
   paymentMethod?: PaymentMethod;
+  practiceId?: string;
   habits?: string;
   sessionWork?: string;
   advice?: string;

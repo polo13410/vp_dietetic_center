@@ -3,7 +3,7 @@ import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useAutosave } from '../../hooks/useAutosave';
-import { apiErrorMessage, useFormulas } from '../../hooks/useMe';
+import { apiErrorMessage, useFormulas, usePractices, useShowPractices } from '../../hooks/useMe';
 import api from '../../lib/api';
 import { formatAmount } from '../../lib/invoice-document';
 import {
@@ -41,16 +41,22 @@ const dayValue = (iso: string) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-type HeaderChange = { date?: string; formulaId?: string | null; paymentMethod?: PaymentMethod };
+type HeaderChange = { date?: string; formulaId?: string | null; paymentMethod?: PaymentMethod; practiceId?: string };
 
 /**
- * The first columns of her row: date, formula (« Bilan », then « Suivi », prefilled when the séance
- * is started) and payment method (prefilled with the patient's last one). What the invoice shows.
+ * The first columns of her row: date, formula (« Bilan », then « Suivi », or the type of the
+ * appointment, prefilled when the séance is started), practice (only when she has several: its
+ * address goes on the invoice) and payment method (prefilled with the patient's last one). What the
+ * invoice shows.
  */
 export function SessionHeaderFields({ session }: { session: Consultation }) {
   const invalidate = useInvalidatePatientFile();
   const { data: formulas = [] } = useFormulas();
   const offered = formulas.filter((f) => !f.archivedAt);
+  // Where it took place: its address goes on the invoice. Only asked when she has several.
+  const showPractice = useShowPractices();
+  const { data: practices = [] } = usePractices(showPractice);
+  const activePractices = practices.filter((p) => !p.archivedAt);
   const [error, setError] = useState<string>();
   const autosave = useAutosave(async (body: HeaderChange) => {
     try {
@@ -105,6 +111,25 @@ export function SessionHeaderFields({ session }: { session: Consultation }) {
             ))}
           </select>
         </Field>
+        {showPractice && (
+          <Field label="Cabinet">
+            <select
+              className={fieldClass}
+              value={session.practiceId ?? ''}
+              onChange={(e) => e.target.value && save({ practiceId: e.target.value })}
+            >
+              {!session.practiceId && <option value="">Choisir…</option>}
+              {session.practiceId && !activePractices.some((p) => p.id === session.practiceId) && (
+                <option value={session.practiceId}>{session.practice?.name ?? 'Cabinet archivé'}</option>
+              )}
+              {activePractices.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="Moyen de paiement">
           <select
             className={fieldClass}

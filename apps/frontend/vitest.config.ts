@@ -12,14 +12,14 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['src/components/**/*.tsx', 'src/lib/**/*.ts', 'src/pages/**/*.tsx'],
       exclude: ['src/components/ui/**'],
-      // Ratchet set just below actual coverage (the old 70% target was never met):
-      // raise these as tests are added, never lower them.
-      // Ratchet: raise as tests are added. Vitest 4 counts every included file, tested or
-      // not, so these are far below the old figures (which only counted loaded files).
+      // Ratchet, a little below what the suite reaches (2026-11-24: lines 72.9, statements 72,
+      // functions 67.5, branches 64.6). Vitest 4 counts every included file, tested or not.
+      // Raise these as tests are added, never lower them.
       thresholds: {
-        lines: 25,
-        functions: 20,
-        branches: 25,
+        lines: 70,
+        statements: 70,
+        functions: 65,
+        branches: 62,
       },
     },
   },

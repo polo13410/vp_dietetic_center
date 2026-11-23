@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { BookingOptionsDto } from '@vp/types';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import api from '../../lib/api';
@@ -204,6 +205,24 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
         expect.objectContaining({ formulaId: 'f-bilan', duration: 60, practiceId: 'pr-mrs', reason: 'Apporter ses analyses' }),
       ),
     );
+  });
+
+  it('prefills the default practice when opened after the options were loaded (agenda, dashboard)', async () => {
+    options = { formulas, practices: [aix, marseille] };
+    function Agenda() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Ouvrir</button>
+          <AppointmentFormDialog open={open} onOpenChange={setOpen} defaultValues={{ patientId: 'p-1' }} />
+        </>
+      );
+    }
+    renderWithProviders(<Agenda />);
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/appointments/options', expect.anything()));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    click('Ouvrir');
+    expect(await screen.findByLabelText('Cabinet')).toHaveValue('pr-aix');
   });
 
   it('sends no practice for a phone appointment', async () => {

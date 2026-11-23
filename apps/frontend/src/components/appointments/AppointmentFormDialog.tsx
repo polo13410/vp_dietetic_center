@@ -126,9 +126,10 @@ export function AppointmentFormDialog({
   }, [open, defaultsKey, reset]);
 
   // In person: her default practice unless one is chosen; another practitioner's patient (an
-  // assistant booking) brings that practitioner's types and practices
+  // assistant booking) brings that practitioner's types and practices. Runs again on opening,
+  // after the reset above: the options are often loaded while the window is still closed.
   useEffect(() => {
-    if (!options) return;
+    if (!open || !options) return;
     const { formulaId: chosen, practiceId } = getValues();
     if (chosen && !formulas.some((f) => f.id === chosen) && chosen !== booked?.formula?.id) {
       setValue('formulaId', '');
@@ -136,7 +137,7 @@ export function AppointmentFormDialog({
     if (!practices.some((p) => p.id === practiceId) && practiceId !== booked?.practice?.id) {
       setValue('practiceId', practices.find((p) => p.isDefault)?.id ?? practices[0]?.id ?? '');
     }
-  }, [options, formulas, practices, getValues, setValue, booked]);
+  }, [open, options, formulas, practices, getValues, setValue, booked]);
 
   const chooseFormula = (id: string) => {
     setValue('formulaId', id, { shouldValidate: true });

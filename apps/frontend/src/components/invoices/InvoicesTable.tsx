@@ -3,7 +3,14 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { formatAmount } from '../../lib/invoice-document';
-import { countsInTotals, downloadInvoicePdf, type InvoiceDto, invoiceFilename, linksText } from '../../lib/invoices';
+import {
+  countsInTotals,
+  downloadInvoicePdf,
+  type InvoiceDto,
+  invoiceFilename,
+  linksText,
+  recipientName,
+} from '../../lib/invoices';
 import { PAYMENT_METHODS } from '../../lib/patient-file';
 import { cn, formatLongDate } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -72,10 +79,10 @@ export function InvoicesTable({ invoices, showPatient = false }: { invoices: Inv
                         to={`/patients/${invoice.patientId}?onglet=factures`}
                         className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {invoice.patientFirstName} {invoice.patientLastName}
+                        {recipientName(invoice)}
                       </Link>
                     ) : (
-                      `${invoice.patientFirstName} ${invoice.patientLastName}`
+                      recipientName(invoice)
                     )}
                   </td>
                 )}
@@ -88,6 +95,11 @@ export function InvoicesTable({ invoices, showPatient = false }: { invoices: Inv
                 <td className="whitespace-nowrap px-3 py-3 text-right">
                   <span className={cn('tabular-nums', struck)}>{formatAmount(invoice.amountCents)}</span>
                   <span className="block text-sm text-muted-foreground">{PAYMENT_METHODS[invoice.paymentMethod]}</span>
+                  {!!invoice.payerCents && invoice.payerCents > 0 && (
+                    <span className="block text-sm text-muted-foreground">
+                      + {formatAmount(invoice.payerCents)} {invoice.payerName ?? 'organisme'}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-3">
                   <InvoiceStatusBadge invoice={invoice} />

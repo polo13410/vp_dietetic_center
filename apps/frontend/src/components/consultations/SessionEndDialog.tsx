@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import { apiErrorMessage } from '../../hooks/useMe';
 import { formatAmount } from '../../lib/invoice-document';
-import { downloadInvoicePdf, useIssueInvoice, useSessionInvoices } from '../../lib/invoices';
+import { downloadInvoicePdf, patientBilling, useIssueInvoice, useSessionInvoices } from '../../lib/invoices';
 import { sessionName, useConsultation } from '../../lib/patient-file';
 import { AppointmentFormDialog } from '../appointments/AppointmentFormDialog';
 import { Button } from '../ui/button';
@@ -57,7 +57,10 @@ function EndChoices({ sessionId, onBook, onClose }: { sessionId: string; onBook:
   const issue = useIssueInvoice();
   const [downloading, setDownloading] = useState(false);
   const invoice = invoices?.current ?? null;
-  const ready = !!session?.formulaLabel && session.priceCents !== null;
+  const billing = session ? patientBilling(session) : null;
+  const ready = billing?.state === 'ready';
+  // A free séance, or one the payer pays in full, has no patient invoice
+  const noInvoice = billing?.state === 'free' || billing?.state === 'payer';
 
   const makeInvoice = () =>
     issue.mutate(sessionId, {
@@ -100,6 +103,12 @@ function EndChoices({ sessionId, onBook, onClose }: { sessionId: string; onBook:
               <Download aria-hidden /> Télécharger la facture
             </Button>
           </div>
+        ) : noInvoice ? (
+          <p className="rounded-lg bg-muted px-4 py-3 text-base">
+            {billing?.state === 'free'
+              ? 'Séance offerte : pas de facture à faire.'
+              : `Prise en charge en totalité par ${session?.payer?.name ?? 'l’organisme'} : pas de facture au patient.`}
+          </p>
         ) : (
           <div className="space-y-1.5">
             <Button
@@ -109,9 +118,7 @@ function EndChoices({ sessionId, onBook, onClose }: { sessionId: string; onBook:
               disabled={isLoading || !session || !ready || issue.isPending}
             >
               <Receipt aria-hidden /> Faire la facture
-              {session?.priceCents != null && (
-                <span className="ml-auto text-base font-normal">{formatAmount(session.priceCents)}</span>
-              )}
+              {ready && <span className="ml-auto text-base font-normal">{formatAmount(billing.cents)}</span>}
             </Button>
             {session && !ready && (
               <p className="text-sm text-muted-foreground">
@@ -124,7 +131,12 @@ function EndChoices({ sessionId, onBook, onClose }: { sessionId: string; onBook:
             )}
           </div>
         )}
-        <Button size="lg" variant={invoice ? 'default' : 'outline'} className="w-full justify-start" onClick={onBook}>
+        <Button
+          size="lg"
+          variant={invoice || noInvoice ? 'default' : 'outline'}
+          className="w-full justify-start"
+          onClick={onBook}
+        >
           <CalendarPlus aria-hidden /> Prendre le prochain rendez-vous
         </Button>
         <Button variant="ghost" className="w-full" onClick={onClose}>

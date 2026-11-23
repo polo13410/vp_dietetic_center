@@ -168,7 +168,9 @@ function SessionMenu({ session }: { session: Consultation }) {
   const navigate = useNavigate();
   const invalidate = useInvalidatePatientFile();
   const [confirm, setConfirm] = useState(false);
-  const invoice = useSessionInvoices(session.id).data?.current;
+  const invoices = useSessionInvoices(session.id).data;
+  const invoice = invoices?.current;
+  const payerInvoice = invoices?.payerInvoice;
 
   const remove = useMutation({
     mutationFn: () => api.delete(`/consultations/${session.id}`),
@@ -202,6 +204,9 @@ function SessionMenu({ session }: { session: Consultation }) {
         description={
           (invoice
             ? `La facture n° ${invoice.number} sera annulée par un avoir ; la facture et l’avoir restent dans vos factures. `
+            : '') +
+          (payerInvoice
+            ? `Elle figure sur la facture n° ${payerInvoice.number} de ${payerInvoice.payerName ?? 'l’organisme'} : pensez à corriger cette facture ensuite. `
             : '') +
           'La séance et ses mesures seront supprimées. Ce qui a été écrit dans le dossier médical est conservé.'
         }
@@ -267,6 +272,6 @@ function SessionFields({ session, entering }: { session: Consultation; entering:
  */
 function IssuedInvoice({ session }: { session: Consultation }) {
   const { data } = useSessionInvoices(session.id);
-  if (!data?.current && !data?.history.length) return null;
+  if (!data?.current && !data?.history.length && !data?.payerInvoice) return null;
   return <SessionInvoice session={session} />;
 }

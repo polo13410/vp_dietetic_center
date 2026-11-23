@@ -10,6 +10,7 @@ import {
   linksText,
   mismatchText,
   useCorrectInvoice,
+  patientBilling,
   useIssueInvoice,
   useSessionInvoices,
 } from '../../lib/invoices';
@@ -39,6 +40,11 @@ export function SessionInvoice({ session }: { session: Consultation }) {
         ) : (
           <NotInvoiced session={session} />
         )}
+        {data?.payerInvoice && (
+          <p className="text-base text-muted-foreground">
+            La part de {data.payerInvoice.payerName ?? 'l’organisme'} est sur sa facture n° {data.payerInvoice.number}.
+          </p>
+        )}
         {data && data.history.length > 0 && <History invoices={data.history} />}
       </div>
     </Section>
@@ -49,7 +55,8 @@ export function SessionInvoice({ session }: { session: Consultation }) {
 
 function NotInvoiced({ session }: { session: Consultation }) {
   const issue = useIssueInvoice();
-  const ready = !!session.formulaLabel && session.priceCents !== null;
+  const billing = patientBilling(session);
+  const ready = billing.state === 'ready';
 
   const run = () =>
     issue.mutate(session.id, {
@@ -61,18 +68,21 @@ function NotInvoiced({ session }: { session: Consultation }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted px-4 py-3">
       <p className="text-base">
-        {ready ? (
-          <>
-            Pas encore de facture pour cette séance
-            {session.priceCents !== null && <> ({formatAmount(session.priceCents)})</>}.
-          </>
+        {billing.state === 'ready' ? (
+          <>Pas encore de facture pour cette séance ({formatAmount(billing.cents)}).</>
+        ) : billing.state === 'free' ? (
+          'Séance offerte : pas de facture à faire.'
+        ) : billing.state === 'payer' ? (
+          `Prise en charge en totalité par ${session.payer?.name ?? 'l’organisme'} : pas de facture au patient.`
         ) : (
           'Choisissez la formule de la séance (avec son prix) pour faire la facture.'
         )}
       </p>
-      <Button onClick={run} disabled={!ready || issue.isPending}>
-        <Receipt aria-hidden /> Faire la facture
-      </Button>
+      {billing.state !== 'free' && billing.state !== 'payer' && (
+        <Button onClick={run} disabled={!ready || issue.isPending}>
+          <Receipt aria-hidden /> Faire la facture
+        </Button>
+      )}
     </div>
   );
 }

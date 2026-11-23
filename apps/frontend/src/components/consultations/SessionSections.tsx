@@ -22,6 +22,7 @@ import {
   usePatientFileMutation,
 } from '../../lib/patient-file';
 import { cn, formatLongDate, formatNumber } from '../../lib/utils';
+import { SessionDiscount, SessionSplit } from '../invoices/SessionDiscount';
 import { AdultFormulaNote, BmiBadge } from '../patient-file/BmiBadge';
 import { FileSectionCard, FileSectionEditor } from '../patient-file/FilePanel';
 import { fieldClass, LifeEventForm } from '../patient-file/LifeEventForm';
@@ -46,8 +47,8 @@ type HeaderChange = { date?: string; formulaId?: string | null; paymentMethod?: 
 /**
  * The first columns of her row: date, formula (« Bilan », then « Suivi », or the type of the
  * appointment, prefilled when the séance is started), practice (only when she has several: its
- * address goes on the invoice) and payment method (prefilled with the patient's last one). What the
- * invoice shows.
+ * address goes on the invoice) and payment method (prefilled with the patient's last one). Then
+ * the discount and who pays what (lot 16). What the invoice shows.
  */
 export function SessionHeaderFields({ session }: { session: Consultation }) {
   const invalidate = useInvalidatePatientFile();
@@ -150,6 +151,12 @@ export function SessionHeaderFields({ session }: { session: Consultation }) {
         </p>
       ) : (
         <SaveIndicator state={autosave.state} />
+      )}
+      {session.priceCents !== null && (
+        <div className="space-y-3 border-t pt-3">
+          <SessionDiscount session={session} />
+          <SessionSplit session={session} />
+        </div>
       )}
     </div>
   );

@@ -372,7 +372,7 @@ Contexte : c'est la tâche qu'elle redoute. Elle doit recouper sa feuille, ses n
 
 ### Lot 9 — Nettoyage, tests et documentation
 
-**Fait** : PR de ce lot (nettoyage, tests de bout en bout en CI, seuils de couverture, documentation).
+**Fait** : PR [#36](https://github.com/polo13410/vp_dietetic_center/pull/36).
 
 À faire en dernier, après tous les autres lots.
 

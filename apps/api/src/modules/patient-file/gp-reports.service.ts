@@ -3,6 +3,7 @@ import { GpReportStatus, MetricType } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { defaultPractice } from '../me/default-practice';
 
 import { CreateGpReportDto, UpdateGpReportDto } from './dto/entries.dto';
 import { buildGpReportDraft, letterhead } from './gp-report-draft';
@@ -141,11 +142,23 @@ export class GpReportsService {
     });
   }
 
-  private practitioner(id: string) {
-    return this.prisma.user.findUniqueOrThrow({
-      where: { id },
-      select: { firstName: true, lastName: true, phone: true, email: true, practice: true },
-    });
+  /** Her name and contact, her activity, and the address of her default practice. */
+  private async practitioner(id: string) {
+    const [user, place] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: { firstName: true, lastName: true, phone: true, email: true, practice: true },
+      }),
+      defaultPractice(this.prisma, id),
+    ]);
+    const practice = {
+      practiceName: user.practice?.practiceName ?? null,
+      adeliRpps: user.practice?.adeliRpps ?? null,
+      address: place?.address ?? null,
+      zipCode: place?.zipCode ?? null,
+      city: place?.city ?? null,
+    };
+    return { ...user, practice };
   }
 
   private async owned(patientId: string, id: string) {

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addressLine,
   adeliRppsError,
   centsToInput,
+  durationError,
+  formatDuration,
   formatEuros,
   formatTime,
   parseEuros,
@@ -39,5 +42,21 @@ describe('settings-format', () => {
 
   it('writes the time the French way', () => {
     expect(formatTime(new Date(2026, 10, 22, 14, 5))).toBe('14 h 05');
+  });
+
+  it('writes a duration in minutes or hours, and checks the one typed', () => {
+    expect([45, 60, 90, 120].map(formatDuration)).toEqual(['45 min', '1 h', '1 h 30', '2 h']);
+    expect(durationError('45')).toBeNull();
+    expect(durationError('10')).toBe('Comptez au moins 15 minutes.');
+    expect(durationError('600')).toBe('La durée ne peut pas dépasser 8 heures.');
+    expect(durationError('45,5')).toBe('Indiquez la durée en minutes, par exemple 45.');
+  });
+
+  it('writes an address on one line, leaving out what is missing', () => {
+    expect(addressLine({ address: '12 rue des Oliviers', zipCode: '13100', city: 'Aix-en-Provence' })).toBe(
+      '12 rue des Oliviers, 13100 Aix-en-Provence',
+    );
+    expect(addressLine({ address: null, zipCode: null, city: 'Marseille' })).toBe('Marseille');
+    expect(addressLine({ address: null, zipCode: null, city: null })).toBeNull();
   });
 });

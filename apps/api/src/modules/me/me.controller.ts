@@ -8,9 +8,11 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Audited } from '../audit/audited.decorator';
 
 import { CreateFormulaDto, ReorderFormulasDto, UpdateFormulaDto } from './dto/formula.dto';
-import { UpdateMeDto, UpdatePracticeDto } from './dto/me.dto';
+import { UpdateActivityDto, UpdateMeDto } from './dto/me.dto';
+import { CreatePracticeDto, UpdatePracticeDto } from './dto/practice.dto';
 import { FormulasService } from './formulas.service';
 import { MeService } from './me.service';
+import { PracticesService } from './practices.service';
 
 const uuid = new ParseUUIDPipe();
 
@@ -22,6 +24,7 @@ export class MeController {
   constructor(
     private readonly me: MeService,
     private readonly formulas: FormulasService,
+    private readonly practices: PracticesService,
   ) {}
 
   @Get()
@@ -37,21 +40,50 @@ export class MeController {
     return this.me.updateProfile(user.id, dto);
   }
 
-  // ─── Practice (printed on invoices) ────────────────────────────────────────────
+  // ─── Activity (printed on invoices) ────────────────────────────────────────────
 
-  @Get('practice')
+  @Get('activity')
   @Roles(UserRole.PRATICIENNE)
-  @ApiOperation({ summary: 'Mon cabinet (informations des factures)' })
-  getPractice(@CurrentUser() user: AccessUser) {
-    return this.me.getPractice(user.id);
+  @ApiOperation({ summary: 'Mon activité (nom, SIRET, ADELI/RPPS, mentions des factures)' })
+  getActivity(@CurrentUser() user: AccessUser) {
+    return this.me.getActivity(user.id);
   }
 
-  @Patch('practice')
+  @Patch('activity')
+  @Roles(UserRole.PRATICIENNE)
+  @Audited({ action: AuditAction.UPDATE, entity: 'activity' })
+  @ApiOperation({ summary: 'Modifier mon activité' })
+  updateActivity(@CurrentUser() user: AccessUser, @Body() dto: UpdateActivityDto) {
+    return this.me.updateActivity(user.id, dto);
+  }
+
+  // ─── Practices (where she consults) ──────────────────────────────────────────
+
+  @Get('practices')
+  @Roles(UserRole.PRATICIENNE)
+  @ApiOperation({ summary: 'Mes cabinets : actifs (celui par défaut en premier) puis archivés' })
+  listPractices(@CurrentUser() user: AccessUser) {
+    return this.practices.list(user.id);
+  }
+
+  @Post('practices')
+  @Roles(UserRole.PRATICIENNE)
+  @Audited({ action: AuditAction.CREATE, entity: 'practice', entityId: 'result:id' })
+  @ApiOperation({ summary: 'Ajouter un cabinet (le premier devient celui par défaut)' })
+  createPractice(@CurrentUser() user: AccessUser, @Body() dto: CreatePracticeDto) {
+    return this.practices.create(user.id, dto);
+  }
+
+  @Patch('practices/:id')
   @Roles(UserRole.PRATICIENNE)
   @Audited({ action: AuditAction.UPDATE, entity: 'practice' })
-  @ApiOperation({ summary: 'Modifier mon cabinet' })
-  updatePractice(@CurrentUser() user: AccessUser, @Body() dto: UpdatePracticeDto) {
-    return this.me.updatePractice(user.id, dto);
+  @ApiOperation({ summary: 'Modifier un cabinet, le choisir par défaut, l’archiver ou le proposer à nouveau' })
+  updatePractice(
+    @CurrentUser() user: AccessUser,
+    @Param('id', uuid) id: string,
+    @Body() dto: UpdatePracticeDto,
+  ) {
+    return this.practices.update(user.id, id, dto);
   }
 
   // ─── Formulas (prices) ───────────────────────────────────────────────────────

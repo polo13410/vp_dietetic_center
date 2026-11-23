@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
 import type { Brief, Consultation, FileSectionDto, Measurement, MeasureTimeline, Patient } from '../lib/patient-file';
+import { useAuthStore } from '../stores/authStore';
 
 export const PATIENT_ID = 'p-1';
 
@@ -121,6 +122,8 @@ const session = (
   formulaLabel: sequence === 0 ? 'Bilan' : 'Suivi',
   priceCents: sequence === 0 ? 6000 : 5000,
   paymentMethod: 'CHECK' as Consultation['paymentMethod'],
+  practiceId: 'pr-aix',
+  practice: { id: 'pr-aix', name: 'Cabinet d’Aix' },
   habits: null,
   sessionWork: null,
   advice: null,
@@ -209,6 +212,28 @@ export const measureTimeline: MeasureTimeline = {
 };
 
 /** Answers GET requests by path, like the API would. */
+const practice = (id: string, name: string, isDefault: boolean) => ({
+  id,
+  name,
+  address: null,
+  zipCode: null,
+  city: null,
+  phone: null,
+  siret: null,
+  isDefault,
+  archivedAt: null,
+});
+/** She consults in Aix (the default one) and in Marseille */
+export const TWO_PRACTICES = [practice('pr-aix', 'Cabinet d’Aix', true), practice('pr-mrs', 'Marseille', false)];
+
+/** Signed in as the practitioner: what depends on her own settings (her practices) shows. */
+export function signInPractitioner() {
+  useAuthStore.setState({
+    user: { id: 'u-1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' as never },
+    isAuthenticated: true,
+  });
+}
+
 export function apiGet(routes: Record<string, unknown>) {
   return async (url: string) => {
     const path = url.split('?')[0];

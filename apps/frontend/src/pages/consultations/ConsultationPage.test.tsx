@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import api from '../../lib/api';
 import type { Consultation } from '../../lib/patient-file';
+import { useAuthStore } from '../../stores/authStore';
 import { replacement } from '../../test/invoice-fixtures';
-import { apiGet, PATIENT_ID, ROUTES, sessions } from '../../test/patient-fixtures';
+import { apiGet, PATIENT_ID, ROUTES, sessions, signInPractitioner, TWO_PRACTICES } from '../../test/patient-fixtures';
 
 import ConsultationPage from './ConsultationPage';
 
@@ -225,6 +226,32 @@ describe('ConsultationPage', () => {
       expect(screen.getByLabelText('Moyen de paiement')).toHaveValue('CHECK');
       expect(screen.getByLabelText('Date')).toHaveValue('2026-11-22');
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Suivi 3');
+    });
+
+    it('asks where the séance took place only when she consults in several practices', async () => {
+      signInPractitioner();
+      get.mockImplementation(
+        apiGet({
+          ...ROUTES,
+          [`/consultations/${today.id}`]: today,
+          [`/consultations/${today.id}/invoices`]: { current: null, mismatches: [], history: [] },
+          '/me/formulas': formulas,
+          '/me/practices': TWO_PRACTICES,
+        }) as never,
+      );
+      patch.mockResolvedValue({ data: {} });
+      open(today);
+      const cabinet = await screen.findByLabelText('Cabinet');
+      expect(cabinet).toHaveValue('pr-aix');
+      fireEvent.change(cabinet, { target: { value: 'pr-mrs' } });
+      await waitFor(() => expect(patch).toHaveBeenLastCalledWith('/consultations/c-4', { practiceId: 'pr-mrs' }));
+      useAuthStore.setState({ user: null, isAuthenticated: false });
+    });
+
+    it('does not ask where with a single practice', async () => {
+      open(today);
+      await screen.findByRole('option', { name: 'Bilan · 60,00 €' });
+      expect(screen.queryByLabelText('Cabinet')).not.toBeInTheDocument();
     });
 
     it('saves the header line as soon as it changes', async () => {

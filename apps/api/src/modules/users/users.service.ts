@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureDefaultFormulas } from '../me/default-formulas';
+import { ensureDefaultPractice } from '../me/default-practice';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -71,8 +72,11 @@ export class UsersService {
           createdAt: true,
         },
       });
-      // A new practitioner starts with « Bilan » and « Suivi », prices to fill in
-      if (user.role === UserRole.PRATICIENNE) await ensureDefaultFormulas(tx, user.id);
+      // A new practitioner starts with « Bilan » and « Suivi », prices to fill in, and a practice
+      if (user.role === UserRole.PRATICIENNE) {
+        await ensureDefaultFormulas(tx, user.id);
+        await ensureDefaultPractice(tx, user.id);
+      }
       return user;
     });
   }
@@ -95,9 +99,10 @@ export class UsersService {
           updatedAt: true,
         },
       });
-      // Becoming a practitioner: she gets the default formulas if she has none
+      // Becoming a practitioner: she gets the default formulas and practice if she has none
       if (user.role !== UserRole.PRATICIENNE && updated.role === UserRole.PRATICIENNE) {
         await ensureDefaultFormulas(tx, id);
+        await ensureDefaultPractice(tx, id);
       }
       return updated;
     });

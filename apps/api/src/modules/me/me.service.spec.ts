@@ -61,13 +61,10 @@ describe('MeService', () => {
     expect(mockPrisma.userPreferences.upsert).toHaveBeenCalled();
   });
 
-  it('returns an empty practice when nothing is filled in yet', async () => {
+  it('returns an empty activity when nothing is filled in yet', async () => {
     mockPrisma.practitionerProfile.findUnique.mockResolvedValue(null);
-    expect(await service.getPractice('user-1')).toEqual({
+    expect(await service.getActivity('user-1')).toEqual({
       practiceName: null,
-      address: null,
-      zipCode: null,
-      city: null,
       siret: null,
       adeliRpps: null,
       vatMention: null,
@@ -75,14 +72,14 @@ describe('MeService', () => {
     });
   });
 
-  it('saves the practice of the signed-in practitioner only, and returns its fields', async () => {
+  it('saves the activity of the signed-in practitioner only, and returns its fields', async () => {
     mockPrisma.practitionerProfile.findUnique.mockResolvedValue({
       id: 'p1',
       userId: 'user-1',
       siret: '91234567800011',
       createdAt: new Date(),
     });
-    const practice = await service.updatePractice('user-1', { siret: '91234567800011' });
+    const practice = await service.updateActivity('user-1', { siret: '91234567800011' });
     expect(mockPrisma.practitionerProfile.upsert).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
       create: { userId: 'user-1', siret: '91234567800011' },

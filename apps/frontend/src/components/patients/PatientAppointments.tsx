@@ -1,6 +1,7 @@
 import { CalendarDays } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { useShowPractices } from '../../hooks/useMe';
 import type { PatientAppointment } from '../../lib/patient-file';
 import { formatLongDate, formatTime } from '../../lib/utils';
 import { Section } from '../shared/Section';
@@ -9,6 +10,7 @@ import { StatusBadge } from '../shared/StatusBadge';
 /** The patient's appointments, latest first; each opens its detail. */
 export function PatientAppointments({ appointments }: { appointments: PatientAppointment[] }) {
   const sorted = [...appointments].sort((a, b) => b.startAt.localeCompare(a.startAt));
+  const showPractice = useShowPractices();
   return (
     <Section size="compact" icon={CalendarDays} area="agenda" title="Rendez-vous" flush>
       {sorted.length === 0 ? (
@@ -27,7 +29,9 @@ export function PatientAppointments({ appointments }: { appointments: PatientApp
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {' '}
-                    · {appt.duration} min{appt.reason ? ` · ${appt.reason}` : ''}
+                    {appt.formula && ` · ${appt.formula.label}`} · {appt.duration} min
+                    {showPractice && appt.practice && ` · ${appt.practice.name}`}
+                    {appt.reason && ` · ${appt.reason}`}
                   </span>
                 </span>
                 <span className="flex gap-2">

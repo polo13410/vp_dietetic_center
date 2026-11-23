@@ -153,12 +153,10 @@ export interface UpdateMeDto {
   theme?: Theme;
 }
 
-/** GET/PATCH /me/practice: printed on the invoices. Empty fields are null. */
-export interface PracticeDto {
+/** GET/PATCH /me/activity: who she is, printed on the invoices. Empty fields are null. */
+export interface ActivityDto {
+  /** Name printed on the invoices */
   practiceName: string | null;
-  address: string | null;
-  zipCode: string | null;
-  city: string | null;
   /** 14 digits */
   siret: string | null;
   /** ADELI (9 digits) or RPPS (11 digits) */
@@ -167,12 +165,45 @@ export interface PracticeDto {
   invoiceFooter: string | null;
 }
 
+/** GET /me/practices: where she consults, active ones first (default one first), then archived. */
+export interface PracticeDto {
+  id: string;
+  name: string;
+  address: string | null;
+  zipCode: string | null;
+  city: string | null;
+  phone: string | null;
+  /** Only when it differs from the activity's */
+  siret: string | null;
+  /** Exactly one active practice is the default one */
+  isDefault: boolean;
+  archivedAt: string | null;
+}
+
+export interface CreatePracticeDto {
+  name: string;
+  address?: string | null;
+  zipCode?: string | null;
+  city?: string | null;
+  phone?: string | null;
+  siret?: string | null;
+}
+
+export interface UpdatePracticeDto extends Partial<CreatePracticeDto> {
+  /** true: becomes the default one (the previous default stops being it) */
+  isDefault?: true;
+  /** true: archived (not the last active one); false: offered again */
+  archived?: boolean;
+}
+
 /** GET /me/formulas: offered ones first (in her order), then archived ones. */
 export interface FormulaDto {
   id: string;
   label: string;
   /** Null: price still to fill in */
   priceCents: number | null;
+  /** Duration of an appointment of this type */
+  durationMinutes: number;
   position: number;
   /** Set: no longer offered for new sessions */
   archivedAt: string | null;
@@ -181,11 +212,13 @@ export interface FormulaDto {
 export interface CreateFormulaDto {
   label: string;
   priceCents?: number | null;
+  durationMinutes?: number;
 }
 
 export interface UpdateFormulaDto {
   label?: string;
   priceCents?: number | null;
+  durationMinutes?: number;
   /** false: offer an archived formula again */
   archived?: boolean;
 }
@@ -319,6 +352,9 @@ export interface ConsultationDto {
   formulaLabel: string | null;
   priceCents: number | null;
   paymentMethod: PaymentMethod;
+  /** Where it took place: its address goes on the invoice */
+  practiceId: string | null;
+  practice?: { id: string; name: string } | null;
   /** Habitudes et évolution */
   habits: string | null;
   /** Travail en consultation */
@@ -339,6 +375,7 @@ export interface UpdateConsultationDto {
   date?: string;
   formulaId?: string | null;
   paymentMethod?: PaymentMethod;
+  practiceId?: string;
   habits?: string;
   sessionWork?: string;
   advice?: string;
@@ -377,7 +414,7 @@ export interface GpReportDto {
   updatedAt: string;
 }
 
-/** A report as it will be printed: with the practice's letterhead (from « Mon cabinet »). */
+/** A report as it will be printed: with her letterhead (« Mon activité » and her default practice). */
 export interface GpReportDocumentDto extends GpReportDto {
   patient: { firstName: string; lastName: string; gpName: string | null };
   /** Name of the practice first, then address, phone, e-mail, ADELI or RPPS */
@@ -396,6 +433,13 @@ export interface AppointmentDto {
   duration: number;
   type: AppointmentType;
   status: AppointmentStatus;
+  /** Type of appointment (one of her formulas) */
+  formulaId: string | null;
+  formula: { id: string; label: string } | null;
+  /** Where it takes place; null for a video or phone appointment */
+  practiceId: string | null;
+  practice: { id: string; name: string } | null;
+  /** Optional note */
   reason: string | null;
   consultation?: { id: string } | null;
   createdAt: string;
@@ -405,9 +449,21 @@ export interface AppointmentDto {
 export interface CreateAppointmentDto {
   patientId: string;
   startAt: string;
-  duration: number;
+  /** Minutes; defaults to the duration of the formula */
+  duration?: number;
   type: AppointmentType;
-  reason?: string;
+  formulaId?: string | null;
+  /** In person: defaults to her default practice. Ignored for video and phone. */
+  practiceId?: string | null;
+  reason?: string | null;
+}
+
+/** GET /appointments/options?patientId=: what an appointment of that patient can be booked with. */
+export interface BookingOptionsDto {
+  /** Her offered formulas, in her order */
+  formulas: Pick<FormulaDto, 'id' | 'label' | 'priceCents' | 'durationMinutes'>[];
+  /** Her active practices, the default one first */
+  practices: Pick<PracticeDto, 'id' | 'name' | 'address' | 'zipCode' | 'city' | 'isDefault'>[];
 }
 
 export interface UpdateAppointmentDto extends Partial<CreateAppointmentDto> {
@@ -586,7 +642,7 @@ export interface InvoiceDto {
 }
 
 /** What an invoice no longer matches in its session */
-export type InvoiceMismatch = 'formula' | 'price' | 'paymentMethod' | 'date';
+export type InvoiceMismatch = 'formula' | 'price' | 'paymentMethod' | 'date' | 'practice';
 
 /** Totals of invoices in force (cancelled invoices and credit notes are left out). */
 export interface InvoiceTotalsDto {

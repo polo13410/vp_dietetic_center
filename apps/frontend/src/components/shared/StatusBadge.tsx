@@ -42,6 +42,9 @@ const STATUS_CONFIG: Record<string, { label: string; tone: BadgeTone }> = {
   IN_PERSON: { label: 'En cabinet', tone: 'neutral' },
   VIDEO: { label: 'Vidéo', tone: 'neutral' },
   PHONE: { label: 'Téléphone', tone: 'neutral' },
+
+  // Practices
+  DEFAULT: { label: 'Par défaut', tone: 'success' },
 };
 
 interface StatusBadgeProps {

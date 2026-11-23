@@ -9,6 +9,7 @@ import { Audited } from '../audit/audited.decorator';
 
 import { AppointmentsService } from './appointments.service';
 import { AppointmentQueryDto } from './dto/appointment-query.dto';
+import { BookingOptionsQueryDto } from './dto/booking-options.dto';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
@@ -24,6 +25,12 @@ export class AppointmentsController {
   @ApiOperation({ summary: 'Lister les rendez-vous' })
   findAll(@CurrentUser() user: any, @Query() query: AppointmentQueryDto) {
     return this.service.findAll(user, query);
+  }
+
+  @Get('options')
+  @ApiOperation({ summary: 'Types de rendez-vous (formules, avec leur durée) et cabinets proposés' })
+  options(@CurrentUser() user: any, @Query() query: BookingOptionsQueryDto) {
+    return this.service.options(user, query.patientId);
   }
 
   @Get(':id')

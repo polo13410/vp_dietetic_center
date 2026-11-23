@@ -27,6 +27,10 @@ const appointment = (
   duration: 45,
   type: 'IN_PERSON' as DashboardAppointmentDto['type'],
   status: 'CONFIRMED' as DashboardAppointmentDto['status'],
+  formulaId: 'f-suivi',
+  formula: { id: 'f-suivi', label: 'Suivi' },
+  practiceId: 'pr-aix',
+  practice: { id: 'pr-aix', name: 'Cabinet d’Aix' },
   reason: null,
   consultation: null,
   createdAt: NOW.toISOString(),
@@ -79,10 +83,15 @@ const summary: DashboardSummary = {
 
 const EMPTY: DashboardSummary = { todayAppointments: [], followUps: [], tasks: [] };
 
+const aix = { id: 'pr-aix', name: 'Cabinet d’Aix', address: null, zipCode: null, city: 'Aix-en-Provence', phone: null, siret: null, isDefault: true, archivedAt: null };
+let practices = [aix];
+
 function serve(data: DashboardSummary, sessionsToInvoice: SessionToInvoiceDto[] = [toInvoice('c-8', 'Martine')]) {
   vi.mocked(api.get).mockImplementation(async (url: string) => {
     if (url === '/dashboard/summary') return { data };
     if (url === '/invoices/to-issue') return { data: sessionsToInvoice };
+    if (url === '/me/practices') return { data: practices };
+    if (url === '/appointments/options') return { data: { formulas: [], practices } };
     // The appointment dialog looks up patients
     return { data: { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } } };
   });
@@ -143,6 +152,23 @@ describe('DashboardPage', () => {
       // Cancelled: no action
       expect(cards[2]).toHaveTextContent('Annulé');
       expect(within(cards[2]).queryByRole('button')).not.toBeInTheDocument();
+    });
+
+    it('says the type of each appointment, and the practice only when she has several', async () => {
+      practices = [aix];
+      serve(summary);
+      const { unmount } = renderWithProviders(<DashboardPage />, '/dashboard');
+      let today = within((await screen.findByRole('heading', { name: 'Aujourd’hui' })).closest('section')!);
+      expect(today.getAllByRole('listitem')[1]).toHaveTextContent('Suivi');
+      expect(today.getAllByRole('listitem')[1]).not.toHaveTextContent('Cabinet d’Aix');
+      unmount();
+
+      practices = [aix, { ...aix, id: 'pr-mrs', name: 'Marseille', isDefault: false }];
+      serve(summary);
+      renderWithProviders(<DashboardPage />, '/dashboard');
+      today = within((await screen.findByRole('heading', { name: 'Aujourd’hui' })).closest('section')!);
+      await waitFor(() => expect(today.getAllByRole('listitem')[1]).toHaveTextContent('Suivi · Cabinet d’Aix'));
+      practices = [aix];
     });
 
     it('starts the session of the appointment and opens it', async () => {

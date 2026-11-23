@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
 import { useIsRole } from '../../hooks/useAuth';
+import { useShowPractices } from '../../hooks/useMe';
 import api from '../../lib/api';
 import { formatDate, formatLongDate, formatTime } from '../../lib/utils';
 
@@ -26,6 +27,11 @@ interface AppointmentDetail {
   duration: number;
   type: string;
   status: string;
+  formulaId: string | null;
+  formula?: { id: string; label: string } | null;
+  practiceId: string | null;
+  practice?: { id: string; name: string } | null;
+  /** Optional note */
   reason: string | null;
   cancelReason?: string | null;
   patient?: { firstName: string; lastName: string };
@@ -42,6 +48,7 @@ export default function AppointmentDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   // Assistants schedule appointments but never see the patient's file
   const isAssistant = useIsRole('ASSISTANTE');
+  const showPractice = useShowPractices();
 
   const { data: appt, isLoading } = useQuery({
     queryKey: ['appointment', id],
@@ -92,7 +99,8 @@ export default function AppointmentDetailPage() {
         subtitle={
           <span className="first-letter:uppercase">
             {new Date(appt.startAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}{' '}
-            à {formatTime(appt.startAt)} · {appt.duration} min
+            à {formatTime(appt.startAt)}
+            {appt.formula && ` · ${appt.formula.label}`} · {appt.duration} min
           </span>
         }
         actions={!isAssistant && <SessionAction appt={appt} />}
@@ -118,8 +126,12 @@ export default function AppointmentDetailPage() {
             <Info label="Date">
               {formatLongDate(appt.startAt)} à {formatTime(appt.startAt)}
             </Info>
+            <Info label="Type de rendez-vous">{appt.formula?.label ?? 'Non précisé'}</Info>
             <Info label="Lieu">
-              <StatusBadge status={appt.type} />
+              <span className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={appt.type} />
+                {showPractice && appt.practice && appt.practice.name}
+              </span>
             </Info>
             <Info label="Durée">{appt.duration} minutes</Info>
             {appt.practitioner && (
@@ -127,7 +139,7 @@ export default function AppointmentDetailPage() {
                 {appt.practitioner.firstName} {appt.practitioner.lastName}
               </Info>
             )}
-            {appt.reason && <Info label="Motif">{appt.reason}</Info>}
+            {appt.reason && <Info label="Note">{appt.reason}</Info>}
             {appt.cancelReason && <Info label="Motif d’annulation">{appt.cancelReason}</Info>}
           </dl>
 
@@ -174,8 +186,11 @@ export default function AppointmentDetailPage() {
           startAt: formatDate(appt.startAt, 'yyyy-MM-ddTHH:mm'), // local time for the field
           duration: appt.duration,
           type: appt.type as 'IN_PERSON' | 'VIDEO' | 'PHONE',
+          formulaId: appt.formulaId ?? '',
+          practiceId: appt.practiceId ?? '',
           reason: appt.reason ?? '',
         }}
+        booked={{ formula: appt.formula, practice: appt.practice }}
       />
 
       <ConfirmDialog

@@ -101,9 +101,9 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                       <span>
                         {a.patient?.lastName} {a.patient?.firstName}
                       </span>
-                      {a.reason && (
+                      {(a.formula?.label || a.reason) && (
                         <span className="ml-2 text-xs text-muted-foreground truncate">
-                          {a.reason}
+                          {[a.formula?.label, a.reason].filter(Boolean).join(' · ')}
                         </span>
                       )}
                     </CommandItem>

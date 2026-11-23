@@ -2,7 +2,15 @@ import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import api from '../../lib/api';
-import { apiGet, PATIENT_ID, renderWithProviders, ROUTES } from '../../test/patient-fixtures';
+import { useAuthStore } from '../../stores/authStore';
+import {
+  apiGet,
+  PATIENT_ID,
+  renderWithProviders,
+  ROUTES,
+  signInPractitioner,
+  TWO_PRACTICES,
+} from '../../test/patient-fixtures';
 
 import { SessionsPanel } from './SessionsPanel';
 
@@ -24,6 +32,22 @@ describe('SessionsPanel', () => {
     expect(within(rows[0]).getByText(/60 €/)).toBeInTheDocument();
     expect(within(rows[0]).getByText('Chèque')).toBeInTheDocument();
     expect(within(rows[2]).getByText('Non réglé')).toBeInTheDocument();
+  });
+
+  it('has no practice column with one practice, and one when she consults in several', async () => {
+    signInPractitioner();
+    vi.mocked(api.get).mockImplementation(apiGet({ ...ROUTES, '/me/practices': TWO_PRACTICES.slice(0, 1) }) as never);
+    const { unmount } = renderWithProviders(<SessionsPanel patientId={PATIENT_ID} onStart={vi.fn()} />);
+    await screen.findByRole('link', { name: 'Bilan' });
+    expect(screen.queryByRole('columnheader', { name: 'Cabinet' })).not.toBeInTheDocument();
+    unmount();
+
+    vi.mocked(api.get).mockImplementation(apiGet({ ...ROUTES, '/me/practices': TWO_PRACTICES }) as never);
+    renderWithProviders(<SessionsPanel patientId={PATIENT_ID} onStart={vi.fn()} />);
+    expect(await screen.findByRole('columnheader', { name: 'Cabinet' })).toBeInTheDocument();
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(within(rows[0]).getByText('Cabinet d’Aix')).toBeInTheDocument();
+    useAuthStore.setState({ user: null, isAuthenticated: false });
   });
 
   it('unfolds a row to read its texts', async () => {

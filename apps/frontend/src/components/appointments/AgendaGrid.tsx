@@ -4,6 +4,8 @@ import { CheckCircle2, Phone, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
+import { useShowPractices } from '../../hooks/useMe';
+import { appointmentSummary } from '../../lib/appointments';
 import { cn, formatTime } from '../../lib/utils';
 import { Card } from '../ui/card';
 
@@ -13,7 +15,11 @@ export interface AgendaAppointment {
   duration: number;
   type: string;
   status: string;
+  /** Optional note */
   reason?: string | null;
+  /** Type of appointment */
+  formula?: { id: string; label: string } | null;
+  practice?: { id: string; name: string } | null;
   patient?: { id: string; firstName: string; lastName: string };
   consultation?: { id: string } | null;
 }
@@ -142,6 +148,8 @@ export function AgendaGrid({
 }
 
 function AppointmentBlock({ appt, startHour }: { appt: AgendaAppointment; startHour: number }) {
+  // Its type, and where when she consults in several practices
+  const summary = appointmentSummary(appt, useShowPractices());
   const start = new Date(appt.startAt);
   const top = ((start.getHours() - startHour) * 60 + start.getMinutes()) * (HOUR_PX / 60);
   const height = Math.max(appt.duration * (HOUR_PX / 60), 24);
@@ -157,6 +165,7 @@ function AppointmentBlock({ appt, startHour }: { appt: AgendaAppointment; startH
       style={{ top, height }}
       aria-label={[
         `${formatTime(start)}, ${name}`,
+        summary,
         type?.label,
         appt.consultation ? 'séance commencée' : null,
         appt.status === 'CANCELLED' ? 'annulé' : appt.status === 'NO_SHOW' ? 'absent' : null,
@@ -165,9 +174,10 @@ function AppointmentBlock({ appt, startHour }: { appt: AgendaAppointment; startH
         .join(', ')}
     >
       <div className="flex items-center gap-1">
-        <span className="font-semibold tabular-nums">{formatTime(start)}</span>
-        {type && <type.icon className="size-3.5 text-muted-foreground" aria-hidden />}
-        {appt.consultation && <CheckCircle2 className="ml-auto size-3.5 text-success" aria-hidden />}
+        <span className="shrink-0 font-semibold tabular-nums">{formatTime(start)}</span>
+        {type && <type.icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+        {summary && <span className="min-w-0 truncate text-muted-foreground">{summary}</span>}
+        {appt.consultation && <CheckCircle2 className="ml-auto size-3.5 shrink-0 text-success" aria-hidden />}
       </div>
       <p className="truncate font-medium">{name}</p>
       {height > 64 && appt.reason && <p className="truncate text-muted-foreground">{appt.reason}</p>}

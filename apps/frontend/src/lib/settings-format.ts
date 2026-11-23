@@ -78,3 +78,26 @@ export function formatEuros(cents: number): string {
 export function formatTime(date: Date): string {
   return `${date.getHours()} h ${String(date.getMinutes()).padStart(2, '0')}`;
 }
+
+/** A duration typed in minutes: a whole number from 15 minutes to 8 hours (same as the API). */
+export function durationError(value: string): string | null {
+  if (!/^\d+$/.test(value.trim())) return 'Indiquez la durée en minutes, par exemple 45.';
+  const minutes = Number(value);
+  if (minutes < 15) return 'Comptez au moins 15 minutes.';
+  if (minutes > 480) return 'La durée ne peut pas dépasser 8 heures.';
+  return null;
+}
+
+/** 45 → "45 min", 60 → "1 h", 90 → "1 h 30". */
+export function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`;
+}
+
+/** "12 rue des Oliviers, 13100 Aix-en-Provence", or null when nothing is filled in. */
+export function addressLine(place: { address: string | null; zipCode: string | null; city: string | null }) {
+  const town = [place.zipCode, place.city].filter(Boolean).join(' ');
+  return [place.address, town].filter(Boolean).join(', ') || null;
+}

@@ -2,6 +2,7 @@ import { ChevronDown, ClipboardList, Play } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
+import { useShowPractices } from '../../hooks/useMe';
 import {
   type Consultation,
   formatDelta,
@@ -17,7 +18,16 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { Button } from '../ui/button';
 import { LoadingSpinner } from '../ui/loading-screen';
 
-const COLUMNS = ['Séance', 'Date', 'Formule', 'Paiement', 'Poids', 'IMC', 'MB (MJ)', 'MB (kcal)'];
+const NUMBERS = ['Poids', 'IMC', 'MB (MJ)', 'MB (kcal)'];
+/** Her columns; « Cabinet » only when she consults in several practices */
+const columns = (withPractice: boolean) => [
+  'Séance',
+  'Date',
+  'Formule',
+  ...(withPractice ? ['Cabinet'] : []),
+  'Paiement',
+  ...NUMBERS,
+];
 
 /**
  * Her « Suivi » sheet: one row per session, Bilan first, with the figures computed by the API. A row
@@ -37,6 +47,8 @@ export function SessionsPanel({
   const sessions = [...latestFirst].reverse();
   const [open, setOpen] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const showPractice = useShowPractices();
+  const COLUMNS = columns(showPractice);
 
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -72,7 +84,7 @@ export function SessionsPanel({
             <thead className="bg-muted text-left text-sm text-muted-foreground">
               <tr>
                 {COLUMNS.map((c, i) => (
-                  <th key={c} scope="col" className={cn('whitespace-nowrap px-3 py-3 font-medium', i >= 4 && 'text-right', i === 0 && 'pl-5')}>
+                  <th key={c} scope="col" className={cn('whitespace-nowrap px-3 py-3 font-medium', NUMBERS.includes(c) && 'text-right', i === 0 && 'pl-5')}>
                     {c}
                   </th>
                 ))}
@@ -112,6 +124,11 @@ export function SessionsPanel({
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
+                      {showPractice && (
+                        <td className="whitespace-nowrap px-3 py-2">
+                          {s.practice?.name ?? <span className="text-muted-foreground">—</span>}
+                        </td>
+                      )}
                       <td className="whitespace-nowrap px-3 py-2">
                         {s.paymentMethod === 'NONE' ? (
                           <StatusBadge status="UNPAID" tone="warning" label={PAYMENT_METHODS.NONE} />

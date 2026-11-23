@@ -10,6 +10,8 @@ import {
 } from '../../hooks/useMe';
 import {
   centsToInput,
+  durationError,
+  formatDuration,
   formatEuros,
   parseEuros,
   priceError,
@@ -26,7 +28,10 @@ import { AutosaveField, SaveIndicator, type Track, useSaveTracker } from './auto
 
 const LABEL_REQUIRED = 'Donnez un nom à la formule.';
 
-/** Her prices ("Bilan 60 €"): chosen for each session, and printed on its invoice. */
+/**
+ * Her prices ("Bilan 60 €, 1 h"), which are also her types of appointment: the type chosen
+ * when booking gives the appointment its duration, the séance its formula, the invoice its price.
+ */
 export function FormulasSection({ formulas }: { formulas: FormulaDto[] }) {
   const { state, track } = useSaveTracker();
   const { mutateAsync: reorder } = useReorderFormulas();
@@ -54,7 +59,7 @@ export function FormulasSection({ formulas }: { formulas: FormulaDto[] }) {
       icon={Euro}
       area="settings"
       title="Mes tarifs"
-      description="Les formules proposées pour vos séances, dans l’ordre où elles apparaissent."
+      description="Vos formules, qui sont aussi vos types de rendez-vous : la durée remplit le rendez-vous, le prix la facture."
       action={<SaveIndicator state={state} />}
     >
       <div className="space-y-5">
@@ -150,6 +155,16 @@ function FormulaRow({ formula, track, onUp, onDown, onRemove }: FormulaRowProps)
           className: formula.priceCents === null ? 'border-warning placeholder:text-warning' : undefined,
         }}
       />
+      <AutosaveField
+        className="w-40"
+        label="Durée en minutes"
+        value={String(formula.durationMinutes)}
+        requiredMessage="Indiquez la durée en minutes, par exemple 45."
+        validate={durationError}
+        onSave={(minutes) => update({ id: formula.id, dto: { durationMinutes: Number(minutes) } })}
+        track={track}
+        inputProps={{ inputMode: 'numeric' }}
+      />
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -181,20 +196,25 @@ function NewFormula({ track }: { track: Track }) {
   const { mutateAsync: create, isPending } = useCreateFormula();
   const [label, setLabel] = useState('');
   const [price, setPrice] = useState('');
-  const [errors, setErrors] = useState<{ label?: string; price?: string }>({});
+  const [duration, setDuration] = useState('45');
+  const [errors, setErrors] = useState<{ label?: string; price?: string; duration?: string }>({});
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const found = {
       label: label.trim() ? undefined : LABEL_REQUIRED,
       price: priceError(price) ?? undefined,
+      duration: durationError(duration) ?? undefined,
     };
     setErrors(found);
-    if (found.label || found.price) return;
-    const ok = await track(() => create({ label: label.trim(), priceCents: parseEuros(price) ?? null }));
+    if (found.label || found.price || found.duration) return;
+    const ok = await track(() =>
+      create({ label: label.trim(), priceCents: parseEuros(price) ?? null, durationMinutes: Number(duration) }),
+    );
     if (ok) {
       setLabel('');
       setPrice('');
+      setDuration('45');
     }
   };
 
@@ -218,6 +238,9 @@ function NewFormula({ track }: { track: Track }) {
           onChange={(e) => setPrice(e.target.value)}
           inputMode="decimal"
         />
+      </Field>
+      <Field className="w-40" label="Durée en minutes" error={errors.duration}>
+        <Input value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="numeric" />
       </Field>
       <Button type="submit" variant="outline" disabled={isPending}>
         <Plus /> Ajouter la formule
@@ -249,6 +272,7 @@ function ArchivedFormulas({ formulas, track }: { formulas: FormulaDto[]; track: 
                 {formula.priceCents !== null && (
                   <span className="text-muted-foreground"> · {formatEuros(formula.priceCents)}</span>
                 )}
+                <span className="text-muted-foreground"> · {formatDuration(formula.durationMinutes)}</span>
               </span>
               <Button
                 variant="outline"

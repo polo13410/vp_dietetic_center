@@ -36,11 +36,15 @@ export class SearchService {
           ...apptScope,
           OR: [
             { reason: { contains: q, mode: 'insensitive' } },
+            { formula: { label: { contains: q, mode: 'insensitive' } } },
             { patient: { firstName: { contains: q, mode: 'insensitive' } } },
             { patient: { lastName: { contains: q, mode: 'insensitive' } } },
           ],
         },
-        include: { patient: { select: { firstName: true, lastName: true } } },
+        include: {
+          patient: { select: { firstName: true, lastName: true } },
+          formula: { select: { id: true, label: true } },
+        },
         take: 5,
         orderBy: { startAt: 'desc' },
       }),

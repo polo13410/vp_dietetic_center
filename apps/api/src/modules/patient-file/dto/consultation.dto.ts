@@ -24,6 +24,11 @@ export class CreateConsultationDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
+
+  @ApiPropertyOptional({ description: "Practice: by default the appointment's, else the default one" })
+  @IsOptional()
+  @IsUUID()
+  practiceId?: string;
 }
 
 export class UpdateConsultationDto {
@@ -44,6 +49,11 @@ export class UpdateConsultationDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
+
+  @ApiPropertyOptional({ description: 'Where it took place: its address goes on the invoice' })
+  @IsOptional()
+  @IsUUID()
+  practiceId?: string;
 
   @ApiPropertyOptional({ description: 'Habitudes et évolution' })
   @IsOptional()

@@ -3,20 +3,18 @@ import { Theme } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
-import type { UpdateMeDto, UpdatePracticeDto } from './dto/me.dto';
+import type { UpdateActivityDto, UpdateMeDto } from './dto/me.dto';
 
-const PRACTICE_FIELDS = [
+/** Who she is, printed on her invoices. Where she consults is in her practices. */
+const ACTIVITY_FIELDS = [
   'practiceName',
-  'address',
-  'zipCode',
-  'city',
   'siret',
   'adeliRpps',
   'vatMention',
   'invoiceFooter',
 ] as const;
 
-/** The signed-in user's own profile, appearance and practice (settings page). */
+/** The signed-in user's own profile, appearance and activity (settings page). */
 @Injectable()
 export class MeService {
   constructor(private readonly prisma: PrismaService) {}
@@ -58,21 +56,21 @@ export class MeService {
     return this.getProfile(userId);
   }
 
-  async getPractice(userId: string) {
-    const practice = await this.prisma.practitionerProfile.findUnique({ where: { userId } });
+  async getActivity(userId: string) {
+    const activity = await this.prisma.practitionerProfile.findUnique({ where: { userId } });
     // Nothing filled in yet: every field is empty
-    return Object.fromEntries(PRACTICE_FIELDS.map((field) => [field, practice?.[field] ?? null])) as Record<
-      (typeof PRACTICE_FIELDS)[number],
+    return Object.fromEntries(ACTIVITY_FIELDS.map((field) => [field, activity?.[field] ?? null])) as Record<
+      (typeof ACTIVITY_FIELDS)[number],
       string | null
     >;
   }
 
-  async updatePractice(userId: string, dto: UpdatePracticeDto) {
+  async updateActivity(userId: string, dto: UpdateActivityDto) {
     await this.prisma.practitionerProfile.upsert({
       where: { userId },
       create: { userId, ...dto },
       update: dto,
     });
-    return this.getPractice(userId);
+    return this.getActivity(userId);
   }
 }

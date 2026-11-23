@@ -72,19 +72,30 @@ describe('FormulasService', () => {
     expect(mockPrisma.formula.delete).not.toHaveBeenCalled();
   });
 
-  it('deletes a formula no session uses', async () => {
+  it('deletes a formula no session or appointment uses', async () => {
     mockPrisma.consultation.count.mockResolvedValue(0);
+    mockPrisma.appointment.count.mockResolvedValue(0);
     await expect(service.remove('user-1', 'f1')).resolves.toEqual({ deleted: true, formula: null });
     expect(mockPrisma.formula.delete).toHaveBeenCalledWith({ where: { id: 'f1' } });
   });
 
   it('archives instead of deleting a formula that sessions use', async () => {
     mockPrisma.consultation.count.mockResolvedValue(3);
+    mockPrisma.appointment.count.mockResolvedValue(0);
     const result = await service.remove('user-1', 'f1');
     expect(mockPrisma.consultation.count).toHaveBeenCalledWith({ where: { formulaId: 'f1' } });
     expect(mockPrisma.formula.delete).not.toHaveBeenCalled();
     expect(result.deleted).toBe(false);
     expect(result.formula?.archivedAt).toBeInstanceOf(Date);
+  });
+
+  it('archives instead of deleting a formula an appointment is booked with', async () => {
+    mockPrisma.consultation.count.mockResolvedValue(0);
+    mockPrisma.appointment.count.mockResolvedValue(1);
+    const result = await service.remove('user-1', 'f1');
+    expect(mockPrisma.appointment.count).toHaveBeenCalledWith({ where: { formulaId: 'f1' } });
+    expect(mockPrisma.formula.delete).not.toHaveBeenCalled();
+    expect(result.deleted).toBe(false);
   });
 
   it('reorders the offered formulas', async () => {
@@ -105,14 +116,14 @@ describe('FormulasService', () => {
 describe('ensureDefaultFormulas', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('gives a new practitioner « Bilan » and « Suivi » without a price', async () => {
+  it('gives a new practitioner « Bilan » (1 h) and « Suivi » (45 min) without a price', async () => {
     mockPrisma.formula.count.mockResolvedValue(0);
     await ensureDefaultFormulas(mockPrisma as any, 'user-1');
-    expect(DEFAULT_FORMULAS).toEqual(['Bilan', 'Suivi']);
+    expect(DEFAULT_FORMULAS.map((f) => f.label)).toEqual(['Bilan', 'Suivi']);
     expect(mockPrisma.formula.createMany).toHaveBeenCalledWith({
       data: [
-        { practitionerId: 'user-1', label: 'Bilan', position: 0 },
-        { practitionerId: 'user-1', label: 'Suivi', position: 1 },
+        { practitionerId: 'user-1', label: 'Bilan', durationMinutes: 60, position: 0 },
+        { practitionerId: 'user-1', label: 'Suivi', durationMinutes: 45, position: 1 },
       ],
     });
   });

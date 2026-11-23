@@ -8,11 +8,15 @@ const SELECT = {
   id: true,
   label: true,
   priceCents: true,
+  durationMinutes: true,
   position: true,
   archivedAt: true,
 } as const;
 
-/** The practitioner's prices ("Bilan 60 €"). Sessions copy label and price when they use one. */
+/**
+ * The practitioner's prices ("Bilan 60 €, 1 h"), which are also her types of appointment (the
+ * duration fills the appointment's). Sessions copy label and price when they use one.
+ */
 @Injectable()
 export class FormulasService {
   constructor(private readonly prisma: PrismaService) {}
@@ -32,6 +36,7 @@ export class FormulasService {
         practitionerId,
         label: dto.label,
         priceCents: dto.priceCents ?? null,
+        ...(dto.durationMinutes ? { durationMinutes: dto.durationMinutes } : {}),
         position: await this.nextPosition(practitionerId),
       },
       select: SELECT,
@@ -55,13 +60,16 @@ export class FormulasService {
   }
 
   /**
-   * Deletes a formula no session uses. One that sessions use is archived instead: it is no
-   * longer offered, and those sessions keep it.
+   * Deletes a formula no session or appointment uses. One in use is archived instead: it is no
+   * longer offered, and those sessions and appointments keep it.
    */
   async remove(practitionerId: string, id: string) {
     const formula = await this.findOwn(practitionerId, id);
-    const used = await this.prisma.consultation.count({ where: { formulaId: id } });
-    if (used > 0) {
+    const [sessions, appointments] = await Promise.all([
+      this.prisma.consultation.count({ where: { formulaId: id } }),
+      this.prisma.appointment.count({ where: { formulaId: id } }),
+    ]);
+    if (sessions + appointments > 0) {
       const archived = await this.prisma.formula.update({
         where: { id },
         data: { archivedAt: formula.archivedAt ?? new Date() },

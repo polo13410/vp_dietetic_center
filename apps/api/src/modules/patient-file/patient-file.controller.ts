@@ -150,6 +150,15 @@ export class PatientFileController {
     return this.file.listMeasurements(user, patientId, type);
   }
 
+  @Get('measurements/timeline')
+  @Audited({ action: AuditAction.READ, entity: 'measurement', patientId: 'param:patientId' })
+  @ApiOperation({
+    summary: 'Onglet Mesures : mesures (IMC et MB avec la taille de leur date), faits marquants, courbe de corpulence',
+  })
+  measureTimeline(@CurrentUser() user: AccessUser, @Param('patientId', uuid) patientId: string) {
+    return this.file.getMeasureTimeline(user, patientId);
+  }
+
   @Post('measurements')
   @Audited({ action: AuditAction.CREATE, entity: 'measurement', patientId: 'param:patientId', entityId: 'result:id' })
   createMeasurement(

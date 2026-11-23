@@ -71,9 +71,10 @@ describe('PatientFileService', () => {
     it('computes BMI and BMR now, with the age of today', async () => {
       const brief = await service.getBrief(user as any, 'p1');
       expect(brief.patient.age).toBe(56);
-      expect(brief.bmi.current).toEqual({ value: 31.25, category: 'OBESITY' });
-      expect(brief.bmi.atStart).toEqual({ value: 31.64, category: 'OBESITY' });
-      expect(brief.bmr).toEqual({ mj: 5.86, kcal: 1400.3 });
+      expect(brief.bmi.current).toEqual({ value: 31.25, category: 'OBESITY', child: null });
+      expect(brief.bmi.atStart).toEqual({ value: 31.64, category: 'OBESITY', child: null });
+      expect(brief.bmr).toEqual({ mj: 5.86, kcal: 1400.3, adultFormulaForMinor: false });
+      expect(brief.minor).toBe(false);
       expect(brief.missing).toEqual([]);
     });
 
@@ -122,7 +123,37 @@ describe('PatientFileService', () => {
       expect(brief.lastConsultation?.id).toBe('c2');
       expect(brief.consultationCount).toBe(2);
       expect(brief.metrics.find((m) => m.type === 'WEIGHT')!.latest.value).toBe(79);
-      expect(brief.bmi.current).toEqual({ value: 31.25, category: 'OBESITY' });
+      expect(brief.bmi.current).toEqual({ value: 31.25, category: 'OBESITY', child: null });
+    });
+
+    it('counts the change from the bilan, not from a weight history entered before it', async () => {
+      mockPrisma.measurement.findMany.mockResolvedValue([
+        { type: 'WEIGHT', value: dec(70), measuredAt: d('2019-05-01'), consultationId: null },
+        { type: 'WEIGHT', value: dec(78), measuredAt: d('2025-11-01'), consultationId: null },
+        { type: 'HEIGHT', value: dec(159), measuredAt: d('2026-10-01'), consultationId: 'c1' },
+        { type: 'WEIGHT', value: dec(80), measuredAt: d('2026-10-01'), consultationId: 'c1' },
+        { type: 'WEIGHT', value: dec(79), measuredAt: d('2026-11-01'), consultationId: 'c2' },
+      ]);
+
+      const brief = await service.getBrief(user as any, 'p1');
+
+      expect(brief.metrics.find((m) => m.type === 'WEIGHT')!.first.value).toBe(70);
+      expect(brief.weightAtStart).toEqual({ value: 80, measuredAt: d('2026-10-01') });
+      expect(brief.bmi.atStart).toMatchObject({ value: 31.64 });
+    });
+
+    it('gives a child no adult category and the BMR « formule adulte »', async () => {
+      mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ id: 'p1', sex: 'F', dateOfBirth: d('2014-06-01') });
+      mockPrisma.measurement.findMany.mockResolvedValue([
+        { type: 'HEIGHT', value: dec(140), measuredAt: d('2026-06-01'), consultationId: null },
+        { type: 'WEIGHT', value: dec(45), measuredAt: d('2026-11-01'), consultationId: 'c2' },
+      ]);
+
+      const brief = await service.getBrief(user as any, 'p1');
+
+      expect(brief.minor).toBe(true);
+      expect(brief.bmi.current).toMatchObject({ value: 22.96, category: null, child: { class: 'OVERWEIGHT' } });
+      expect(brief.bmr).toMatchObject({ adultFormulaForMinor: true });
     });
 
     it('leaves out the later sessions when an old one is reopened', async () => {
@@ -145,19 +176,85 @@ describe('PatientFileService', () => {
 
   describe('bmiFor', () => {
     it('uses the latest weight and height of each patient', async () => {
+      mockPrisma.patient.findMany.mockResolvedValue([
+        { id: 'p1', sex: 'M', dateOfBirth: d('1980-01-01') },
+        { id: 'p2', sex: 'F', dateOfBirth: null },
+      ]);
       mockPrisma.measurement.findMany.mockResolvedValue([
         { patientId: 'p1', type: 'HEIGHT', value: dec(175) },
         { patientId: 'p1', type: 'WEIGHT', value: dec(70) },
         { patientId: 'p2', type: 'WEIGHT', value: dec(60) }, // no height: no BMI
       ]);
       const bmi = await service.bmiFor(['p1', 'p2']);
-      expect(bmi.get('p1')).toEqual({ value: 22.86, category: 'NORMAL' });
+      expect(bmi.get('p1')).toEqual({ value: 22.86, category: 'NORMAL', child: null });
       expect(bmi.has('p2')).toBe(false);
     });
 
     it('does not query without patients', async () => {
       await service.bmiFor([]);
       expect(mockPrisma.measurement.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMeasureTimeline', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ now: d('2026-11-22T12:00:00Z') });
+      mockPrisma.consultation.findMany.mockResolvedValue([
+        { id: 'c1', date: d('2026-09-23T09:00:00Z') },
+        { id: 'c2', date: d('2026-10-23T09:00:00Z') },
+      ]);
+      mockPrisma.lifeEvent.findMany.mockResolvedValue([{ id: 'e1', date: d('2020-01-15'), title: 'Grossesse' }]);
+    });
+
+    it('lists every measurement latest first, each weight with the height of its date and its séance', async () => {
+      mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ sex: 'F', dateOfBirth: d('1970-08-24') });
+      mockPrisma.measurement.findMany.mockResolvedValue([
+        { id: 'm4', type: 'WEIGHT', value: dec(78.2), measuredAt: d('2026-10-23'), consultationId: 'c2', note: null },
+        { id: 'm3', type: 'WEIGHT', value: dec(79), measuredAt: d('2026-09-23'), consultationId: 'c1', note: null },
+        { id: 'm2', type: 'HEIGHT', value: dec(159), measuredAt: d('2026-09-23'), consultationId: 'c1', note: null },
+        { id: 'm1', type: 'WEIGHT', value: dec(70), measuredAt: d('2019-05-01'), consultationId: null, note: 'Avant sa grossesse' },
+      ]);
+
+      const timeline = await service.getMeasureTimeline(user as any, 'p1');
+
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(user, 'p1');
+      expect(mockPrisma.measurement.findMany.mock.calls[0][0].orderBy).toEqual([{ measuredAt: 'desc' }, { createdAt: 'desc' }]);
+      expect(timeline.measurements.map((m) => m.id)).toEqual(['m4', 'm3', 'm2', 'm1']);
+      expect(timeline.measurements[0]).toMatchObject({
+        value: 78.2,
+        session: { id: 'c2', sequence: 1 },
+        figures: { bmi: { value: 30.93 }, bmr: { mj: 5.83, kcal: 1393.5 } },
+      });
+      expect(timeline.measurements[1]).toMatchObject({ session: { id: 'c1', sequence: 0 }, figures: { bmr: { mj: 5.86, kcal: 1400.3 } } });
+      // Height: no figures
+      expect(timeline.measurements[2]).toMatchObject({ value: 159, figures: null });
+      // Before the bilan, with the adult's height measured at the bilan
+      expect(timeline.measurements[3]).toMatchObject({
+        note: 'Avant sa grossesse',
+        session: null,
+        figures: { age: 48, height: { value: 159 }, bmi: { value: 27.69, category: 'OVERWEIGHT' } },
+      });
+      expect(timeline.lifeEvents).toEqual([{ id: 'e1', date: d('2020-01-15'), title: 'Grossesse' }]);
+      expect(timeline.corpulence).toBeNull();
+    });
+
+    it('follows a child’s growth and draws the corpulence chart', async () => {
+      mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ sex: 'M', dateOfBirth: d('2016-01-01') });
+      mockPrisma.measurement.findMany.mockResolvedValue([
+        { id: 'w2', type: 'WEIGHT', value: dec(26), measuredAt: d('2024-01-01'), consultationId: null, note: null },
+        { id: 'h2', type: 'HEIGHT', value: dec(125), measuredAt: d('2024-01-01'), consultationId: null, note: null },
+        { id: 'w1', type: 'WEIGHT', value: dec(19), measuredAt: d('2021-01-01'), consultationId: null, note: null },
+        { id: 'h1', type: 'HEIGHT', value: dec(110), measuredAt: d('2021-01-01'), consultationId: null, note: null },
+      ]);
+
+      const timeline = await service.getMeasureTimeline(user as any, 'p1');
+
+      const w1 = timeline.measurements.find((m) => m.id === 'w1')!;
+      const w2 = timeline.measurements.find((m) => m.id === 'w2')!;
+      expect(w1.figures).toMatchObject({ minor: true, height: { value: 110 }, bmi: { value: 15.7, category: null } });
+      expect(w2.figures).toMatchObject({ height: { value: 125 }, bmi: { value: 16.64, child: { class: 'NORMAL' } } });
+      expect(timeline.corpulence?.points.map((p) => p.measurementId)).toEqual(['w1', 'w2']);
+      expect(timeline.corpulence?.cutoffs[0]).toMatchObject({ age: 2, overweight: 18.41, obesity: 20.09 });
     });
   });
 

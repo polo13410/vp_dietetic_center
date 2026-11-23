@@ -1,3 +1,5 @@
+import { devLoginEnabled } from '../modules/auth/dev-login/dev-login-enabled';
+
 /**
  * The JWT signing secret. A known default is only acceptable in development: in production a
  * missing or short secret would let anyone forge sessions, so the API refuses to start.
@@ -30,17 +32,9 @@ export const configuration = () => ({
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
   },
 
-  // Public address of the app (the API is served under it at /api), used in emails
-  appUrl: process.env.APP_URL ?? 'http://localhost:5173',
-
-  smtp: {
-    host: process.env.SMTP_HOST ?? 'localhost',
-    port: parseInt(process.env.SMTP_PORT ?? '1025', 10),
-    secure: process.env.SMTP_SECURE === 'true',
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-    from: process.env.SMTP_FROM ?? 'VP Diététique <noreply@vp-dietetic.local>',
-  },
+  // Sign-in without Google (local development and tests). Asked for on staging or prod, it
+  // throws here: the API refuses to start.
+  devLogin: devLoginEnabled(),
 
   // Documents bucket; empty in development (files then go to a local folder)
   gcs: {

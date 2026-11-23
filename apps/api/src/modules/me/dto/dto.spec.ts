@@ -2,8 +2,6 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
-import { ChangePasswordDto } from '../../auth/dto/change-password.dto';
-
 import { CreateFormulaDto, ReorderFormulasDto, UpdateFormulaDto } from './formula.dto';
 import { UpdateMeDto, UpdatePracticeDto } from './me.dto';
 
@@ -90,18 +88,5 @@ describe('formula DTOs', () => {
     const a = '11111111-1111-4111-8111-111111111111';
     expect(check(ReorderFormulasDto, { ids: [a] }).messages).toEqual([]);
     expect(check(ReorderFormulasDto, { ids: [a, a] }).messages).toHaveLength(1);
-  });
-});
-
-describe('ChangePasswordDto', () => {
-  it('asks for at least 8 characters with a capital letter and a digit', () => {
-    expect(check(ChangePasswordDto, { currentPassword: 'x', newPassword: 'Nouveau1' }).messages).toEqual([]);
-    expect(check(ChangePasswordDto, { currentPassword: 'x', newPassword: 'court1A' }).messages).toEqual([
-      'Le nouveau mot de passe doit compter au moins 8 caractères.',
-    ]);
-    expect(check(ChangePasswordDto, { currentPassword: '', newPassword: 'nouveau12' }).messages).toEqual([
-      'Indiquez votre mot de passe actuel.',
-      'Le nouveau mot de passe doit contenir au moins une majuscule et un chiffre.',
-    ]);
   });
 });

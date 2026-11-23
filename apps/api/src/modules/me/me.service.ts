@@ -31,17 +31,12 @@ export class MeService {
         lastName: true,
         phone: true,
         role: true,
-        passwordHash: true,
-        googleId: true,
         preferences: { select: { theme: true } },
       },
     });
-    const { passwordHash, googleId, preferences, ...profile } = user;
+    const { preferences, ...profile } = user;
     return {
       ...profile,
-      // Never the hash itself: only whether there is a password to change
-      hasPassword: passwordHash !== null,
-      googleLinked: googleId !== null,
       theme: preferences?.theme ?? Theme.SYSTEM,
     };
   }

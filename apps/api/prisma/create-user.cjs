@@ -1,7 +1,7 @@
 /*
- * Creates an account (the first ADMIN of an environment, or a practitioner) without
- * a password. The person signs in with "Continue with Google" (matched by email); a password
- * can be set later with "forgot password". A practitioner gets the default formulas « Bilan »
+ * Creates an account (the first ADMIN of an environment, or a practitioner). There are no
+ * passwords: the person signs in with "Se connecter avec Google", with the Google account of this
+ * address (matched by its verified email, then bound to the account). A practitioner gets the default formulas « Bilan »
  * and « Suivi » without a price (see src/modules/me/default-formulas.ts), which the settings
  * page asks her to fill in. Does nothing if the email already exists.
  *
@@ -39,14 +39,12 @@
       console.log(`User ${email} already exists (role ${existing.role}): nothing changed`);
       return;
     }
-    // No password: Google sign-in only, until one is set with "forgot password"
     const user = await prisma.user.create({
       data: {
         email,
         firstName,
         lastName,
         role,
-        passwordHash: null,
         ...(role === 'PRATICIENNE' && {
           formulas: { create: DEFAULT_FORMULAS.map((label, position) => ({ label, position })) },
         }),

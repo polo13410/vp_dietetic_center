@@ -1,19 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { IsEmail, IsEnum, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 
+/** No password: the person signs in with the Google account of this address. */
 export class CreateUserDto {
-  @ApiProperty({ example: 'user@vp-dietetic.fr' })
+  @ApiProperty({ example: 'user@vp-dietetic.fr', description: 'Adresse de son compte Google' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsEmail()
   email: string;
-
-  @ApiProperty({ minLength: 8, description: 'Au moins 8 caracteres, 1 majuscule, 1 chiffre' })
-  @IsString()
-  @MinLength(8)
-  @Matches(/^(?=.*[A-Z])(?=.*\d)/, {
-    message: 'Le mot de passe doit contenir au moins une majuscule et un chiffre',
-  })
-  password: string;
 
   @ApiProperty({ example: 'Prénom' })
   @IsString()

@@ -24,7 +24,6 @@ import {
   TaskStatus,
   UserRole,
 } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 import { PatientAccessService } from '../src/common/access/patient-access.service';
 import { InvoicesService } from '../src/modules/invoices/invoices.service';
@@ -77,15 +76,15 @@ type SessionSeed = {
   events?: { daysAgo: number; title: string; category?: LifeEventCategory }[];
 };
 
+/** No password: accounts sign in with Google, or locally with the dev sign-in (DEV_LOGIN=true). */
 async function upsertUser(
   email: string,
-  password: string,
   data: { firstName: string; lastName: string; role: UserRole; phone?: string },
 ) {
   return prisma.user.upsert({
     where: { email },
     update: {},
-    create: { email, passwordHash: await bcrypt.hash(password, 12), isActive: true, ...data },
+    create: { email, isActive: true, ...data },
   });
 }
 
@@ -264,18 +263,18 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // ── Users ───────────────────────────────────────────────────────────────────
-  await upsertUser('admin@vp-dietetic.fr', 'Admin1234!', {
+  await upsertUser('admin@vp-dietetic.fr', {
     firstName: 'Paul',
     lastName: 'Administrateur',
     role: UserRole.ADMIN,
   });
-  const pract = await upsertUser('praticienne@vp-dietetic.fr', 'Pratic1234!', {
+  const pract = await upsertUser('praticienne@vp-dietetic.fr', {
     firstName: 'Valérie',
     lastName: 'Perrot',
     role: UserRole.PRATICIENNE,
     phone: '06 12 34 56 78',
   });
-  await upsertUser('assistante@vp-dietetic.fr', 'Assist1234!', {
+  await upsertUser('assistante@vp-dietetic.fr', {
     firstName: 'Sophie',
     lastName: 'Martin',
     role: UserRole.ASSISTANTE,
@@ -615,10 +614,12 @@ async function main() {
   console.log(`
 ✅ Seed terminé
 
-Comptes :
-  admin@vp-dietetic.fr       / Admin1234!   (ADMIN)
-  praticienne@vp-dietetic.fr / Pratic1234!  (PRATICIENNE)
-  assistante@vp-dietetic.fr  / Assist1234!  (ASSISTANTE)
+Comptes (pas de mot de passe) :
+  admin@vp-dietetic.fr       (ADMIN)
+  praticienne@vp-dietetic.fr (PRATICIENNE)
+  assistante@vp-dietetic.fr  (ASSISTANTE)
+En local, avec DEV_LOGIN=true dans apps/api/.env : « Connexion de développement » sur la page
+de connexion, avec une de ces adresses.
 
 6 patients suivis par Valérie Perrot (formules Bilan 60 € et Suivi 50 €), dont Martine Roux,
 le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg).

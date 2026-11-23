@@ -15,6 +15,7 @@ import { configuration } from './config/configuration';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { devLoginImport } from './modules/auth/dev-login/dev-login.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
@@ -67,6 +68,8 @@ import { PrismaModule } from './prisma/prisma.module';
 
     // Business modules
     AuthModule,
+    // Sign-in without Google: local development and end-to-end tests only (DEV_LOGIN=true)
+    devLoginImport(),
     UsersModule,
     MeModule,
     PatientsModule,

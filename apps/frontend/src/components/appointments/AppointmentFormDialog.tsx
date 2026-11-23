@@ -1,14 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, UserPlus } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useEffect, useMemo, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useKeepFieldVisible } from '../../hooks/useKeepFieldVisible';
 import api from '../../lib/api';
+import { formulaOption, useBookingOptions } from '../../lib/appointments';
 import { type IdentityDraft, identityFromSearch } from '../../lib/new-patient';
+import { addressLine } from '../../lib/settings-format';
 import { cn } from '../../lib/utils';
+import { fieldClass } from '../patient-file/LifeEventForm';
 import { QuickPatientForm } from '../patients/QuickPatientForm';
 import { Field } from '../shared/Field';
 import { PatientCombobox } from '../shared/PatientCombobox';
@@ -28,9 +31,14 @@ import { toast } from '../ui/toaster';
 
 const schema = z.object({
   patientId: z.string().min(1, 'Choisissez le patient.'),
+  formulaId: z.string(),
   startAt: z.string().min(1, 'Choisissez la date et l’heure.'),
-  duration: z.number({ message: 'Indiquez la durée en minutes.' }).min(15, 'Comptez au moins 15 minutes.'),
+  duration: z
+    .number({ message: 'Indiquez la durée en minutes.' })
+    .min(15, 'Comptez au moins 15 minutes.')
+    .max(480, 'La durée ne peut pas dépasser 8 heures.'),
   type: z.enum(['IN_PERSON', 'VIDEO', 'PHONE']),
+  practiceId: z.string(),
   reason: z.string().optional(),
 });
 
@@ -48,18 +56,36 @@ const TYPES = [
   { value: 'PHONE', label: 'Téléphone' },
 ] as const;
 
+const EMPTY: FormData = {
+  patientId: '',
+  formulaId: '',
+  startAt: '',
+  duration: 45,
+  type: 'IN_PERSON',
+  practiceId: '',
+  reason: '',
+};
+
 interface AppointmentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultValues?: Partial<FormData>;
   editId?: string;
+  /** Edited appointment: its type and practice, still shown if no longer offered */
+  booked?: { formula?: { id: string; label: string } | null; practice?: { id: string; name: string } | null };
 }
 
+/**
+ * Booking in three choices (docs/REFONTE.md lot 15): the patient, the type of appointment (one
+ * of her formulas, which fills the duration, still editable) and the slot. In person, it takes
+ * place in her default practice; the « Cabinet » choice only shows when she has several.
+ */
 export function AppointmentFormDialog({
   open,
   onOpenChange,
   defaultValues,
   editId,
+  booked,
 }: AppointmentFormDialogProps) {
   const queryClient = useQueryClient();
   const isEdit = !!editId;
@@ -73,18 +99,21 @@ export function AppointmentFormDialog({
     control,
     reset,
     setValue,
+    getValues,
+    setError,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      patientId: '',
-      startAt: '',
-      duration: 45,
-      type: 'IN_PERSON',
-      reason: '',
-      ...defaultValues,
-    },
+    defaultValues: { ...EMPTY, ...defaultValues },
   });
+
+  const [patientId, type, formulaId] = useWatch({ control, name: ['patientId', 'type', 'formulaId'] });
+  const { data: options } = useBookingOptions(patientId || undefined);
+  const formulas = useMemo(() => options?.formulas ?? [], [options]);
+  const practices = useMemo(() => options?.practices ?? [], [options]);
+  const formulaGone = !!booked?.formula && !formulas.some((f) => f.id === booked.formula?.id);
+  const practiceGone = !!booked?.practice && !practices.some((p) => p.id === booked.practice?.id);
+  const showPractice = type === 'IN_PERSON' && practices.length + (practiceGone ? 1 : 0) > 1;
 
   // Compared by content: a parent passing a new but equal object on each render must not wipe
   // what is being typed (or the patient just created)
@@ -92,31 +121,63 @@ export function AppointmentFormDialog({
   useEffect(() => {
     if (open) {
       setNewPatient(null);
-      reset({
-        patientId: '',
-        startAt: '',
-        duration: 45,
-        type: 'IN_PERSON',
-        reason: '',
-        ...(JSON.parse(defaultsKey) as Partial<FormData>),
-      });
+      reset({ ...EMPTY, ...(JSON.parse(defaultsKey) as Partial<FormData>) });
     }
   }, [open, defaultsKey, reset]);
 
+  // In person: her default practice unless one is chosen; another practitioner's patient (an
+  // assistant booking) brings that practitioner's types and practices
+  useEffect(() => {
+    if (!options) return;
+    const { formulaId: chosen, practiceId } = getValues();
+    if (chosen && !formulas.some((f) => f.id === chosen) && chosen !== booked?.formula?.id) {
+      setValue('formulaId', '');
+    }
+    if (!practices.some((p) => p.id === practiceId) && practiceId !== booked?.practice?.id) {
+      setValue('practiceId', practices.find((p) => p.isDefault)?.id ?? practices[0]?.id ?? '');
+    }
+  }, [options, formulas, practices, getValues, setValue, booked]);
+
+  const chooseFormula = (id: string) => {
+    setValue('formulaId', id, { shouldValidate: true });
+    const formula = formulas.find((f) => f.id === id);
+    // The type gives the duration; it can still be changed below
+    if (formula) setValue('duration', formula.durationMinutes, { shouldValidate: true });
+  };
+
   const { mutate, isPending } = useMutation({
     mutationFn: (data: FormData) => {
-      // The field holds a local time ("2026-11-20T14:00"): send it as an exact instant, or a
-      // server in another time zone would read it differently
-      const payload = { ...data, startAt: new Date(data.startAt).toISOString() };
+      const payload = {
+        patientId: data.patientId,
+        // The field holds a local time ("2026-11-20T14:00"): send it as an exact instant, or a
+        // server in another time zone would read it differently
+        startAt: new Date(data.startAt).toISOString(),
+        duration: data.duration,
+        type: data.type,
+        formulaId: data.formulaId || null,
+        // The API puts an in-person appointment in her default practice when none is given
+        ...(data.type === 'IN_PERSON' && data.practiceId ? { practiceId: data.practiceId } : {}),
+        reason: data.reason?.trim() || null,
+      };
       return isEdit ? api.patch(`/appointments/${editId}`, payload) : api.post('/appointments', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: isEdit ? 'Rendez-vous modifié' : 'Rendez-vous pris' });
       onOpenChange(false);
     },
   });
+
+  const submit = (data: FormData) => {
+    // A new appointment says what it is, when she has types to choose from
+    if (!isEdit && !data.formulaId && formulas.length > 0) {
+      setError('formulaId', { message: 'Choisissez le type de rendez-vous.' });
+      return;
+    }
+    mutate(data);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,7 +208,7 @@ export function AppointmentFormDialog({
             }}
           />
         ) : (
-          <form onSubmit={handleSubmit((d) => mutate(d))} className="space-y-5">
+          <form onSubmit={handleSubmit(submit)} className="space-y-5">
             <Field label="Patient" required error={errors.patientId?.message}>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Controller
@@ -171,6 +232,29 @@ export function AppointmentFormDialog({
                 )}
               </div>
             </Field>
+
+            {(formulas.length > 0 || formulaGone) && (
+              <Field
+                label="Type de rendez-vous"
+                required={!isEdit}
+                hint="Il donne la durée, que vous pouvez changer."
+                error={errors.formulaId?.message}
+              >
+                <select
+                  className={fieldClass}
+                  value={formulaId}
+                  onChange={(e) => chooseFormula(e.target.value)}
+                >
+                  <option value="">Choisir le type…</option>
+                  {formulaGone && booked?.formula && <option value={booked.formula.id}>{booked.formula.label}</option>}
+                  {formulas.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {formulaOption(f)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
 
             <Field label="Date et heure" required error={errors.startAt?.message}>
               <Input type="datetime-local" {...register('startAt')} />
@@ -215,8 +299,21 @@ export function AppointmentFormDialog({
               />
             </Field>
 
-            <Field label="Motif">
-              <Textarea {...register('reason')} rows={2} className="min-h-20" placeholder="Bilan, suivi…" />
+            {showPractice && (
+              <Field label="Cabinet">
+                <select className={fieldClass} {...register('practiceId')}>
+                  {practiceGone && booked?.practice && <option value={booked.practice.id}>{booked.practice.name}</option>}
+                  {practices.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {[p.name, addressLine(p)].filter(Boolean).join(' · ')}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
+            <Field label="Note" hint="Facultatif. Par exemple : apporter ses analyses.">
+              <Textarea {...register('reason')} rows={2} className="min-h-20" />
             </Field>
 
             <DialogFooter>

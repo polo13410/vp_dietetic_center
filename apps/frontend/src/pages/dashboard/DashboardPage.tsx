@@ -14,8 +14,9 @@ import { Button } from '../../components/ui/button';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
 import { toast } from '../../components/ui/toaster';
 import { useCurrentUser, useIsRole } from '../../hooks/useAuth';
-import { apiErrorMessage } from '../../hooks/useMe';
+import { apiErrorMessage, useShowPractices } from '../../hooks/useMe';
 import api from '../../lib/api';
+import { appointmentSummary } from '../../lib/appointments';
 import { type SessionToInvoiceDto, useIssueInvoice, useSessionsToInvoice } from '../../lib/invoices';
 import { formatPrice } from '../../lib/patient-file';
 import { cn, formatLongDate, formatTime, todayISO } from '../../lib/utils';
@@ -136,6 +137,8 @@ function TodayCard({
 }) {
   const cancelled = appt.status === 'CANCELLED' || appt.status === 'NO_SHOW';
   const faded = cancelled || (past && !isNext);
+  // Its type, and where when she consults in several practices
+  const summary = appointmentSummary(appt, useShowPractices());
 
   return (
     <li
@@ -172,6 +175,7 @@ function TodayCard({
         >
           {appt.patient.firstName} {appt.patient.lastName}
         </Link>
+        {summary && <p className="mt-1 truncate text-base font-medium">{summary}</p>}
         {appt.reason && <p className="mt-1 line-clamp-2 text-base text-muted-foreground">{appt.reason}</p>}
       </div>
 

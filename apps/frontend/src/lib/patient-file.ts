@@ -145,6 +145,8 @@ export interface PatientAppointment {
   reason?: string | null;
   type: string;
   status: string;
+  formula?: { id: string; label: string } | null;
+  practice?: { id: string; name: string } | null;
 }
 
 /** Today's appointment a session can be started from (« Démarrer la séance du jour »). */
@@ -169,7 +171,14 @@ export function usePatientAppointments(patientId: string | undefined) {
 /** A session, as listed (follow-up sheet) or opened (with what was recorded in it). */
 export interface Consultation extends ConsultationDto {
   patient?: { id: string; firstName: string; lastName: string };
-  appointment?: { id: string; startAt: string; duration?: number; type: string; reason?: string | null } | null;
+  appointment?: {
+    id: string;
+    startAt: string;
+    duration?: number;
+    type: string;
+    reason?: string | null;
+    formula?: { id: string; label: string } | null;
+  } | null;
   measurements?: Measurement[];
   fileEntries?: FileEntryDto[];
   lifeEvents?: LifeEvent[];

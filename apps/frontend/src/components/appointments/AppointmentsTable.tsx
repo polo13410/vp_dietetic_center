@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { useIsRole } from '../../hooks/useAuth';
+import { useShowPractices } from '../../hooks/useMe';
 import api from '../../lib/api';
 import { formatLongDate, formatTime, todayISO } from '../../lib/utils';
 import { EmptyState } from '../shared/EmptyState';
@@ -40,6 +41,8 @@ interface ListedAppointment {
   duration: number;
   type: string;
   status: string;
+  formula?: { label: string } | null;
+  practice?: { name: string } | null;
   patient?: { firstName: string; lastName: string };
   practitioner?: { firstName: string; lastName: string };
 }
@@ -48,6 +51,7 @@ interface ListedAppointment {
 export function AppointmentsTable() {
   // Assistants see every practitioner's appointments
   const showPractitioner = useIsRole('ASSISTANTE');
+  const showPractice = useShowPractices();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState(ALL);
@@ -145,6 +149,7 @@ export function AppointmentsTable() {
                 <tr className="border-b border-border bg-muted text-left text-sm text-muted-foreground">
                   <th className="px-5 py-3 font-medium">Date</th>
                   <th className="px-5 py-3 font-medium">Patient</th>
+                  <th className="px-5 py-3 font-medium">Type</th>
                   <th className="px-5 py-3 font-medium">Lieu</th>
                   <th className="px-5 py-3 font-medium">Durée</th>
                   <th className="px-5 py-3 font-medium">Statut</th>
@@ -175,7 +180,13 @@ export function AppointmentsTable() {
                         )}
                       </td>
                       <td className="px-5 py-2">
+                        {appt.formula?.label ?? <span className="text-muted-foreground">Non précisé</span>}
+                      </td>
+                      <td className="px-5 py-2">
                         <StatusBadge status={appt.type} />
+                        {showPractice && appt.practice && (
+                          <p className="text-sm text-muted-foreground">{appt.practice.name}</p>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-5 py-2 text-muted-foreground">{appt.duration} min</td>
                       <td className="px-5 py-2">

@@ -15,6 +15,8 @@ const totals = (collectedCents: number, count: number) => ({
   unpaidCents: 0,
   count,
   byPaymentMethod: { CASH: 0, CHECK: collectedCents, CARD: 0, TRANSFER: 0, NONE: 0 },
+  patients: { invoicedCents: collectedCents, collectedCents, unpaidCents: 0, count },
+  payers: { invoicedCents: 0, collectedCents: 0, unpaidCents: 0, count: 0 },
 });
 
 const quarter: InvoiceListDto = {
@@ -24,6 +26,7 @@ const quarter: InvoiceListDto = {
   totals: {
     ...totals(11000, 2),
     unpaidCents: 2500,
+    patients: { invoicedCents: 13500, collectedCents: 11000, unpaidCents: 2500, count: 2 },
     byMonth: [
       { month: '2026-09', ...totals(6000, 1) },
       { month: '2026-11', ...totals(5000, 1) },
@@ -50,7 +53,9 @@ describe('InvoicesPage', () => {
     expect(await screen.findByText('Par mois')).toBeInTheDocument();
     expect(screen.getAllByText('Encaissé')[0].parentElement).toHaveTextContent('Encaissé110,00 €2 factures en vigueur');
     expect(screen.getAllByText('Chèque')[0].parentElement).toHaveTextContent('Chèque110,00 €');
-    expect(screen.getByText('Non réglé : 25,00 € — pas compté dans l’encaissé.')).toBeInTheDocument();
+    expect(screen.getByText(/Non réglé par les patients : 25,00 €/)).toHaveTextContent(
+      'Non réglé par les patients : 25,00 € — pas compté dans l’encaissé.',
+    );
     expect(screen.getByText('septembre 2026')).toBeInTheDocument();
 
     const table = screen.getAllByRole('table').at(-1)!;

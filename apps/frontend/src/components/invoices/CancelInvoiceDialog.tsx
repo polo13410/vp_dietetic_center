@@ -41,11 +41,16 @@ export function CancelInvoiceDialog({
         <DialogHeader>
           <DialogTitle>Annuler la facture n° {invoice.number} ?</DialogTitle>
           <DialogDescription>
-            Un avoir est fait pour l’annuler ; la facture et l’avoir restent dans vos factures. La séance n’aura plus de
-            facture.
+            Un avoir est fait pour l’annuler ; la facture et l’avoir restent dans vos factures.{' '}
+            {invoice.recipient === 'PAYER'
+              ? 'Ses séances pourront être facturées à nouveau à l’organisme.'
+              : 'La séance n’aura plus de facture.'}
           </DialogDescription>
         </DialogHeader>
-        <Field label="Motif" hint="Facultatif, par exemple « séance offerte ».">
+        <Field
+          label="Motif"
+          hint={invoice.recipient === 'PAYER' ? 'Facultatif, par exemple « erreur de période ».' : 'Facultatif, par exemple « séance offerte ».'}
+        >
           <Textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
         <DialogFooter>

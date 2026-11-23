@@ -5,11 +5,9 @@ import {
   calculateAge,
   cn,
   formatDate,
-  formatDateTime,
   formatLongDate,
   formatNumber,
   formatTime,
-  getInitials,
 } from './utils';
 
 describe('cn', () => {
@@ -37,23 +35,6 @@ describe('formatDate', () => {
 
   it('supports custom format', () => {
     expect(formatDate('2024-06-15', 'yyyy')).toBe('2024');
-  });
-});
-
-describe('formatDateTime', () => {
-  it('includes time', () => {
-    const result = formatDateTime('2024-06-15T14:30:00Z');
-    expect(result).toContain('15/06/2024');
-  });
-});
-
-describe('getInitials', () => {
-  it('returns first letters uppercased', () => {
-    expect(getInitials('Marie', 'Dupont')).toBe('MD');
-  });
-
-  it('handles empty strings', () => {
-    expect(getInitials('', '')).toBe('');
   });
 });
 

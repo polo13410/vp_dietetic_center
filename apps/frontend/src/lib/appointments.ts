@@ -9,7 +9,6 @@ import { formatDuration, formatEuros } from './settings-format';
 
 export type { BookingOptionsDto };
 export type BookingFormula = BookingOptionsDto['formulas'][number];
-export type BookingPractice = BookingOptionsDto['practices'][number];
 
 /**
  * What an appointment of this patient can be booked with: the types (her formulas, with their

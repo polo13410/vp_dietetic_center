@@ -54,7 +54,6 @@ services:
       - api
     environment:
       API_PROXY_TARGET: http://api:3000
-      VITE_APP_NAME: "VP Dietetic Center"
     ports:
       - "5173:5173"
     volumes:

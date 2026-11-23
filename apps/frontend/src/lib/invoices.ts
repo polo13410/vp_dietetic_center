@@ -79,11 +79,6 @@ export function invoiceStatus(
     : { label: 'Acquittée', tone: 'success' };
 }
 
-/** « la facture n° 2026-0012 », « l’avoir n° A-2026-0001 » */
-export function documentName(invoice: Pick<InvoiceDto, 'type' | 'number'>): string {
-  return isCreditNote(invoice) ? `l’avoir n° ${invoice.number}` : `la facture n° ${invoice.number}`;
-}
-
 const MISMATCH_LABELS: Record<InvoiceMismatch, string> = {
   formula: 'la formule',
   price: 'le prix',
@@ -150,11 +145,6 @@ export const RHYTHMS: Record<BillingRhythm, string> = {
 export function rhythmLabel(payer: { billingRhythm: BillingRhythm; rhythmMonths: number | null }): string {
   if (payer.billingRhythm === 'EVERY_N_MONTHS') return `tous les ${payer.rhythmMonths ?? 'N'} mois`;
   return payer.billingRhythm === 'MONTHLY' ? 'tous les mois' : 'à la demande';
-}
-
-/** « 30,00 € » or « 60 % » */
-export function shareLabel(share: { kind: ShareKind; value: number }): string {
-  return share.kind === 'PERCENT' ? `${share.value} %` : formatEuros(share.value);
 }
 
 /** « 30,00 € par séance, 10 séances au plus, du 1er novembre 2026 au 31 octobre 2027 » */

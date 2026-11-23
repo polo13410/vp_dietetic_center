@@ -13,17 +13,6 @@ export function useUsers() {
   });
 }
 
-export function useUser(id: string | null) {
-  return useQuery<UserDto>({
-    queryKey: ['users', id],
-    queryFn: async () => {
-      const { data } = await api.get(`/users/${id}`);
-      return data;
-    },
-    enabled: !!id,
-  });
-}
-
 export function useCreateUser() {
   const queryClient = useQueryClient();
 

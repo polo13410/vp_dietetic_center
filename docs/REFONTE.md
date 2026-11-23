@@ -4,6 +4,8 @@
 > Chaque lot est autonome : contexte métier, décisions déjà prises, ce qu'il faut livrer, critères de fin.
 > Les **contrats partagés** (§ 3) sont fixés ici et ne se rediscutent pas dans un lot : plusieurs lots en dépendent.
 > Pour le reste (structure du code, découpage en composants, nommage), l'agent décide en suivant les conventions du dépôt.
+>
+> **État au 2026-11-24** : lots 0 à 10 et 12 à 16 faits (PR indiquée sous chaque lot). Reste le lot 11, la recette avec Valérie. L'app telle qu'elle est maintenant : [PLAN.md](PLAN.md).
 
 ---
 
@@ -193,11 +195,15 @@ Chaque lot : une branche depuis `staging`, une PR vers `staging`, CI verte, test
 
 ### Lot 0 — Agenda : afficher toute la semaine
 
+**Fait** : PR [#18](https://github.com/polo13410/vp_dietetic_center/pull/18).
+
 - La vue semaine affiche les 7 jours, lundi → dimanche, même vides, et on peut créer un rendez-vous en cliquant sur n'importe quel jour.
 - Retirer le filtre `shownDays` de `apps/frontend/src/pages/appointments/AppointmentsPage.tsx`.
 - Fini quand : un créneau du dimanche est cliquable en vue semaine et crée un rendez-vous à la bonne date.
 
 ### Lot 1 — Charte visuelle et composants de base
+
+**Fait** : PR [#19](https://github.com/polo13410/vp_dietetic_center/pull/19).
 
 - Écrire `docs/DESIGN.md` : palette (valeurs), typographie, espacements, largeurs de page, composants et quand les utiliser, règles tactiles, ton des textes (vouvoiement, phrases courtes, pas de jargon technique).
 - Poser les variables dans `apps/frontend/src/styles/globals.css` (clair et sombre).
@@ -209,6 +215,8 @@ Chaque lot : une branche depuis `staging`, une PR vers `staging`, CI verte, test
 
 ### Lot 2 — Modèle de données et API
 
+**Fait** : PR [#20](https://github.com/polo13410/vp_dietetic_center/pull/20).
+
 - Appliquer § 3.1 et § 3.2 : schéma Prisma, une migration, DTO, services, contrôleurs, `packages/types`, seed.
 - Fonctions de calcul IMC/MB pures et testées avec le cas de test de § 3.1.
 - Supprimer : verrouillage et finalisation des séances, rubriques génériques des thématiques, objectifs, échelles 1–10, notifications, tags, statut patient (remplacé par archiver/désarchiver).
@@ -219,6 +227,8 @@ Chaque lot : une branche depuis `staging`, une PR vers `staging`, CI verte, test
 - Fini quand : migration appliquée sur une base vide, seed OK, tests API verts avec seuils de couverture tenus, une séance « finalisée » n'existe plus nulle part dans le code.
 
 ### Lot 3 — Paramètres (à refaire entièrement)
+
+**Fait** : PR [#21](https://github.com/polo13410/vp_dietetic_center/pull/21).
 
 Supprimer la page actuelle (`apps/frontend/src/pages/settings/SettingsPage.tsx`) : tout y est factice. La remplacer par quelques sections qui marchent vraiment, toutes enregistrées en base :
 
@@ -239,6 +249,8 @@ Supprimer la page actuelle (`apps/frontend/src/pages/settings/SettingsPage.tsx`)
 
 ### Lot 4 — Fiche patient
 
+**Fait** : PR [#22](https://github.com/polo13410/vp_dietetic_center/pull/22).
+
 Reprendre `apps/frontend/src/pages/patients/PatientDetailPage.tsx` sur le modèle de ses onglets Numbers. Passer de 9 onglets à 5 :
 
 | Onglet            | Contenu                                                                                                                       |
@@ -256,6 +268,8 @@ Reprendre `apps/frontend/src/pages/patients/PatientDetailPage.tsx` sur le modèl
 - Fini quand : on lit tout ce que contient sa feuille Numbers sur un seul écran Récapitulatif (iPad paysage, sans défiler pour l'essentiel), et on peut tout modifier sans changer de page.
 
 ### Lot 5 — Facturation
+
+**Fait** : PR [#25](https://github.com/polo13410/vp_dietetic_center/pull/25).
 
 Contexte : une facture par séance. Les paiements se font hors de l'app ; l'app garde la trace et produit la facture.
 
@@ -282,6 +296,8 @@ Contexte : une facture par séance. Les paiements se font hors de l'app ; l'app 
 
 ### Lot 6 — Création d'un patient guidée
 
+**Fait** : PR [#24](https://github.com/polo13410/vp_dietetic_center/pull/24).
+
 Remplacer le formulaire en une colonne (`PatientForm.tsx`, `PatientNewPage.tsx`) par un assistant en étapes, avec la barre d'étapes visible en haut :
 
 1. **Qui est-ce ?** — prénom, nom (obligatoires, marqués « obligatoire ») ; sexe et date de naissance, ou âge s'il n'est pas connu (marqués « pour calculer le MB »). Le patient est **créé à la fin de cette étape** : rien n'est perdu si elle s'arrête là.
@@ -296,6 +312,8 @@ Remplacer le formulaire en une colonne (`PatientForm.tsx`, `PatientNewPage.tsx`)
 - La modification d'un patient existant ne passe pas par l'assistant : elle se fait sur place dans la fiche (lot 4). Supprimer `PatientEditPage.tsx` et la route `/patients/:id/edit`.
 
 ### Lot 7 — Séance
+
+**Fait** : PR [#28](https://github.com/polo13410/vp_dietetic_center/pull/28).
 
 Pendant une consultation la conversation saute d'un sujet à l'autre : la saisie n'est donc **pas** un assistant en étapes mais une seule page, dans l'ordre de sa feuille. En revanche, **se remémorer l'histoire du patient avant de commencer** est un moment à part, crucial, qui mérite son propre écran. D'où deux temps :
 
@@ -325,11 +343,15 @@ Pendant une consultation la conversation saute d'un sujet à l'autre : la saisie
 
 ### Lot 8 — Accueil et pages restantes
 
+**Fait** : PR [#29](https://github.com/polo13410/vp_dietetic_center/pull/29).
+
 - **Tableau de bord** simplifié : « Aujourd'hui » en grandes cartes (heure, patient, bouton « Démarrer la séance » ou « Rouvrir »), « À relancer » (sans séance depuis 6 semaines), « Factures à faire » (séances sans facture), « Tâches ». Retirer « Séances à finaliser ».
 - Appliquer la charte à : liste des patients (archivés dans un filtre, plus de tags/statuts), agenda et formulaire de RDV, détail RDV, pages admin (utilisateurs, journal d'accès), connexion / mot de passe oublié, page 404.
 - Fini quand : plus aucune page n'utilise une largeur, une carte ou une couleur hors charte (`grep` des couleurs Tailwind en dur dans `pages/` et `components/` hors `ui/` → vide).
 
 ### Lot 10 — Compte rendu au médecin
+
+**Fait** : PR [#27](https://github.com/polo13410/vp_dietetic_center/pull/27).
 
 Contexte : c'est la tâche qu'elle redoute. Elle doit recouper sa feuille, ses notes papier, l'évolution du poids, puis tout rédiger. L'app a déjà toutes ces données : elle peut lui préparer le brouillon.
 
@@ -349,6 +371,8 @@ Contexte : c'est la tâche qu'elle redoute. Elle doit recouper sa feuille, ses n
 **Plus tard (hors de ce plan) — rédaction assistée par IA** : elle écrit une consigne courte (« insister sur la perte de poids et le travail émotionnel ») et l'IA rédige à partir du dossier. À cadrer avant de commencer, car ce sont des données de santé : n'envoyer que des données pseudonymisées (ni nom, ni date de naissance, ni coordonnées : âge, sexe, chiffres et notes uniquement), fournisseur sans conservation des données et hébergé dans l'UE, information du patient, et question de l'hébergement de données de santé (HDS).
 
 ### Lot 9 — Nettoyage, tests et documentation
+
+**Fait** : PR [#36](https://github.com/polo13410/vp_dietetic_center/pull/36).
 
 À faire en dernier, après tous les autres lots.
 
@@ -374,11 +398,15 @@ Lot 14 Connexion Google seule ──┘
 
 #### Lot 12 — Bugs
 
+**Fait** : PR [#31](https://github.com/polo13410/vp_dietetic_center/pull/31).
+
 - **Téléchargement des PDF impossible** (factures ; vérifier aussi le compte rendu au médecin et l'export du dossier, même moteur) : l'appel à l'API renvoie bien les données, mais aucun fichier n'arrive et rien ne s'affiche. Piste à vérifier en premier : le PDF est fabriqué dans le navigateur par `@react-pdf/renderer`, dont le moteur de mise en page (yoga) est en WebAssembly ; la CSP de `apps/frontend/nginx.conf` n'autorise pas `'wasm-unsafe-eval'`, et en local (Vite, sans nginx) tout marche. Reproduire avec l'image nginx de production (docker compose), corriger à la racine (CSP minimale nécessaire, jamais `'unsafe-eval'`), et faire en sorte qu'un échec affiche toujours un message.
 - **Double défilement sur Paramètres** : la page défile dans son conteneur et la page entière défile aussi, barre latérale comprise. Un seul défilement, celui du contenu, comme sur les autres pages ; vérifier qu'aucune autre page n'a le problème.
 - Fini quand : une facture, un avoir, un compte rendu et l'export du dossier se téléchargent depuis l'image de production ; Paramètres défile comme les autres pages.
 
 #### Lot 13 — Fiche patient : un récapitulatif qui se lit, des modifications qui se font ailleurs
+
+**Fait** : PR [#33](https://github.com/polo13410/vp_dietetic_center/pull/33).
 
 Constat : « Pour aller plus loin » mélange les logiques. « Mesures complémentaires → Modifier » ouvre une fenêtre, « Aversions / goûts → Modifier » emmène à l'onglet Dossier médical. Et on ne peut pas saisir de mesure à une date passée (« à cette époque je faisais 70 kg, puis tel événement, j'ai pris 8 kg en 6 mois »), ni suivre la taille d'un enfant.
 
@@ -395,6 +423,8 @@ Règle : **le Récapitulatif se lit, il ne se modifie pas.** Chaque bloc du réc
 
 #### Lot 14 — Connexion avec Google uniquement
 
+**Fait** : PR [#32](https://github.com/polo13410/vp_dietetic_center/pull/32).
+
 Décision du 2026-11-23 : plus de mot de passe. On s'appuie sur la sécurité du compte Google (validation en deux étapes conseillée à chaque praticienne).
 
 - Supprimer : connexion par e-mail et mot de passe (stratégie locale, hachage, verrouillage après échecs), mot de passe oublié et réinitialisation (pages, routes, jetons), changement de mot de passe dans Paramètres, et le module d'envoi d'e-mails (plus aucun e-mail n'est envoyé). Retirer les variables SMTP de l'API et de `infra/terraform` ; le propriétaire applique Terraform lui-même.
@@ -406,6 +436,8 @@ Décision du 2026-11-23 : plus de mot de passe. On s'appuie sur la sécurité du
 
 #### Lot 15 — Plusieurs cabinets et types de rendez-vous
 
+**Fait** : PR [#34](https://github.com/polo13410/vp_dietetic_center/pull/34).
+
 Elle peut consulter dans plusieurs cabinets. Et le motif d'un rendez-vous, c'est en fait un type de séance avec son tarif et sa durée.
 
 - **Cabinets** : nouveau modèle (praticienne, nom, adresse, téléphone facultatif, SIRET facultatif s'il diffère de celui de l'activité, par défaut oui/non, archivé). L'identité de l'activité reste dans `PractitionerProfile` (nom affiché, SIRET, ADELI/RPPS, mention TVA, pied de facture) ; l'adresse passe au cabinet. Paramètres : section « Mes cabinets » (ajouter, modifier, choisir celui par défaut, archiver). Au moins un cabinet par praticienne, créé avec l'adresse actuelle.
@@ -416,6 +448,8 @@ Elle peut consulter dans plusieurs cabinets. Et le motif d'un rendez-vous, c'est
 - Fini quand : un rendez-vous se prend en trois choix (patient, type, créneau), la durée suit le type, la facture porte l'adresse du bon cabinet.
 
 #### Lot 16 — Remise et tiers payant
+
+**Fait** : PR [#35](https://github.com/polo13410/vp_dietetic_center/pull/35).
 
 Deux réalités de son cabinet : elle fait parfois un geste pour un patient qui ne peut pas payer, et certains patients ont un organisme qui paie tout ou partie (mutuelle, employeur, association, convention…).
 

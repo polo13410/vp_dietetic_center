@@ -1,10 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuditAction } from '@prisma/client';
 import type { CookieOptions, Request, Response } from 'express';
 
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Audited, type AuditedOptions } from '../audit/audited.decorator';
 
@@ -93,11 +92,5 @@ export class AuthController {
       await this.authService.logout(rawToken);
     }
     res.clearCookie(REFRESH_COOKIE, REFRESH_COOKIE_OPTIONS);
-  }
-
-  @Get('me')
-  @ApiOperation({ summary: "Recuperer le profil de l'utilisateur connecte" })
-  me(@CurrentUser() user: any) {
-    return user;
   }
 }

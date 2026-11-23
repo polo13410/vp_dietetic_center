@@ -25,13 +25,6 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
-  @Get(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Récupérer un utilisateur par ID' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findById(id);
-  }
-
   @Post()
   @Audited({ action: AuditAction.CREATE, entity: 'user', entityId: 'result:id' })
   @Roles(UserRole.ADMIN)

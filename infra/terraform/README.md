@@ -43,20 +43,12 @@ The API's own `run.app` address is public, but it only answers requests carrying
 `<env>-proxy-token` secret, which the frontend's nginx adds to everything it forwards under
 `/api`. Direct calls get a 403 (only `/api/v1/health` is open, for the startup probe and CD).
 
-## Emails (Brevo)
+## Sign-in
 
-Password-reset emails go through Brevo's SMTP relay. Once:
-
-1. In Brevo: verify the sender domain (DNS records Brevo gives: DKIM, plus `include:spf.brevo.com`
-   merged into the domain's existing SPF record, as a domain can only have one), then create an
-   SMTP key (*SMTP & API → SMTP*).
-2. Store the login and key (typed in your own terminal, never in a file):
-   ```sh
-   printf '%s' 'LOGIN@smtp-brevo.com' | gcloud secrets versions add smtp-user --data-file=- --project vp-dietetic-center
-   read -rs KEY && printf '%s' "$KEY" | gcloud secrets versions add smtp-password --data-file=- --project vp-dietetic-center; unset KEY
-   ```
-3. Apply (sending is on by default; `-var="smtp_enabled=false"` turns it off, and
-   `-var='smtp_from=Name <address>'` changes the sender).
+Google is the only way to sign in (no passwords, and the app sends no e-mail): the API checks the
+ID token against the `google-oauth-client-id` secret. The sign-in without Google used for local
+development (`DEV_LOGIN=true`) is never set here, and the API refuses to start with it on Cloud
+Run. Accounts are created with `apps/api/prisma/create-user.cjs` (see `apps/api/README.md`).
 
 ## Database access
 

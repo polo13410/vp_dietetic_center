@@ -1,6 +1,8 @@
 /*
- * Local demo data: three accounts, the practitioner's practice (printed on invoices) and two
- * formulas (Bilan 60 €, Suivi 50 €), and seven patients with
+ * Local demo data: three accounts, the practitioner's activity (printed on invoices), her two
+ * practices (Aix-en-Provence, the default one, and Marseille, with its own SIRET), two formulas
+ * that are also her types of appointment (Bilan 60 €, 1 h; Suivi 50 €, 45 min), and seven
+ * patients with
  * realistic follow-ups (sessions, weights, medical file with its history, life events).
  * Martine Roux is the test case of docs/REFONTE.md § 3.1: woman, 56, 1.59 m, 79 → 78.2 →
  * 76.5 kg (BMI 31.25, BMR 5.86 / 5.83 / 5.77 MJ, 1 400.3 / 1 393.5 / 1 378.9 kcal), with her
@@ -64,6 +66,7 @@ const PATIENT_IDS = {
 };
 
 type Formulas = { bilan: string; suivi: string };
+type Practices = { aix: string; marseille: string };
 
 type SessionSeed = {
   daysAgo: number;
@@ -91,23 +94,56 @@ async function upsertUser(
   });
 }
 
-/** The practitioner's formulas (managed in the settings, lot 3). */
+/** The practitioner's formulas (managed in the settings, lot 3), with their duration (lot 15). */
 async function upsertFormulas(practitionerId: string): Promise<Formulas> {
-  const upsert = async (label: string, priceCents: number, position: number) => {
+  const upsert = async (label: string, priceCents: number, durationMinutes: number, position: number) => {
     const existing = await prisma.formula.findFirst({ where: { practitionerId, label } });
     if (existing) return existing.id;
-    return (await prisma.formula.create({ data: { practitionerId, label, priceCents, position } })).id;
+    return (
+      await prisma.formula.create({ data: { practitionerId, label, priceCents, durationMinutes, position } })
+    ).id;
   };
-  return { bilan: await upsert('Bilan', 6000, 0), suivi: await upsert('Suivi', 5000, 1) };
+  return { bilan: await upsert('Bilan', 6000, 60, 0), suivi: await upsert('Suivi', 5000, 45, 1) };
 }
 
-/** Her practice, as printed on her invoices (fictitious numbers that pass the checks). */
-async function upsertPractice(userId: string) {
+const DURATION = { bilan: 60, suivi: 45 };
+
+/**
+ * Where she consults: Aix-en-Provence (her default practice) and, two days a week, Marseille,
+ * a secondary establishment with its own SIRET (fictitious numbers that pass the checks).
+ */
+async function upsertPractices(practitionerId: string): Promise<Practices> {
+  const upsert = async (data: { name: string; address: string; zipCode: string; city: string; phone?: string; siret?: string; isDefault?: boolean }) => {
+    // The default one may already exist under another name (created by the lot 15 migration)
+    const existing = await prisma.practice.findFirst({
+      where: { practitionerId, OR: [{ name: data.name }, ...(data.isDefault ? [{ isDefault: true }] : [])] },
+    });
+    if (existing) return (await prisma.practice.update({ where: { id: existing.id }, data })).id;
+    return (await prisma.practice.create({ data: { practitionerId, ...data } })).id;
+  };
+  return {
+    aix: await upsert({
+      name: 'Cabinet d’Aix',
+      address: '12 rue des Oliviers',
+      zipCode: '13100',
+      city: 'Aix-en-Provence',
+      phone: '04 42 12 34 56',
+      isDefault: true,
+    }),
+    marseille: await upsert({
+      name: 'Maison de santé Castellane',
+      address: '40 rue de Rome',
+      zipCode: '13006',
+      city: 'Marseille',
+      siret: '91234567800029',
+    }),
+  };
+}
+
+/** Her activity, as printed on her invoices (fictitious numbers that pass the checks). */
+async function upsertActivity(userId: string) {
   const practice = {
     practiceName: 'Valérie Perrot, diététicienne nutritionniste',
-    address: '12 rue des Oliviers',
-    zipCode: '13100',
-    city: 'Aix-en-Provence',
     siret: '91234567800011',
     adeliRpps: '139512345',
     vatMention: 'TVA non applicable, article 261-4-1° du CGI',
@@ -198,26 +234,33 @@ async function seedGpReports(patientId: string, practitionerId: string) {
   await reports.create({ id: practitionerId, role: UserRole.PRATICIENNE }, patientId, {});
 }
 
-/** A past appointment and its session (a row of her follow-up sheet), with what was recorded. */
+/**
+ * A past appointment of its type, in its practice, and its session (a row of her follow-up
+ * sheet), with what was recorded.
+ */
 async function createSession(
   patientId: string,
   practitionerId: string,
   formulas: Formulas,
+  practiceId: string,
   isFirst: boolean,
   s: SessionSeed,
 ) {
   const date = at(-s.daysAgo, 10);
   const label = isFirst ? 'Bilan' : 'Suivi';
+  const formulaId = isFirst ? formulas.bilan : formulas.suivi;
+  const duration = isFirst ? DURATION.bilan : DURATION.suivi;
   const appointment = await prisma.appointment.create({
     data: {
       patientId,
       practitionerId,
       startAt: date,
-      endAt: new Date(date.getTime() + 45 * 60 * 1000),
-      duration: 45,
+      endAt: new Date(date.getTime() + duration * 60 * 1000),
+      duration,
       type: AppointmentType.IN_PERSON,
       status: AppointmentStatus.COMPLETED,
-      reason: label,
+      formulaId,
+      practiceId,
     },
   });
   const session = await prisma.consultation.create({
@@ -226,7 +269,8 @@ async function createSession(
       practitionerId,
       appointmentId: appointment.id,
       date,
-      formulaId: isFirst ? formulas.bilan : formulas.suivi,
+      practiceId,
+      formulaId,
       formulaLabel: label,
       priceCents: isFirst ? 6000 : 5000,
       paymentMethod: s.paymentMethod,
@@ -264,10 +308,19 @@ async function addMeasurement(patientId: string, type: MetricType, value: number
 const yearsAfter = (birth: Date, years: number, days = 0) =>
   new Date(Date.UTC(birth.getUTCFullYear() + years, birth.getUTCMonth(), birth.getUTCDate() + days));
 
-async function createFollowUp(patientId: string, practitionerId: string, formulas: Formulas, sessions: SessionSeed[]) {
+/** Her practices, set once the practitioner exists (patients are followed in one practice each). */
+let practices: Practices;
+
+async function createFollowUp(
+  patientId: string,
+  practitionerId: string,
+  formulas: Formulas,
+  sessions: SessionSeed[],
+  place: keyof Practices = 'aix',
+) {
   const ordered = [...sessions].sort((a, b) => b.daysAgo - a.daysAgo);
   for (const [index, s] of ordered.entries()) {
-    await createSession(patientId, practitionerId, formulas, index === 0, s);
+    await createSession(patientId, practitionerId, formulas, practices[place], index === 0, s);
   }
 }
 
@@ -292,8 +345,9 @@ async function main() {
     role: UserRole.ASSISTANTE,
   });
   const formulas = await upsertFormulas(pract.id);
-  await upsertPractice(pract.id);
-  console.log('✅ Users, practice and formulas');
+  await upsertActivity(pract.id);
+  practices = await upsertPractices(pract.id);
+  console.log('✅ Users, activity, practices and formulas');
 
   // ── Patients ────────────────────────────────────────────────────────────────
   await resetDemoPatients();
@@ -457,7 +511,7 @@ async function main() {
       sessionWork: 'Consolidation, anticipation des fêtes.',
       advice: 'Maintenir. Prochain point dans 3 semaines.',
     },
-  ]);
+  ], 'marseille');
 
   await patient(PATIENT_IDS.thomas, {
     firstName: 'Thomas',
@@ -596,7 +650,7 @@ async function main() {
       sessionWork: '',
       advice: '',
     },
-  ]);
+  ], 'marseille');
   // A child: 10 years old (birthday 120 days ago), heights and weights from his health booklet, then
   // the follow-up. His BMI is placed on the IOTF curves with the height of each date (§ 3.1).
   const hugoBirth = bornYearsAgo(10, 120);
@@ -666,21 +720,33 @@ async function main() {
   console.log('✅ Patients and their files');
 
   // ── Upcoming appointments ───────────────────────────────────────────────────
-  const upcoming = [
-    { patientId: PATIENT_IDS.thomas, startAt: at(0, 14), type: AppointmentType.VIDEO, status: AppointmentStatus.CONFIRMED },
-    { patientId: PATIENT_IDS.martine, startAt: at(21, 9), type: AppointmentType.IN_PERSON, status: AppointmentStatus.SCHEDULED },
-    { patientId: PATIENT_IDS.marie, startAt: at(14, 9), type: AppointmentType.IN_PERSON, status: AppointmentStatus.SCHEDULED },
-    { patientId: PATIENT_IDS.emma, startAt: at(1, 17), type: AppointmentType.IN_PERSON, status: AppointmentStatus.CONFIRMED, reason: 'Bilan' },
-    { patientId: PATIENT_IDS.lucas, startAt: at(21, 11), type: AppointmentType.PHONE, status: AppointmentStatus.SCHEDULED },
+  // Each one with its type (and so its duration) and, in person, its practice
+  const upcoming: {
+    patientId: string;
+    startAt: Date;
+    type: AppointmentType;
+    status: AppointmentStatus;
+    formula: keyof Formulas;
+    place?: keyof Practices;
+    reason?: string;
+  }[] = [
+    { patientId: PATIENT_IDS.thomas, startAt: at(0, 14), type: AppointmentType.VIDEO, status: AppointmentStatus.CONFIRMED, formula: 'suivi' },
+    { patientId: PATIENT_IDS.martine, startAt: at(0, 9), type: AppointmentType.IN_PERSON, status: AppointmentStatus.CONFIRMED, formula: 'suivi', place: 'aix', reason: 'Apporte ses dernières analyses' },
+    { patientId: PATIENT_IDS.martine, startAt: at(21, 9), type: AppointmentType.IN_PERSON, status: AppointmentStatus.SCHEDULED, formula: 'suivi', place: 'aix' },
+    { patientId: PATIENT_IDS.marie, startAt: at(14, 9), type: AppointmentType.IN_PERSON, status: AppointmentStatus.SCHEDULED, formula: 'suivi', place: 'marseille' },
+    { patientId: PATIENT_IDS.emma, startAt: at(1, 17), type: AppointmentType.IN_PERSON, status: AppointmentStatus.CONFIRMED, formula: 'bilan', place: 'marseille' },
+    { patientId: PATIENT_IDS.lucas, startAt: at(21, 11), type: AppointmentType.PHONE, status: AppointmentStatus.SCHEDULED, formula: 'suivi' },
   ];
-  for (const a of upcoming) {
+  for (const { formula, place, ...a } of upcoming) {
+    const duration = DURATION[formula];
     await prisma.appointment.create({
       data: {
         ...a,
         practitionerId: pract.id,
-        duration: 45,
-        endAt: new Date(a.startAt.getTime() + 45 * 60 * 1000),
-        reason: a.reason ?? 'Suivi',
+        formulaId: formulas[formula],
+        practiceId: place ? practices[place] : null,
+        duration,
+        endAt: new Date(a.startAt.getTime() + duration * 60 * 1000),
       },
     });
   }
@@ -719,7 +785,8 @@ Comptes (pas de mot de passe) :
 En local, avec DEV_LOGIN=true dans apps/api/.env : « Connexion de développement » sur la page
 de connexion, avec une de ces adresses.
 
-7 patients suivis par Valérie Perrot (formules Bilan 60 € et Suivi 50 €), dont Martine Roux,
+7 patients suivis par Valérie Perrot (Bilan 60 €, 1 h ; Suivi 50 €, 45 min), à Aix (cabinet par
+défaut) et à Marseille (Marie Dubois, Lucas Moreau), dont Martine Roux,
 le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg) avec son histoire du
 poids avant le suivi, et Hugo Lefèvre, 10 ans, dont la taille suit la croissance.
 Séances passées facturées (sauf les deux dernières), une facture corrigée par un avoir.

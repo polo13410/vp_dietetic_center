@@ -40,6 +40,8 @@ describe('ConsultationsService', () => {
       mockPrisma.appointment.findUniqueOrThrow.mockResolvedValue({
         startAt: d('2026-11-20T09:00:00Z'),
         status: 'CONFIRMED',
+        formulaId: null,
+        practiceId: 'pr-aix',
       });
       mockPrisma.consultation.create.mockResolvedValue({ id: 'c1' });
       mockPrisma.appointment.update.mockResolvedValue({});
@@ -54,6 +56,7 @@ describe('ConsultationsService', () => {
           practitionerId: 'user-1',
           appointmentId: 'a1',
           date: d('2026-11-20T09:00:00Z'),
+          practiceId: 'pr-aix',
           paymentMethod: undefined,
         },
       });
@@ -77,6 +80,74 @@ describe('ConsultationsService', () => {
         paymentMethod: 'CARD',
       });
       expect(mockPrisma.appointment.update).not.toHaveBeenCalled();
+    });
+
+    describe('from an appointment booked with a type and a practice', () => {
+      const bilan = { id: 'f-bilan', practitionerId: 'user-1', label: 'Bilan', priceCents: 6000, archivedAt: null };
+      beforeEach(() => {
+        mockPrisma.consultation.findUnique.mockResolvedValue(null);
+        mockPrisma.appointment.findUniqueOrThrow.mockResolvedValue({
+          startAt: d('2026-11-20T09:00:00Z'),
+          status: 'SCHEDULED',
+          formulaId: 'f-bilan',
+          practiceId: 'pr-marseille',
+        });
+        mockPrisma.consultation.create.mockResolvedValue({ id: 'c1' });
+        mockPrisma.consultation.count.mockResolvedValue(4);
+      });
+
+      it('inherits its type (formula and price now) and its practice', async () => {
+        mockPrisma.formula.findUnique.mockResolvedValue(bilan);
+        await service.create(user as any, 'p1', { appointmentId: 'a1' });
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({
+          formulaId: 'f-bilan',
+          formulaLabel: 'Bilan',
+          priceCents: 6000,
+          practiceId: 'pr-marseille',
+        });
+        // Not the « Suivi » the rule would have chosen after four sessions, nor the default practice
+        expect(mockPrisma.formula.findMany).not.toHaveBeenCalled();
+        expect(mockPrisma.practice.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('keeps the type chosen at booking even if it is no longer offered', async () => {
+        mockPrisma.formula.findUnique.mockResolvedValue({ ...bilan, archivedAt: d('2026-11-21T00:00:00Z') });
+        await service.create(user as any, 'p1', { appointmentId: 'a1' });
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({ formulaLabel: 'Bilan' });
+      });
+
+      it('takes her default practice for a video appointment', async () => {
+        mockPrisma.appointment.findUniqueOrThrow.mockResolvedValue({
+          startAt: d('2026-11-20T09:00:00Z'),
+          status: 'SCHEDULED',
+          formulaId: null,
+          practiceId: null,
+        });
+        mockPrisma.practice.findFirst.mockResolvedValue({ id: 'pr-aix' });
+        mockPrisma.formula.findMany.mockResolvedValue([]);
+        await service.create(user as any, 'p1', { appointmentId: 'a1' });
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({ practiceId: 'pr-aix' });
+      });
+    });
+
+    it('without an appointment, takes place in her default practice', async () => {
+      mockPrisma.practice.findFirst.mockResolvedValue({ id: 'pr-aix' });
+      mockPrisma.formula.findMany.mockResolvedValue([]);
+      mockPrisma.consultation.create.mockResolvedValue({ id: 'c1' });
+      await service.create(user as any, 'p1', {});
+      expect(mockPrisma.practice.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { practitionerId: 'user-1', archivedAt: null } }),
+      );
+      expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({ practiceId: 'pr-aix' });
+    });
+
+    it("refuses another practitioner's or an archived practice", async () => {
+      mockPrisma.formula.findMany.mockResolvedValue([]);
+      mockPrisma.practice.findUnique.mockResolvedValueOnce({ id: 'pr-x', practitionerId: 'other', archivedAt: null });
+      await expect(service.create(user as any, 'p1', { practiceId: 'pr-x' })).rejects.toThrow(BadRequestException);
+      mockPrisma.practice.findUnique.mockResolvedValueOnce({ id: 'pr-x', practitionerId: 'user-1', archivedAt: new Date() });
+      await expect(service.create(user as any, 'p1', { practiceId: 'pr-x' })).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.consultation.create).not.toHaveBeenCalled();
     });
 
     it("refuses another practitioner's or an archived formula", async () => {
@@ -286,6 +357,12 @@ describe('ConsultationsService', () => {
           date: d('2026-11-20T10:00:00Z'),
         },
       });
+    });
+
+    it('moves the session to another of her practices', async () => {
+      mockPrisma.practice.findUnique.mockResolvedValue({ id: 'pr-marseille', practitionerId: 'user-1', archivedAt: null });
+      await service.update(user as any, 'c1', { practiceId: 'pr-marseille' });
+      expect(mockPrisma.consultation.update.mock.calls[0][0].data).toMatchObject({ practiceId: 'pr-marseille' });
     });
 
     it('copies a newly chosen formula, keeps the copy for the same one, and can remove it', async () => {

@@ -10,6 +10,7 @@ import { InvoiceType, PaymentMethod, PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { PatientAccessService } from '../../common/access/patient-access.service';
+import { AppointmentsService } from '../appointments/appointments.service';
 import { ConsultationsService } from '../patient-file/consultations.service';
 
 import { InvoicesService } from './invoices.service';
@@ -21,6 +22,7 @@ describe.skipIf(!url)('invoices on a real database', () => {
   let prisma: PrismaClient;
   let invoices: InvoicesService;
   let sessions: ConsultationsService;
+  let appointments: AppointmentsService;
   const practitioners: string[] = [];
 
   beforeAll(async () => {
@@ -28,6 +30,7 @@ describe.skipIf(!url)('invoices on a real database', () => {
     const access = new PatientAccessService(prisma as any);
     invoices = new InvoicesService(prisma as any, access);
     sessions = new ConsultationsService(prisma as any, access, invoices);
+    appointments = new AppointmentsService(prisma as any, access);
   });
 
   afterAll(async () => {
@@ -39,15 +42,20 @@ describe.skipIf(!url)('invoices on a real database', () => {
       await tx.invoice.deleteMany({ where: { practitionerId: { in: ids } } });
       await tx.measurement.deleteMany({ where: { patient: { practitionerId: { in: ids } } } });
       await tx.consultation.deleteMany({ where: { practitionerId: { in: ids } } });
+      await tx.appointment.deleteMany({ where: { practitionerId: { in: ids } } });
       await tx.patient.deleteMany({ where: { practitionerId: { in: ids } } });
       await tx.formula.deleteMany({ where: { practitionerId: { in: ids } } });
+      await tx.practice.deleteMany({ where: { practitionerId: { in: ids } } });
       await tx.practitionerProfile.deleteMany({ where: { userId: { in: ids } } });
       await tx.user.deleteMany({ where: { id: { in: ids } } });
     });
     await prisma.$disconnect();
   });
 
-  /** A practitioner with her practice and the test patient of § 3.1 (woman, 56, 1.59 m). */
+  /**
+   * A practitioner with her activity, her default practice in Aix, and the test patient of
+   * § 3.1 (woman, 56, 1.59 m).
+   */
   async function practitionerWithPatient() {
     const user = await prisma.user.create({
       data: {
@@ -58,15 +66,22 @@ describe.skipIf(!url)('invoices on a real database', () => {
         practice: {
           create: {
             practiceName: 'Valérie Perrot, diététicienne nutritionniste',
-            address: '12 rue des Oliviers',
-            zipCode: '13100',
-            city: 'Aix-en-Provence',
             siret: '91234567800011',
             adeliRpps: '139512345',
             vatMention: 'TVA non applicable, article 261-4-1° du CGI',
           },
         },
+        practices: {
+          create: {
+            name: 'Aix',
+            address: '12 rue des Oliviers',
+            zipCode: '13100',
+            city: 'Aix-en-Provence',
+            isDefault: true,
+          },
+        },
       },
+      include: { practices: true },
     });
     practitioners.push(user.id);
     const patient = await prisma.patient.create({
@@ -83,7 +98,7 @@ describe.skipIf(!url)('invoices on a real database', () => {
           paymentMethod: over.paymentMethod ?? PaymentMethod.CARD,
         },
       });
-    return { user: { id: user.id, role: user.role }, patient, newSession };
+    return { user: { id: user.id, role: user.role }, patient, newSession, aix: user.practices[0] };
   }
 
   const NOW = new Date('2026-11-22T10:00:00Z');
@@ -212,12 +227,60 @@ describe.skipIf(!url)('invoices on a real database', () => {
     it('wrong practice details: corrected in the settings, then « Corriger la facture »', async () => {
       const { user, newSession } = await practitionerWithPatient();
       const invoice = await invoices.issue(user, (await newSession()).id, NOW);
-      await prisma.practitionerProfile.update({ where: { userId: user.id }, data: { address: '8 cours Mirabeau' } });
+      await prisma.practice.updateMany({ where: { practitionerId: user.id }, data: { address: '8 cours Mirabeau' } });
 
       const replacement = await invoices.correct(user, invoice.id, NOW);
       expect(replacement.practiceAddress).toBe('8 cours Mirabeau');
       const old = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
       expect(old.practiceAddress).toBe('12 rue des Oliviers');
+    });
+  });
+
+  describe('several practices (lot 15)', () => {
+    it("a séance booked in Marseille is invoiced with Marseille's address and SIRET", async () => {
+      const { user, patient, aix } = await practitionerWithPatient();
+      const marseille = await prisma.practice.create({
+        data: {
+          practitionerId: user.id,
+          name: 'Marseille',
+          address: '40 rue Paradis',
+          zipCode: '13001',
+          city: 'Marseille',
+          siret: '73282932000074',
+        },
+      });
+      const bilan = await prisma.formula.create({
+        data: { practitionerId: user.id, label: 'Bilan', priceCents: 6000, durationMinutes: 60 },
+      });
+
+      const appointment = await appointments.create(
+        { patientId: patient.id, startAt: '2026-11-20T09:00:00.000Z', type: 'IN_PERSON', formulaId: bilan.id, practiceId: marseille.id },
+        user as any,
+      );
+      expect(appointment).toMatchObject({ duration: 60, endAt: new Date('2026-11-20T10:00:00.000Z') });
+      const session = await sessions.create(user, patient.id, { appointmentId: appointment.id });
+      expect(session).toMatchObject({ formulaLabel: 'Bilan', priceCents: 6000, practiceId: marseille.id });
+
+      const invoice = await invoices.issue(user, session.id, NOW);
+      expect(invoice).toMatchObject({
+        practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+        practiceAddress: '40 rue Paradis',
+        practiceCity: 'Marseille',
+        siret: '73282932000074',
+        amountCents: 6000,
+      });
+
+      // Moved to Aix afterwards: the invoice no longer matches, and its correction says Aix
+      await sessions.update(user, session.id, { practiceId: aix.id });
+      expect((await invoices.forSession(user, session.id)).mismatches).toEqual(['practice']);
+      const corrected = await invoices.correct(user, invoice.id, NOW);
+      expect(corrected).toMatchObject({ practiceAddress: '12 rue des Oliviers', siret: '91234567800011' });
+    });
+
+    it('a séance without an appointment takes place in her default practice', async () => {
+      const { user, patient, aix } = await practitionerWithPatient();
+      const session = await sessions.create(user, patient.id, {});
+      expect(session.practiceId).toBe(aix.id);
     });
   });
 

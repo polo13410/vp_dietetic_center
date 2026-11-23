@@ -4,13 +4,24 @@ import { AppointmentStatus, MetricType, PaymentMethod, Prisma } from '@prisma/cl
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { defaultPractice } from '../me/default-practice';
 
 import { SessionInSeries, sessionSeries } from './calculations';
 import { CreateConsultationDto, UpdateConsultationDto } from './dto/consultation.dto';
 
 /** Everything recorded during a session, shown on the session screen. */
 const SESSION_CONTENT = {
-  appointment: { select: { id: true, startAt: true, duration: true, type: true, reason: true } },
+  appointment: {
+    select: {
+      id: true,
+      startAt: true,
+      duration: true,
+      type: true,
+      reason: true,
+      formula: { select: { id: true, label: true } },
+    },
+  },
+  practice: { select: { id: true, name: true } },
   patient: { select: { id: true, firstName: true, lastName: true } },
   measurements: { orderBy: { type: 'asc' as const } },
   fileEntries: { orderBy: { createdAt: 'asc' as const } },
@@ -47,6 +58,7 @@ export class ConsultationsService {
       orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       include: {
         appointment: { select: { id: true, startAt: true, type: true } },
+        practice: { select: { id: true, name: true } },
         measurements: SESSION_WEIGHT,
         _count: { select: { measurements: true, fileEntries: true, lifeEvents: true } },
       },
@@ -69,13 +81,16 @@ export class ConsultationsService {
 
   /**
    * Starts a session. Starting it again from the same appointment returns the existing one.
-   * Unless given, the formula is « Bilan » for the first session and « Suivi » after (her
-   * formulas with those names), and the payment method the patient's last one.
+   * From an appointment, it takes the appointment's type (formula, with its price now) and
+   * practice. Otherwise, unless given, the formula is « Bilan » for the first session and
+   * « Suivi » after (her formulas with those names), and the practice her default one. The
+   * payment method is the patient's last one.
    */
   async create(user: AccessUser, patientId: string, dto: CreateConsultationDto) {
     const { practitionerId } = await this.access.assertPatient(user, patientId);
 
     let date = dto.date ? new Date(dto.date) : new Date();
+    let booked: { formulaId: string | null; practiceId: string | null } | null = null;
     if (dto.appointmentId) {
       await this.access.assertAppointment(user, dto.appointmentId, patientId);
       const existing = await this.prisma.consultation.findUnique({
@@ -84,22 +99,30 @@ export class ConsultationsService {
       if (existing) return existing;
       const appointment = await this.prisma.appointment.findUniqueOrThrow({
         where: { id: dto.appointmentId },
-        select: { startAt: true, status: true },
+        select: { startAt: true, status: true, formulaId: true, practiceId: true },
       });
       if (appointment.status === AppointmentStatus.CANCELLED) {
         throw new BadRequestException('Ce rendez-vous est annulé');
       }
       if (!dto.date) date = appointment.startAt;
+      booked = appointment;
     }
 
-    const formulaId = dto.formulaId ?? (await this.defaultFormulaId(practitionerId, patientId));
+    // The appointment's type was chosen at booking: kept even if no longer offered since
+    const inherited = !dto.formulaId && !!booked?.formulaId;
+    const formulaId =
+      dto.formulaId ?? booked?.formulaId ?? (await this.defaultFormulaId(practitionerId, patientId));
+    const practiceId = dto.practiceId
+      ? await this.ownPractice(practitionerId, dto.practiceId)
+      : (booked?.practiceId ?? (await defaultPractice(this.prisma, practitionerId))?.id ?? null);
     const data = {
       patientId,
       practitionerId,
       appointmentId: dto.appointmentId,
       date,
+      practiceId,
       paymentMethod: dto.paymentMethod ?? (await this.lastPaymentMethod(patientId)),
-      ...(formulaId ? await this.formulaCopy(practitionerId, formulaId) : {}),
+      ...(formulaId ? await this.formulaCopy(practitionerId, formulaId, inherited) : {}),
     };
     if (!dto.appointmentId) return this.prisma.consultation.create({ data });
     const [session] = await this.prisma.$transaction([
@@ -114,16 +137,20 @@ export class ConsultationsService {
 
   async update(user: AccessUser, id: string, dto: UpdateConsultationDto) {
     const session = await this.ofUser(user, id);
-    const { formulaId, date, ...texts } = dto;
+    const { formulaId, date, practiceId, ...texts } = dto;
     let formula = {};
     if (formulaId === null) formula = { formulaId: null, formulaLabel: null, priceCents: null };
     // Choosing the same formula again keeps the price copied at the time
     else if (formulaId && formulaId !== session.formulaId) {
       formula = await this.formulaCopy(session.practitionerId, formulaId);
     }
+    const place =
+      practiceId && practiceId !== session.practiceId
+        ? { practiceId: await this.ownPractice(session.practitionerId, practiceId) }
+        : {};
     return this.prisma.consultation.update({
       where: { id },
-      data: { ...texts, ...formula, date: date ? new Date(date) : undefined },
+      data: { ...texts, ...formula, ...place, date: date ? new Date(date) : undefined },
     });
   }
 
@@ -201,14 +228,29 @@ export class ConsultationsService {
     return last?.paymentMethod;
   }
 
-  /** The formula's label and price, copied so later price changes leave the session as it was. */
-  private async formulaCopy(practitionerId: string, formulaId: string) {
+  /**
+   * The formula's label and price, copied so later price changes leave the session as it was.
+   * An archived formula is refused, unless it comes from the appointment (`fromAppointment`).
+   */
+  private async formulaCopy(practitionerId: string, formulaId: string, fromAppointment = false) {
     const formula = await this.prisma.formula.findUnique({ where: { id: formulaId } });
     if (!formula || formula.practitionerId !== practitionerId) {
       throw new BadRequestException('Formule introuvable');
     }
-    if (formula.archivedAt) throw new BadRequestException("Cette formule n'est plus proposée");
+    if (formula.archivedAt && !fromAppointment) {
+      throw new BadRequestException("Cette formule n'est plus proposée");
+    }
     return { formulaId, formulaLabel: formula.label, priceCents: formula.priceCents };
+  }
+
+  /** One of her active practices. */
+  private async ownPractice(practitionerId: string, practiceId: string) {
+    const practice = await this.prisma.practice.findUnique({ where: { id: practiceId } });
+    if (!practice || practice.practitionerId !== practitionerId) {
+      throw new BadRequestException('Cabinet introuvable');
+    }
+    if (practice.archivedAt) throw new BadRequestException("Ce cabinet n'est plus proposé");
+    return practiceId;
   }
 
   /** A session of one of the user's patients. */

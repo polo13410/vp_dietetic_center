@@ -3,6 +3,7 @@ import { Invoice, InvoiceType, Prisma } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { defaultPractice } from '../me/default-practice';
 
 import { countsInTotals, invoiceMismatches, invoicesCsv, summarize } from './invoice-rules';
 import { nextInvoiceNumber, parisDay } from './numbering';
@@ -17,11 +18,12 @@ const LINKS = {
   replaces: { select: { id: true, number: true, issuedAt: true } },
 } satisfies Prisma.InvoiceInclude;
 
-/** What an invoice copies from its session. */
+/** What an invoice copies from its session: the patient, and where it took place. */
 const SESSION_FOR_INVOICE = {
   patient: {
     select: { id: true, firstName: true, lastName: true, address: true, zipCode: true, city: true },
   },
+  practice: { select: { address: true, zipCode: true, city: true, siret: true } },
 } satisfies Prisma.ConsultationInclude;
 
 type SessionForInvoice = Prisma.ConsultationGetPayload<{ include: typeof SESSION_FOR_INVOICE }>;
@@ -119,9 +121,10 @@ export class InvoicesService {
       include: LINKS,
     });
     const current = invoices.find(countsInTotals) ?? null;
+    const practice = current ? await this.placeOf(session) : null;
     return {
       current,
-      mismatches: current ? invoiceMismatches(current, session) : [],
+      mismatches: current ? invoiceMismatches(current, { ...session, practice }) : [],
       history: invoices.filter((invoice) => invoice !== current).reverse(),
     };
   }
@@ -227,17 +230,22 @@ export class InvoicesService {
     return tx.invoice.findUniqueOrThrow({ where: { id: creditNote.id }, include: LINKS });
   }
 
-  /** Issues an invoice for the session, copying the practice, the patient and the service. */
+  /**
+   * Issues an invoice for the session, copying the activity (name, numbers, mentions), the
+   * address of the session's practice (its own SIRET when it has one, else the activity's),
+   * the patient and the service. A session with no practice takes her default one.
+   */
   private async createInvoice(tx: Tx, session: SessionForInvoice, now: Date) {
     if (!session.formulaLabel || session.priceCents === null) {
       throw new BadRequestException('Choisissez la formule de la séance (avec son prix) avant de faire la facture');
     }
-    const [practice, practitioner] = await Promise.all([
+    const [activity, practitioner, place] = await Promise.all([
       tx.practitionerProfile.findUnique({ where: { userId: session.practitionerId } }),
       tx.user.findUniqueOrThrow({
         where: { id: session.practitionerId },
         select: { firstName: true, lastName: true },
       }),
+      session.practice ?? defaultPractice(tx, session.practitionerId),
     ]);
     const numbering = await nextInvoiceNumber(tx, session.practitionerId, InvoiceType.INVOICE, now);
     const { patient } = session;
@@ -253,14 +261,14 @@ export class InvoicesService {
         paymentMethod: session.paymentMethod,
         serviceLabel: session.formulaLabel,
         serviceDate: session.date,
-        practiceName: practice?.practiceName || `${practitioner.firstName} ${practitioner.lastName}`,
-        practiceAddress: practice?.address ?? null,
-        practiceZipCode: practice?.zipCode ?? null,
-        practiceCity: practice?.city ?? null,
-        siret: practice?.siret ?? null,
-        adeliRpps: practice?.adeliRpps ?? null,
-        vatMention: practice?.vatMention ?? null,
-        invoiceFooter: practice?.invoiceFooter ?? null,
+        practiceName: activity?.practiceName || `${practitioner.firstName} ${practitioner.lastName}`,
+        practiceAddress: place?.address ?? null,
+        practiceZipCode: place?.zipCode ?? null,
+        practiceCity: place?.city ?? null,
+        siret: place?.siret ?? activity?.siret ?? null,
+        adeliRpps: activity?.adeliRpps ?? null,
+        vatMention: activity?.vatMention ?? null,
+        invoiceFooter: activity?.invoiceFooter ?? null,
         patientFirstName: patient.firstName,
         patientLastName: patient.lastName,
         patientAddress: patient.address,
@@ -309,6 +317,14 @@ export class InvoicesService {
     const session = await tx.consultation.findUnique({ where: { id }, include: SESSION_FOR_INVOICE });
     if (!session) throw new NotFoundException('Séance introuvable');
     return session;
+  }
+
+  /** Where the session took place (her default practice when it says nothing). */
+  private placeOf(session: { practiceId: string | null; practitionerId: string }) {
+    const select = { address: true, zipCode: true, city: true } as const;
+    return session.practiceId
+      ? this.prisma.practice.findUnique({ where: { id: session.practiceId }, select })
+      : defaultPractice(this.prisma, session.practitionerId);
   }
 
   /** A session of one of the user's patients. */

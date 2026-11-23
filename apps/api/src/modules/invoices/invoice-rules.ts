@@ -3,10 +3,21 @@ import { Invoice, InvoiceType, PaymentMethod } from '@prisma/client';
 import { parisDay } from './numbering';
 
 /** What an invoice no longer matches in its session (shown in a banner on the session). */
-export type InvoiceMismatch = 'formula' | 'price' | 'paymentMethod' | 'date';
+export type InvoiceMismatch = 'formula' | 'price' | 'paymentMethod' | 'date' | 'practice';
 
-type Billed = Pick<Invoice, 'serviceLabel' | 'amountCents' | 'paymentMethod' | 'serviceDate'>;
-type Session = { formulaLabel: string | null; priceCents: number | null; paymentMethod: PaymentMethod; date: Date };
+type Billed = Pick<
+  Invoice,
+  'serviceLabel' | 'amountCents' | 'paymentMethod' | 'serviceDate' | 'practiceAddress' | 'practiceZipCode' | 'practiceCity'
+>;
+type Place = { address: string | null; zipCode: string | null; city: string | null };
+type Session = {
+  formulaLabel: string | null;
+  priceCents: number | null;
+  paymentMethod: PaymentMethod;
+  date: Date;
+  /** Where it took place now; left out, the address is not compared */
+  practice?: Place | null;
+};
 
 /** Differences between an issued invoice and its session as it is now. */
 export function invoiceMismatches(invoice: Billed, session: Session): InvoiceMismatch[] {
@@ -15,6 +26,12 @@ export function invoiceMismatches(invoice: Billed, session: Session): InvoiceMis
   if (session.priceCents !== invoice.amountCents) mismatches.push('price');
   if (session.paymentMethod !== invoice.paymentMethod) mismatches.push('paymentMethod');
   if (parisDay(session.date) !== parisDay(invoice.serviceDate)) mismatches.push('date');
+  if (session.practice !== undefined) {
+    const place = session.practice;
+    const billed = [invoice.practiceAddress, invoice.practiceZipCode, invoice.practiceCity];
+    const now = [place?.address ?? null, place?.zipCode ?? null, place?.city ?? null];
+    if (billed.some((value, i) => value !== now[i])) mismatches.push('practice');
+  }
   return mismatches;
 }
 

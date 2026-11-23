@@ -48,8 +48,10 @@ describe('GpReportsService', () => {
       lastName: 'Perrot',
       phone: null,
       email: 'v@example.fr',
-      practice: { practiceName: 'Valérie Perrot, diététicienne', city: 'Aix-en-Provence', adeliRpps: '139512345' },
+      practice: { practiceName: 'Valérie Perrot, diététicienne', adeliRpps: '139512345' },
     });
+    // The letterhead takes the address of her default practice
+    mockPrisma.practice.findFirst.mockResolvedValue({ address: null, zipCode: null, city: 'Aix-en-Provence' });
     mockPrisma.measurement.findMany.mockResolvedValue([
       { type: 'HEIGHT', value: '159', measuredAt: new Date('2026-09-23') },
       { type: 'WEIGHT', value: '79', measuredAt: new Date('2026-09-23') },

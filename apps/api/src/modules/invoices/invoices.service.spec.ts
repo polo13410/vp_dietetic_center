@@ -9,27 +9,30 @@ import { DELETED_SESSION_REASON, InvoicesService, parisStartOfDay, periodRange }
 const d = (iso: string) => new Date(iso);
 const NOW = d('2026-11-22T10:00:00Z');
 
+/** Her practice in Aix, where the session took place (no SIRET of its own). */
+const aix = { address: '12 rue des Oliviers', zipCode: '13100', city: 'Aix-en-Provence', siret: null };
 /** Martine Roux, the test patient of docs/REFONTE.md § 3.1, at her « Suivi 2 ». */
 const session = {
   id: 'c1',
   patientId: 'p1',
   practitionerId: 'user-1',
+  practiceId: 'pr-aix',
   date: d('2026-11-22T09:00:00Z'),
   formulaLabel: 'Suivi',
   priceCents: 5000,
   paymentMethod: PaymentMethod.CARD,
   patient: { id: 'p1', firstName: 'Martine', lastName: 'Roux', address: '3 place des Prêcheurs', zipCode: '13100', city: 'Aix-en-Provence' },
+  practice: aix,
 };
-const practice = {
+/** Her activity (« Mon activité ») */
+const activity = {
   practiceName: 'Valérie Perrot, diététicienne nutritionniste',
-  address: '12 rue des Oliviers',
-  zipCode: '13100',
-  city: 'Aix-en-Provence',
   siret: '91234567800011',
   adeliRpps: '139512345',
   vatMention: 'TVA non applicable, article 261-4-1° du CGI',
   invoiceFooter: 'Merci de votre confiance.',
 };
+const practice = { ...activity, ...aix, siret: activity.siret };
 const issued = {
   id: 'i1',
   practitionerId: 'user-1',
@@ -74,7 +77,7 @@ describe('InvoicesService', () => {
     service = new InvoicesService(mockPrisma as any, mockAccess as any);
     created = [];
     mockPrisma.consultation.findUnique.mockResolvedValue(session);
-    mockPrisma.practitionerProfile.findUnique.mockResolvedValue(practice);
+    mockPrisma.practitionerProfile.findUnique.mockResolvedValue(activity);
     mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ firstName: 'Valérie', lastName: 'Perrot' });
     mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { sequence: null } });
     mockPrisma.invoice.findFirst.mockResolvedValue(null);
@@ -119,6 +122,9 @@ describe('InvoicesService', () => {
         patientLastName: 'Roux',
         patientAddress: '3 place des Prêcheurs',
         patientCity: 'Aix-en-Provence',
+        practiceAddress: '12 rue des Oliviers',
+        practiceZipCode: '13100',
+        practiceCity: 'Aix-en-Provence',
       });
       // Under the practitioner's lock, then the series' lock
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
@@ -146,6 +152,34 @@ describe('InvoicesService', () => {
       mockPrisma.practitionerProfile.findUnique.mockResolvedValue(null);
       const invoice = await service.issue(user as any, 'c1', NOW);
       expect(invoice).toMatchObject({ practiceName: 'Valérie Perrot', vatMention: null, siret: null });
+    });
+
+    it("prints the address of the session's practice, and its own SIRET when it has one", async () => {
+      mockPrisma.consultation.findUnique.mockResolvedValue({
+        ...session,
+        practiceId: 'pr-marseille',
+        practice: { address: '40 rue Paradis', zipCode: '13001', city: 'Marseille', siret: '73282932000074' },
+      });
+      const invoice = await service.issue(user as any, 'c1', NOW);
+      expect(invoice).toMatchObject({
+        practiceName: activity.practiceName,
+        practiceAddress: '40 rue Paradis',
+        practiceZipCode: '13001',
+        practiceCity: 'Marseille',
+        siret: '73282932000074',
+        adeliRpps: activity.adeliRpps,
+      });
+      expect(mockPrisma.practice.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('takes her default practice for a session placed nowhere', async () => {
+      mockPrisma.consultation.findUnique.mockResolvedValue({ ...session, practiceId: null, practice: null });
+      mockPrisma.practice.findFirst.mockResolvedValue({ address: '5 rue Thiers', zipCode: '13100', city: 'Aix-en-Provence', siret: null });
+      const invoice = await service.issue(user as any, 'c1', NOW);
+      expect(mockPrisma.practice.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { practitionerId: 'user-1', archivedAt: null } }),
+      );
+      expect(invoice).toMatchObject({ practiceAddress: '5 rue Thiers', siret: activity.siret });
     });
 
     it('refuses a session that already has its invoice', async () => {
@@ -278,9 +312,9 @@ describe('InvoicesService', () => {
 
   describe('wrong practice or patient details → corrected, then « Corriger la facture »', () => {
     it('the new invoice carries the details as they are now; the old one keeps its copy', async () => {
-      mockPrisma.practitionerProfile.findUnique.mockResolvedValue({ ...practice, address: '8 cours Mirabeau' });
       mockPrisma.consultation.findUnique.mockResolvedValue({
         ...session,
+        practice: { ...aix, address: '8 cours Mirabeau' },
         patient: { ...session.patient, lastName: 'Roux-Martin' },
       });
       const replacement = await service.correct(user as any, 'i1', NOW);

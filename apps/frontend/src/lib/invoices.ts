@@ -45,6 +45,7 @@ const MISMATCH_LABELS: Record<InvoiceMismatch, string> = {
   price: 'le prix',
   paymentMethod: 'le moyen de paiement',
   date: 'la date',
+  practice: 'l’adresse du cabinet',
 };
 
 /** « le prix et le moyen de paiement » */

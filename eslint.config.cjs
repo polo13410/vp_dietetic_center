@@ -38,7 +38,7 @@ module.exports = [
     },
   },
   {
-    files: ['apps/frontend/src/**/*.{ts,tsx}'],
+    files: ['apps/frontend/src/**/*.{ts,tsx}', 'apps/frontend/e2e/**/*.ts', 'apps/frontend/playwright.config.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

@@ -91,6 +91,26 @@ enum InvoiceType {
   CREDIT_NOTE
 }
 
+/// Who an invoice is addressed to (lot 16): the patient (one session) or a payer (a period).
+enum InvoiceRecipient {
+  PATIENT
+  PAYER
+}
+
+/// A discount or a coverage: an amount in cents, or a percentage (0–100).
+enum ShareKind {
+  AMOUNT
+  PERCENT
+}
+
+/// How often a payer is billed (lot 16).
+enum BillingRhythm {
+  MONTHLY
+  /// Every N months (Payer.rhythmMonths)
+  EVERY_N_MONTHS
+  ON_DEMAND
+}
+
 enum GpReportStatus {
   DRAFT
   SENT
@@ -159,6 +179,7 @@ model User {
   practices     Practice[]
   gpReports     GpReport[]           @relation("AuthorGpReports")
   invoices      Invoice[]            @relation("PractitionerInvoices")
+  payers        Payer[]
 
   @@map("user")
 }
@@ -269,7 +290,7 @@ model Patient {
   deletedAt  DateTime? @map("deleted_at")
 
   // Relations
-  practitioner  User           @relation("PractitionerPatients", fields: [practitionerId], references: [id])
+  practitioner  User              @relation("PractitionerPatients", fields: [practitionerId], references: [id])
   appointments  Appointment[]
   consultations Consultation[]
   measurements  Measurement[]
@@ -280,6 +301,7 @@ model Patient {
   tasks         Task[]
   consents      Consent[]
   invoices      Invoice[]
+  coverages     PatientCoverage[]
 
   @@map("patient")
 }
@@ -374,23 +396,45 @@ model Consultation {
   paymentMethod  PaymentMethod @default(NONE) @map("payment_method")
   /// Where it took place: its address is printed on the invoice
   practiceId     String?       @map("practice_id")
-  habits         String?       @db.Text // Habitudes et évolution
-  sessionWork    String?       @map("session_work") @db.Text // Travail en consultation
-  advice         String?       @db.Text // Conseils diététiques
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  patient      Patient       @relation(fields: [patientId], references: [id])
-  practitioner User          @relation("PractitionerConsultations", fields: [practitionerId], references: [id])
-  appointment  Appointment?  @relation(fields: [appointmentId], references: [id])
-  formula      Formula?      @relation(fields: [formulaId], references: [id], onDelete: SetNull)
-  practice     Practice?     @relation(fields: [practiceId], references: [id], onDelete: SetNull)
+  // Discount (« remise », lot 16): in cents or in %, prefilled from the patient's previous session
+  discountKind   ShareKind? @map("discount_kind")
+  /// Cents (AMOUNT) or percent (PERCENT)
+  discountValue  Int?       @map("discount_value")
+  discountReason String?    @map("discount_reason")
+
+  // The split of the price (lot 16), computed when the session's price, discount or date change
+  // and then kept: a later change of the patient's coverage leaves it alone. Null without a
+  // price. net = price - discount = payer part + patient part.
+  discountCents Int?    @map("discount_cents")
+  netCents      Int?    @map("net_cents")
+  payerCents    Int?    @map("payer_cents")
+  patientCents  Int?    @map("patient_cents")
+  /// The payer of the payer part, and the coverage it came from
+  payerId       String? @map("payer_id")
+  coverageId    String? @map("coverage_id")
+
+  habits      String?  @db.Text // Habitudes et évolution
+  sessionWork String?  @map("session_work") @db.Text // Travail en consultation
+  advice      String?  @db.Text // Conseils diététiques
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  practitioner User             @relation("PractitionerConsultations", fields: [practitionerId], references: [id])
+  appointment  Appointment?     @relation(fields: [appointmentId], references: [id])
+  formula      Formula?         @relation(fields: [formulaId], references: [id], onDelete: SetNull)
+  practice     Practice?        @relation(fields: [practiceId], references: [id], onDelete: SetNull)
+  payer        Payer?           @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  coverage     PatientCoverage? @relation(fields: [coverageId], references: [id], onDelete: SetNull)
   measurements Measurement[]
   fileEntries  FileEntry[]
   lifeEvents   LifeEvent[]
   invoices     Invoice[]
+  invoiceLines InvoiceLine[]
 
   @@index([patientId, date])
+  @@index([payerId, date])
   @@map("consultation")
 }
 
@@ -467,6 +511,67 @@ model GpReport {
   @@map("gp_report")
 }
 
+// ─── Payers (« tiers payant », lot 16) ───────────────────────────────────────
+
+/// An organisation that pays all or part of some patients' sessions (mutuelle, employer,
+/// association, convention…). Managed in the « Organismes » tab of the Factures page, billed by
+/// period with one invoice grouping its sessions.
+model Payer {
+  id                  String        @id @default(uuid())
+  practitionerId      String        @map("practitioner_id")
+  name                String
+  /// Number and street
+  address             String?
+  zipCode             String?       @map("zip_code")
+  city                String?
+  /// Who to write to: a person, an e-mail, a phone
+  contact             String?
+  conventionReference String?       @map("convention_reference")
+  billingRhythm       BillingRhythm @default(MONTHLY) @map("billing_rhythm")
+  /// EVERY_N_MONTHS only: N (2 to 12)
+  rhythmMonths        Int?          @map("rhythm_months")
+  notes               String?       @db.Text
+  archivedAt          DateTime?     @map("archived_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  practitioner  User              @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  coverages     PatientCoverage[]
+  consultations Consultation[]
+  invoices      Invoice[]
+
+  @@index([practitionerId])
+  @@map("payer")
+}
+
+/// What a payer covers for a patient, per session: an amount or a percentage of the net price,
+/// for a number of sessions and a period when they are limited.
+model PatientCoverage {
+  id             String    @id @default(uuid())
+  patientId      String    @map("patient_id")
+  payerId        String    @map("payer_id")
+  kind           ShareKind
+  /// Cents (AMOUNT) or percent (PERCENT) of the net price of each session
+  value          Int
+  /// Covered sessions at most (the sessions with a payer part count)
+  maxSessions    Int?      @map("max_sessions")
+  /// Paris days, both included
+  startDate      DateTime? @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  /// « Numéro de prise en charge »
+  coverageNumber String?   @map("coverage_number")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  payer         Payer          @relation(fields: [payerId], references: [id], onDelete: Restrict)
+  consultations Consultation[]
+
+  @@index([patientId])
+  @@index([payerId])
+  @@map("patient_coverage")
+}
+
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
 /// An invoice or a credit note (docs/REFONTE.md lot 5). Issued only when the practitioner asks,
@@ -474,26 +579,51 @@ model GpReport {
 /// then a new invoice replaces it. It keeps a copy of the practice, the patient and the session
 /// at the time of issue, so deleting the session or the patient leaves it whole (kept 10 years).
 model Invoice {
-  id             String        @id @default(uuid())
-  practitionerId String        @map("practitioner_id")
+  id             String           @id @default(uuid())
+  practitionerId String           @map("practitioner_id")
   /// Null once the patient is erased: the copies below remain
-  patientId      String?       @map("patient_id")
+  patientId      String?          @map("patient_id")
   /// Null once the session is deleted
-  consultationId String?       @map("consultation_id")
+  consultationId String?          @map("consultation_id")
   type           InvoiceType
+  /// The patient (one session) or a payer (its sessions over a period). One series for both.
+  recipient      InvoiceRecipient @default(PATIENT)
+  /// Payer invoices: the payer billed (null once it is deleted; the copies remain)
+  payerId        String?          @map("payer_id")
   /// Numbering: continuous per practitioner, per year (Europe/Paris) and per type, without gaps
   year           Int
   sequence       Int
   /// "2026-0001" (invoice) or "A-2026-0001" (credit note)
   number         String
-  issuedAt       DateTime      @map("issued_at")
-  /// Negative for a credit note
-  amountCents    Int           @map("amount_cents")
-  paymentMethod  PaymentMethod @map("payment_method")
+  issuedAt       DateTime         @map("issued_at")
+  /// Negative for a credit note. Patient invoices: the patient part of the session.
+  amountCents    Int              @map("amount_cents")
+  /// Payer invoices: NONE (their payment is followed with paidAt)
+  paymentMethod  PaymentMethod    @map("payment_method")
 
-  // The service, copied from the session
+  // The service, copied from the session (payer invoices: « Prise en charge », end of the period)
   serviceLabel String   @map("service_label")
   serviceDate  DateTime @map("service_date")
+
+  // Patient invoices (lot 16): price, discount and payer part, copied from the session's split.
+  // Null on invoices issued before.
+  priceCents     Int?    @map("price_cents")
+  discountCents  Int?    @map("discount_cents")
+  discountReason String? @map("discount_reason")
+  payerCents     Int?    @map("payer_cents")
+  /// Patient invoices: the payer of the payer part. Payer invoices: the payer billed.
+  payerName      String? @map("payer_name")
+
+  // Payer invoices: the payer, copied at issue, and the period billed (Paris days, included)
+  payerAddress        String?   @map("payer_address")
+  payerZipCode        String?   @map("payer_zip_code")
+  payerCity           String?   @map("payer_city")
+  payerContact        String?   @map("payer_contact")
+  conventionReference String?   @map("convention_reference")
+  periodStart         DateTime? @map("period_start") @db.Date
+  periodEnd           DateTime? @map("period_end") @db.Date
+  /// Payer invoices: « réglée le … » (null: « en attente »). Set after issue.
+  paidAt              DateTime? @map("paid_at") @db.Date
 
   // The practice, copied at issue: the activity (name, numbers, mentions), and the address of
   // the session's practice (with its SIRET when it has its own)
@@ -506,9 +636,9 @@ model Invoice {
   vatMention      String? @map("vat_mention") @db.Text
   invoiceFooter   String? @map("invoice_footer") @db.Text
 
-  // The patient, copied from the file
-  patientFirstName String  @map("patient_first_name")
-  patientLastName  String  @map("patient_last_name")
+  // The patient, copied from the file (null on payer invoices)
+  patientFirstName String? @map("patient_first_name")
+  patientLastName  String? @map("patient_last_name")
   patientAddress   String? @map("patient_address")
   patientZipCode   String? @map("patient_zip_code")
   patientCity      String? @map("patient_city")
@@ -525,6 +655,9 @@ model Invoice {
 
   practitioner User          @relation("PractitionerInvoices", fields: [practitionerId], references: [id])
   patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  payer        Payer?        @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  /// Payer invoices (and their credit notes): one line per session
+  lines        InvoiceLine[]
   consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
   creditNote   Invoice?      @relation("InvoiceCreditNote", fields: [creditNoteId], references: [id])
   /// Credit notes only: the invoice it cancels
@@ -538,7 +671,32 @@ model Invoice {
   @@index([practitionerId, issuedAt])
   @@index([patientId])
   @@index([consultationId])
+  @@index([payerId])
   @@map("invoice")
+}
+
+/// One session of a payer invoice (or of its credit note, in negative): copies only, nothing
+/// medical. Never changed nor deleted (database guard), except its link to a deleted session.
+model InvoiceLine {
+  id               String   @id @default(uuid())
+  invoiceId        String   @map("invoice_id")
+  /// Null once the session is deleted
+  consultationId   String?  @map("consultation_id")
+  position         Int
+  serviceDate      DateTime @map("service_date")
+  serviceLabel     String   @map("service_label")
+  patientFirstName String   @map("patient_first_name")
+  patientLastName  String   @map("patient_last_name")
+  coverageNumber   String?  @map("coverage_number")
+  /// The payer part of the session (negative on a credit note)
+  amountCents      Int      @map("amount_cents")
+
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@unique([invoiceId, position])
+  @@index([consultationId])
+  @@map("invoice_line")
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────

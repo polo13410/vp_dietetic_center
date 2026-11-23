@@ -156,6 +156,7 @@ model User {
   tasks         Task[]               @relation("AssignedTasks")
   auditLogs     AuditLog[]
   formulas      Formula[]
+  practices     Practice[]
   gpReports     GpReport[]           @relation("AuthorGpReports")
   invoices      Invoice[]            @relation("PractitionerInvoices")
 
@@ -174,16 +175,14 @@ model UserPreferences {
   @@map("user_preferences")
 }
 
-/// The practice of a practitioner, printed on her invoices (lot 5). Edited in the settings.
+/// The practitioner's activity, printed on her invoices (lot 5): who she is, not where she
+/// consults (her practices, below, hold the addresses). Edited in Paramètres > Mon activité.
 model PractitionerProfile {
   id            String   @id @default(uuid())
   userId        String   @unique @map("user_id")
   /// Name printed on the invoices ("Valérie Pera, diététicienne")
   practiceName  String?  @map("practice_name")
-  address       String?
-  zipCode       String?  @map("zip_code")
-  city          String?
-  /// 14 digits, Luhn checked
+  /// 14 digits, Luhn checked. A practice may have its own (Practice.siret).
   siret         String?
   /// ADELI (9 digits) or RPPS (11 digits)
   adeliRpps     String?  @map("adeli_rpps")
@@ -197,6 +196,33 @@ model PractitionerProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("practitioner_profile")
+}
+
+/// A place where the practitioner consults (lot 15). Each practitioner has at least one active
+/// practice and exactly one default among them (rule kept by PracticesService). Its address,
+/// and its SIRET when it has its own, are printed on the invoices of its sessions.
+model Practice {
+  id             String    @id @default(uuid())
+  practitionerId String    @map("practitioner_id")
+  name           String
+  /// Number and street
+  address        String?
+  zipCode        String?   @map("zip_code")
+  city           String?
+  phone          String?
+  /// Only when it differs from the activity's (PractitionerProfile.siret)
+  siret          String?
+  isDefault      Boolean   @default(false) @map("is_default")
+  archivedAt     DateTime? @map("archived_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  practitioner  User           @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  appointments  Appointment[]
+  consultations Consultation[]
+
+  @@index([practitionerId])
+  @@map("practice")
 }
 
 model RefreshToken {
@@ -285,6 +311,11 @@ model Appointment {
   duration       Int // minutes
   type           AppointmentType   @default(IN_PERSON)
   status         AppointmentStatus @default(SCHEDULED)
+  /// Type of appointment: one of her formulas, which also gives the duration (lot 15)
+  formulaId      String?           @map("formula_id")
+  /// Where it takes place; null for a video or phone appointment
+  practiceId     String?           @map("practice_id")
+  /// Optional note (it used to be the free-text reason)
   reason         String?           @db.Text
   cancelReason   String?           @map("cancel_reason")
   reminderSentAt DateTime?         @map("reminder_sent_at")
@@ -293,6 +324,8 @@ model Appointment {
 
   patient      Patient       @relation(fields: [patientId], references: [id])
   practitioner User          @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
+  formula      Formula?      @relation(fields: [formulaId], references: [id], onDelete: SetNull)
+  practice     Practice?     @relation(fields: [practiceId], references: [id], onDelete: SetNull)
   consultation Consultation?
   tasks        Task[]
 
@@ -304,20 +337,24 @@ model Appointment {
 
 // ─── Patient file ─────────────────────────────────────────────────────────────
 
-/// A price of the practice ("Bilan 60 €", "Suivi 50 €"). Managed in the settings (lot 3);
-/// sessions keep a copy of its label and price.
+/// A price of the practice ("Bilan 60 €, 1 h", "Suivi 50 €, 45 min"), which is also a type of
+/// appointment (lot 15). Managed in the settings (lot 3); sessions keep a copy of its label and
+/// price.
 model Formula {
-  id             String    @id @default(uuid())
-  practitionerId String    @map("practitioner_id")
-  label          String
-  priceCents     Int?      @map("price_cents")
-  position       Int       @default(0)
-  archivedAt     DateTime? @map("archived_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  practitionerId  String    @map("practitioner_id")
+  label           String
+  priceCents      Int?      @map("price_cents")
+  /// Duration of an appointment of this type
+  durationMinutes Int       @default(45) @map("duration_minutes")
+  position        Int       @default(0)
+  archivedAt      DateTime? @map("archived_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   practitioner  User           @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
   consultations Consultation[]
+  appointments  Appointment[]
 
   @@index([practitionerId, position])
   @@map("formula")
@@ -335,6 +372,8 @@ model Consultation {
   formulaLabel   String?       @map("formula_label") // copy at the time of the session
   priceCents     Int?          @map("price_cents") // copy at the time of the session
   paymentMethod  PaymentMethod @default(NONE) @map("payment_method")
+  /// Where it took place: its address is printed on the invoice
+  practiceId     String?       @map("practice_id")
   habits         String?       @db.Text // Habitudes et évolution
   sessionWork    String?       @map("session_work") @db.Text // Travail en consultation
   advice         String?       @db.Text // Conseils diététiques
@@ -345,6 +384,7 @@ model Consultation {
   practitioner User          @relation("PractitionerConsultations", fields: [practitionerId], references: [id])
   appointment  Appointment?  @relation(fields: [appointmentId], references: [id])
   formula      Formula?      @relation(fields: [formulaId], references: [id], onDelete: SetNull)
+  practice     Practice?     @relation(fields: [practiceId], references: [id], onDelete: SetNull)
   measurements Measurement[]
   fileEntries  FileEntry[]
   lifeEvents   LifeEvent[]
@@ -455,7 +495,8 @@ model Invoice {
   serviceLabel String   @map("service_label")
   serviceDate  DateTime @map("service_date")
 
-  // The practice, copied from the settings
+  // The practice, copied at issue: the activity (name, numbers, mentions), and the address of
+  // the session's practice (with its SIRET when it has its own)
   practiceName    String  @map("practice_name")
   practiceAddress String? @map("practice_address")
   practiceZipCode String? @map("practice_zip_code")

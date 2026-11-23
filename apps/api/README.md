@@ -1,6 +1,6 @@
 # VP Dietetic Center — API
 
-Backend NestJS pour l'application de gestion psycho-nutritionnelle.
+Backend NestJS de l'application : dossier patient, séances, factures, rendez-vous. Voir [docs/PLAN.md](../../docs/PLAN.md).
 
 ## Stack
 
@@ -34,35 +34,53 @@ pnpm dev
 ```bash
 pnpm dev             # Watch mode
 pnpm build           # Build production
-pnpm test            # Tests unitaires
-pnpm test:e2e        # Tests e2e
+pnpm test            # Tests (Vitest)
+pnpm test:coverage   # Tests avec couverture et seuils (vitest.config.ts)
 pnpm db:studio       # Prisma Studio
 pnpm db:migrate      # Appliquer / créer les migrations
-pnpm db:seed         # Seeder
+pnpm db:seed         # Seeder (recrée les patients de démonstration)
 ```
+
+## Tests
+
+- Tests unitaires et de services (`src/**/*.spec.ts`), avec un Prisma simulé (`src/test/setup.ts`).
+- Tests sur une vraie base (`*.db.spec.ts` : numérotation des factures en concurrence, avoirs, déclencheurs, migrations) :
+  ils ne tournent qu’avec `TEST_DATABASE_URL`, une base migrée dédiée aux tests. Turbo ne transmet pas
+  cette variable : lancer `TEST_DATABASE_URL=… npx vitest run` ici. La CI les lance toujours, et les seuils
+  de couverture sont calés sur ce résultat.
+- Les parcours de bout en bout (Playwright) sont dans `apps/frontend/e2e` et démarrent cette API eux-mêmes.
 
 ## Structure
 
 ```
 src/
 ├── modules/
-│   ├── auth/           # Auth JWT + refresh
-│   ├── users/          # Gestion utilisateurs
-│   ├── patients/       # Fiche patients
-│   ├── appointments/   # Rendez-vous
-│   ├── notes/          # Notes cliniques
-│   ├── nutritional/    # Suivi nutritionnel
-│   ├── documents/      # Documents (GCS)
+│   ├── auth/           # Connexion Google, sessions, connexion de développement (dev-login/)
+│   ├── users/          # Comptes (admin)
+│   ├── me/             # Paramètres : profil, activité, cabinets, tarifs
+│   ├── patients/       # Fiche administrative, archivage, historique des accès
+│   ├── patient-file/   # Dossier : séances, mesures, rubriques, faits marquants, comptes rendus ;
+│   │                   #   calculs IMC/MB et courbes IOTF (calculations.ts, iotf.ts)
+│   ├── appointments/   # Rendez-vous et options de prise de rendez-vous (types, cabinets)
+│   ├── invoices/       # Factures, avoirs, numérotation, remises, organismes et prises en charge, CSV
+│   ├── dashboard/      # Accueil
+│   ├── documents/      # Documents (Cloud Storage, dossier local en développement)
 │   ├── tasks/          # Tâches
-│   ├── search/         # Recherche globale + dashboard
-│   ├── reports/        # Reporting
-│   └── audit/          # Logs d'audit
+│   ├── search/         # Recherche globale
+│   └── audit/          # Journal d’accès (@Audited + intercepteur)
 ├── common/
+│   ├── access/         # PatientAccessService : qui accède à quel patient
 │   ├── decorators/     # @CurrentUser, @Roles, @Public
-│   ├── guards/         # JWT, Roles, Throttle
-│   └── filters/        # Global exception filter
+│   ├── guards/         # JWT, rôles
+│   ├── middleware/     # X-Proxy-Token (API joignable seulement par le frontend)
+│   └── validation/     # SIRET, ADELI / RPPS
 ├── config/             # Configuration centralisée
-└── prisma/             # PrismaService
+└── prisma/             # PrismaService, tests des migrations
+prisma/
+├── schema.prisma
+├── migrations/
+├── seed.ts             # Données de démonstration (dont le cas de test des calculs)
+└── create-user.cjs     # Premier compte d’un environnement
 ```
 
 ## Auth

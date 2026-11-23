@@ -1,6 +1,26 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PaymentMethod } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
+import { PaymentMethod, ShareKind } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
+
+const trimToNull = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+};
+/** Optional, but when sent it may be null (cleared). */
+const nullable = ValidateIf((_, value) => value !== null && value !== undefined);
 
 export class CreateConsultationDto {
   @ApiPropertyOptional({
@@ -72,4 +92,23 @@ export class UpdateConsultationDto {
   @IsString()
   @MaxLength(20000)
   advice?: string;
+
+  @ApiPropertyOptional({ enum: ShareKind, nullable: true, description: 'Remise : en euros (AMOUNT) ou en % (PERCENT) ; null : pas de remise' })
+  @nullable
+  @IsEnum(ShareKind)
+  discountKind?: ShareKind | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Remise : centimes (AMOUNT) ou pourcentage de 0 à 100 (PERCENT)' })
+  @nullable
+  @IsInt({ message: 'Indiquez le montant de la remise.' })
+  @Min(0, { message: 'La remise ne peut pas être négative.' })
+  @Max(100_000, { message: 'La remise semble trop élevée.' })
+  discountValue?: number | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Motif de la remise (« geste », « tarif solidaire »…)' })
+  @Transform(trimToNull)
+  @nullable
+  @IsString()
+  @MaxLength(200)
+  discountReason?: string | null;
 }

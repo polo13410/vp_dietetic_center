@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockUser, mockAccess, mockPrisma } from '../../test/setup';
 
 import { DELETED_SESSION_REASON, InvoicesService, parisStartOfDay, periodRange } from './invoices.service';
+import { PayerInvoicesService } from './payer-invoices.service';
 
 const d = (iso: string) => new Date(iso);
 const NOW = d('2026-11-22T10:00:00Z');
@@ -74,7 +75,7 @@ describe('InvoicesService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new InvoicesService(mockPrisma as any, mockAccess as any);
+    service = new InvoicesService(mockPrisma as any, mockAccess as any, new PayerInvoicesService(mockPrisma as any, mockAccess as any));
     created = [];
     mockPrisma.consultation.findUnique.mockResolvedValue(session);
     mockPrisma.practitionerProfile.findUnique.mockResolvedValue(activity);
@@ -180,6 +181,51 @@ describe('InvoicesService', () => {
         expect.objectContaining({ where: { practitionerId: 'user-1', archivedAt: null } }),
       );
       expect(invoice).toMatchObject({ practiceAddress: '5 rue Thiers', siret: activity.siret });
+    });
+
+    it('bills the patient their part only, with the price, the discount and the payer part (lot 16)', async () => {
+      // 60 € with a 10 € discount (« tarif solidaire »): the Mutuelle pays 30 € of the 50 € net
+      mockPrisma.consultation.findUnique.mockResolvedValue({
+        ...session,
+        priceCents: 6000,
+        discountReason: 'tarif solidaire',
+        discountCents: 1000,
+        netCents: 5000,
+        payerCents: 3000,
+        patientCents: 2000,
+        payerId: 'payer-1',
+        payer: { name: 'Mutuelle Horizon' },
+      });
+      const invoice = await service.issue(user as any, 'c1', NOW);
+      expect(invoice).toMatchObject({
+        recipient: 'PATIENT',
+        amountCents: 2000,
+        priceCents: 6000,
+        discountCents: 1000,
+        discountReason: 'tarif solidaire',
+        payerCents: 3000,
+        payerName: 'Mutuelle Horizon',
+      });
+    });
+
+    it('a session saved before lot 16 bills its price', async () => {
+      const invoice = await service.issue(user as any, 'c1', NOW);
+      expect(invoice).toMatchObject({ amountCents: 5000, priceCents: 5000, discountCents: 0, payerCents: 0, payerName: null, discountReason: null });
+    });
+
+    it('makes no invoice for a free session, nor for one paid in full by a payer', async () => {
+      mockPrisma.consultation.findUnique.mockResolvedValue({ ...session, discountCents: 5000, netCents: 0, payerCents: 0, patientCents: 0 });
+      await expect(service.issue(user as any, 'c1', NOW)).rejects.toThrow('Séance offerte');
+      mockPrisma.consultation.findUnique.mockResolvedValue({
+        ...session,
+        discountCents: 0,
+        netCents: 5000,
+        payerCents: 5000,
+        patientCents: 0,
+        payer: { name: 'Mutuelle Horizon' },
+      });
+      await expect(service.issue(user as any, 'c1', NOW)).rejects.toThrow('prise en charge en totalité par Mutuelle Horizon');
+      expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
     });
 
     it('refuses a session that already has its invoice', async () => {
@@ -344,7 +390,7 @@ describe('InvoicesService', () => {
 
     it('has no current invoice for a session not invoiced yet', async () => {
       mockPrisma.invoice.findMany.mockResolvedValue([]);
-      await expect(service.forSession(user as any, 'c1')).resolves.toEqual({ current: null, mismatches: [], history: [] });
+      await expect(service.forSession(user as any, "c1")).resolves.toEqual({ current: null, mismatches: [], history: [], payerInvoice: null });
     });
   });
 
@@ -366,7 +412,7 @@ describe('InvoicesService', () => {
     it('exports the same invoices as CSV', async () => {
       mockPrisma.invoice.findMany.mockResolvedValue([issued]);
       const csv = await service.exportCsv(user as any, '2026-11-01', '2026-11-30');
-      expect(csv).toContain('2026-0012;Facture;20/11/2026;Roux Martine;Suivi;20/11/2026;50,00;Espèces;Acquittée;Oui');
+      expect(csv).toContain('2026-0012;Facture;Patient;20/11/2026;Roux Martine;;Suivi;20/11/2026;;;;50,00;50,00;Espèces;Acquittée;;Oui');
     });
 
     it('refuses an empty period', () => {
@@ -396,7 +442,9 @@ describe('InvoicesService', () => {
         expect.objectContaining({
           where: {
             patient: { practitionerId: 'user-1', deletedAt: null },
-            invoices: { none: { type: InvoiceType.INVOICE, cancelledAt: null } },
+            invoices: { none: { type: InvoiceType.INVOICE, recipient: 'PATIENT', cancelledAt: null } },
+            // Free sessions and sessions paid in full by a payer need no patient invoice
+            OR: [{ patientCents: null }, { patientCents: { gt: 0 } }],
           },
         }),
       );

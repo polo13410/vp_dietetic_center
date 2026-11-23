@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createMockUser, mockAccess, mockPrisma } from '../../test/setup';
 import { InvoicesService } from '../invoices/invoices.service';
+import { PayerInvoicesService } from '../invoices/payer-invoices.service';
 
 import { ConsultationsService } from './consultations.service';
 
@@ -27,7 +28,7 @@ describe('ConsultationsService', () => {
     service = new ConsultationsService(
       mockPrisma as any,
       mockAccess as any,
-      new InvoicesService(mockPrisma as any, mockAccess as any),
+      new InvoicesService(mockPrisma as any, mockAccess as any, new PayerInvoicesService(mockPrisma as any, mockAccess as any)),
     );
     // The test patient of docs/REFONTE.md § 3.1: woman, 56, 1.59 m
     mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ sex: 'F', dateOfBirth: d('1970-01-01') });
@@ -58,6 +59,16 @@ describe('ConsultationsService', () => {
           date: d('2026-11-20T09:00:00Z'),
           practiceId: 'pr-aix',
           paymentMethod: undefined,
+          // No discount before, no price yet: no split
+          discountKind: null,
+          discountValue: null,
+          discountReason: null,
+          discountCents: null,
+          netCents: null,
+          payerCents: null,
+          patientCents: null,
+          payerId: null,
+          coverageId: null,
         },
       });
       expect(mockPrisma.appointment.update).toHaveBeenCalledWith({
@@ -344,7 +355,6 @@ describe('ConsultationsService', () => {
         sessionWork: 'Travail sur les émotions',
         advice: 'Continuer',
         paymentMethod: 'CHECK',
-        date: '2026-11-20T10:00:00Z',
       });
 
       expect(mockPrisma.consultation.update).toHaveBeenCalledWith({
@@ -354,8 +364,82 @@ describe('ConsultationsService', () => {
           sessionWork: 'Travail sur les émotions',
           advice: 'Continuer',
           paymentMethod: 'CHECK',
-          date: d('2026-11-20T10:00:00Z'),
+          date: undefined,
         },
+      });
+      // Texts and payment leave the split as it was
+      expect(mockPrisma.patientCoverage.findMany).not.toHaveBeenCalled();
+    });
+
+    describe('discount and split (lot 16)', () => {
+      const priced = { ...session, date: d('2026-11-20T09:00:00Z'), priceCents: 6000, discountKind: null, discountValue: null, discountReason: null };
+      const mutuelle = {
+        id: 'cov-1',
+        payerId: 'payer-1',
+        kind: 'PERCENT',
+        value: 50,
+        maxSessions: 10,
+        startDate: null,
+        endDate: null,
+        payer: { id: 'payer-1', name: 'Mutuelle Horizon' },
+      };
+      beforeEach(() => mockPrisma.consultation.findUnique.mockResolvedValue(priced));
+
+      it('a discount computes the split again, with the coverage of the session date', async () => {
+        mockPrisma.patientCoverage.findMany.mockResolvedValueOnce([mutuelle]);
+        mockPrisma.consultation.count.mockResolvedValueOnce(3);
+        await service.update(user as any, 'c1', { discountKind: 'AMOUNT', discountValue: 1000, discountReason: 'geste' });
+        expect(mockPrisma.consultation.update.mock.calls[0][0].data).toEqual({
+          discountKind: 'AMOUNT',
+          discountValue: 1000,
+          discountReason: 'geste',
+          discountCents: 1000,
+          netCents: 5000,
+          payerCents: 2500,
+          patientCents: 2500,
+          payerId: 'payer-1',
+          coverageId: 'cov-1',
+          date: undefined,
+        });
+        // The sessions already covered before this one count
+        expect(mockPrisma.consultation.count).toHaveBeenCalledWith({
+          where: { coverageId: 'cov-1', payerCents: { gt: 0 }, date: { lte: priced.date }, id: { not: 'c1' } },
+        });
+      });
+
+      it('no kind removes the discount, its value and its reason', async () => {
+        mockPrisma.consultation.findUnique.mockResolvedValue({ ...priced, discountKind: 'PERCENT', discountValue: 20, discountReason: 'geste' });
+        await service.update(user as any, 'c1', { discountKind: null });
+        expect(mockPrisma.consultation.update.mock.calls[0][0].data).toMatchObject({
+          discountKind: null,
+          discountValue: null,
+          discountReason: null,
+          discountCents: 0,
+          netCents: 6000,
+          patientCents: 6000,
+        });
+      });
+
+      it('refuses more than 100 %', async () => {
+        await expect(service.update(user as any, 'c1', { discountKind: 'PERCENT', discountValue: 120 })).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('a new session takes the discount of the previous one', async () => {
+        mockPrisma.formula.findUnique.mockResolvedValue(formula);
+        mockPrisma.consultation.findFirst.mockResolvedValue({ discountKind: 'PERCENT', discountValue: 100, discountReason: 'séance offerte', paymentMethod: 'CASH' });
+        mockPrisma.consultation.create.mockResolvedValue({ id: 'c2' });
+        await service.create(user as any, 'p1', { formulaId: 'f1' });
+        expect(mockPrisma.consultation.create.mock.calls[0][0].data).toMatchObject({
+          discountKind: 'PERCENT',
+          discountValue: 100,
+          discountReason: 'séance offerte',
+          discountCents: 5000,
+          netCents: 0,
+          patientCents: 0,
+          payerCents: 0,
+        });
       });
     });
 

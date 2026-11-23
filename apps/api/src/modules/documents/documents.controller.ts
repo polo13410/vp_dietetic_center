@@ -63,11 +63,6 @@ export class DocumentsController {
     return this.service.findAll(user, patientId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.service.findOne(id, user);
-  }
-
   @Get(':id/download')
   @Audited({ action: AuditAction.EXPORT, entity: 'document', patientId: 'result:patientId' })
   @ApiOperation({ summary: 'Telecharger un document' })

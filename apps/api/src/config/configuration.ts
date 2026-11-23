@@ -15,7 +15,6 @@ function jwtSecret(): string {
 export const configuration = () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '3000', 10),
-  appName: process.env.APP_NAME ?? 'VP Dietetic Center API',
 
   database: {
     url: process.env.DATABASE_URL,
@@ -46,5 +45,3 @@ export const configuration = () => ({
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '300', 10),
   },
 });
-
-export type AppConfig = ReturnType<typeof configuration>;

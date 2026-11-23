@@ -33,8 +33,8 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/frontend/.env.example apps/frontend/.env
 
-# 3. Démarrer PostgreSQL + Mailpit
-docker compose up -d postgres mailpit
+# 3. Démarrer PostgreSQL
+docker compose up -d postgres
 
 # 4. Appliquer les migrations puis seeder la base
 pnpm db:migrate
@@ -49,15 +49,26 @@ L'application sera disponible sur :
 - Frontend : http://localhost:5173
 - API : http://localhost:3000
 - Swagger : http://localhost:3000/api/docs
-- Mailpit : http://localhost:8026
 
-### Comptes de démonstration (local uniquement)
+### Connexion en local
 
-| Email                      | Mot de passe | Rôle        |
-| -------------------------- | ------------ | ----------- |
-| admin@vp-dietetic.fr       | Admin1234!   | ADMIN       |
-| praticienne@vp-dietetic.fr | Pratic1234!  | PRATICIENNE |
-| assistante@vp-dietetic.fr  | Assist1234!  | ASSISTANTE  |
+On se connecte uniquement avec Google : il n'y a pas de mot de passe. En local, sans Google, la
+**connexion de développement** (sous le bouton Google de la page de connexion) connecte un compte
+enregistré avec son e-mail. Elle est activée par `DEV_LOGIN=true` dans `apps/api/.env` (déjà
+présent dans `.env.example` et dans `docker-compose.yml`) ; l'API refuse de démarrer avec ce
+réglage sur staging ou prod.
+
+Comptes de démonstration créés par le seed (local uniquement) :
+
+| Email                      | Rôle        |
+| -------------------------- | ----------- |
+| admin@vp-dietetic.fr       | ADMIN       |
+| praticienne@vp-dietetic.fr | PRATICIENNE |
+| assistante@vp-dietetic.fr  | ASSISTANTE  |
+
+Pour tester la vraie connexion Google en local : renseigner `GOOGLE_CLIENT_ID` (API) et
+`VITE_GOOGLE_CLIENT_ID` (frontend) avec un client OAuth qui autorise `http://localhost:5173`, et
+créer un compte avec l'adresse de votre compte Google (voir `apps/api/README.md`).
 
 ---
 

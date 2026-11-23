@@ -12,6 +12,7 @@ import type {
 import type { BadgeTone } from '../components/shared/StatusBadge';
 
 import api from './api';
+import { saveFile } from './download';
 
 export type { InvoiceDto, InvoiceListDto, InvoiceMismatch, PatientInvoicesDto, SessionInvoicesDto, SessionToInvoiceDto };
 
@@ -183,17 +184,6 @@ export const useCancelInvoice = () =>
   );
 
 // ─── Downloads ────────────────────────────────────────────────────────────────
-
-function saveFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
 
 /** « facture-2026-0012.pdf », « avoir-A-2026-0001.pdf » */
 export function invoiceFilename(invoice: Pick<InvoiceDto, 'type' | 'number'>): string {

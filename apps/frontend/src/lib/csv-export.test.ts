@@ -1,60 +1,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { exportCsv } from './csv-export';
+import { saveFile } from './download';
+
+vi.mock('./download', () => ({ saveFile: vi.fn() }));
+
+/** The CSV text handed to saveFile, without the BOM. */
+async function savedCsv(): Promise<{ text: string; filename: string }> {
+  const [blob, filename] = vi.mocked(saveFile).mock.calls.at(-1)!;
+  // jsdom's Blob has no text(): read it as the browser would
+  const text = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsText(blob);
+  });
+  return { text: text.replace(/^\ufeff/, ''), filename };
+}
 
 describe('exportCsv', () => {
-  let clickMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => vi.mocked(saveFile).mockClear());
+  afterEach(() => vi.restoreAllMocks());
 
-  beforeEach(() => {
-    clickMock = vi.fn();
-    vi.spyOn(document, 'createElement').mockReturnValue({
-      href: '',
-      setAttribute: vi.fn(),
-      click: clickMock,
-      remove: vi.fn(),
-    } as any);
-    vi.spyOn(document.body, 'appendChild').mockImplementation((el) => el);
-    vi.stubGlobal('URL', {
-      createObjectURL: vi.fn().mockReturnValue('blob:test'),
-      revokeObjectURL: vi.fn(),
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
-  it('triggers a download', () => {
+  it('saves a CSV file under the given name', async () => {
     exportCsv(
       [{ name: 'Alice', age: 30 }],
       [{ key: 'name', label: 'Name' }, { key: 'age', label: 'Age' }],
-      'test',
+      'my-report',
     );
-    expect(clickMock).toHaveBeenCalled();
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    expect(URL.revokeObjectURL).toHaveBeenCalled();
+    expect(await savedCsv()).toEqual({ text: 'Name,Age\nAlice,30', filename: 'my-report.csv' });
   });
 
-  it('handles null/undefined values', () => {
+  it('writes null/undefined values as empty cells and quotes commas', async () => {
     exportCsv(
-      [{ a: null, b: undefined }],
-      [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }],
+      [{ a: null, b: undefined, c: 'x, "y"' }],
+      [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }, { key: 'c', label: 'C' }],
       'test',
     );
-    expect(clickMock).toHaveBeenCalled();
-  });
-
-  it('sets correct filename', () => {
-    const setAttributeMock = vi.fn();
-    vi.spyOn(document, 'createElement').mockReturnValue({
-      href: '',
-      setAttribute: setAttributeMock,
-      click: vi.fn(),
-      remove: vi.fn(),
-    } as any);
-
-    exportCsv([{ x: 1 }], [{ key: 'x', label: 'X' }], 'my-report');
-    expect(setAttributeMock).toHaveBeenCalledWith('download', 'my-report.csv');
+    expect((await savedCsv()).text).toBe('A,B,C\n,,"x, ""y"""');
   });
 });

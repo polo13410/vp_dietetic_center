@@ -14,14 +14,14 @@ import {
 import { digitsOnly, IsAdeliRpps, IsSiret } from '../../../common/validation/identifiers';
 
 /** Trims a text; an empty one means "no value" (null). */
-const trimToNull = ({ value }: { value: unknown }) => {
+export const trimToNull = ({ value }: { value: unknown }) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
 };
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 /** Optional, but when sent it may be null (cleared). */
-const nullable = ValidateIf((_, value) => value !== null && value !== undefined);
+export const nullable = ValidateIf((_, value) => value !== null && value !== undefined);
 
 export class UpdateMeDto {
   @ApiPropertyOptional()
@@ -53,33 +53,14 @@ export class UpdateMeDto {
   theme?: Theme;
 }
 
-export class UpdatePracticeDto {
+/** « Mon activité »: who she is, printed on her invoices. */
+export class UpdateActivityDto {
   @ApiPropertyOptional({ nullable: true, description: 'Nom affiché sur les factures' })
   @Transform(trimToNull)
   @nullable
   @IsString()
   @MaxLength(200)
   practiceName?: string | null;
-
-  @ApiPropertyOptional({ nullable: true, description: 'Numéro et rue' })
-  @Transform(trimToNull)
-  @nullable
-  @IsString()
-  @MaxLength(300)
-  address?: string | null;
-
-  @ApiPropertyOptional({ nullable: true, example: '13100' })
-  @Transform(trimToNull)
-  @nullable
-  @Matches(/^\d{5}$/, { message: 'Le code postal compte 5 chiffres.' })
-  zipCode?: string | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  @Transform(trimToNull)
-  @nullable
-  @IsString()
-  @MaxLength(100)
-  city?: string | null;
 
   @ApiPropertyOptional({ nullable: true, description: '14 chiffres, espaces acceptés' })
   @Transform((params) => trimToNull({ value: digitsOnly(params.value) }))

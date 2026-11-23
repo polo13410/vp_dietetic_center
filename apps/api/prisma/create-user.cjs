@@ -3,7 +3,8 @@
  * passwords: the person signs in with "Se connecter avec Google", with the Google account of this
  * address (matched by its verified email, then bound to the account). A practitioner gets the default formulas « Bilan »
  * and « Suivi » without a price (see src/modules/me/default-formulas.ts), which the settings
- * page asks her to fill in. Does nothing if the email already exists.
+ * page asks her to fill in, and a first practice « Mon cabinet » without an address (see
+ * src/modules/me/default-practice.ts). Does nothing if the email already exists.
  *
  * Usage (inside the API image, e.g. as an execution of the <env>-api-migrate job):
  *   USER_EMAIL=someone@example.com USER_ROLE=PRATICIENNE USER_FIRST_NAME=Jane USER_LAST_NAME=Doe \
@@ -21,7 +22,12 @@
       : (await import('node:module')).createRequire(process.cwd() + '/package.json');
   const { PrismaClient } = req('@prisma/client');
   // Same as DEFAULT_FORMULAS in src/modules/me/default-formulas.ts
-  const DEFAULT_FORMULAS = ['Bilan', 'Suivi'];
+  const DEFAULT_FORMULAS = [
+    { label: 'Bilan', durationMinutes: 60 },
+    { label: 'Suivi', durationMinutes: 45 },
+  ];
+  // Same as DEFAULT_PRACTICE_NAME in src/modules/me/default-practice.ts
+  const DEFAULT_PRACTICE_NAME = 'Mon cabinet';
 
   const email = (process.env.USER_EMAIL ?? '').trim().toLowerCase();
   const role = (process.env.USER_ROLE ?? 'ADMIN').trim().toUpperCase();
@@ -46,7 +52,8 @@
         lastName,
         role,
         ...(role === 'PRATICIENNE' && {
-          formulas: { create: DEFAULT_FORMULAS.map((label, position) => ({ label, position })) },
+          formulas: { create: DEFAULT_FORMULAS.map((formula, position) => ({ ...formula, position })) },
+          practices: { create: { name: DEFAULT_PRACTICE_NAME, isDefault: true } },
         }),
       },
     });

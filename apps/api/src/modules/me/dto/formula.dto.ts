@@ -19,6 +19,9 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 
 /** Up to 10 000 €: anything above is a typing mistake. */
 const MAX_PRICE_CENTS = 1_000_000;
+/** Same bounds as an appointment's duration (minutes) */
+export const MIN_DURATION = 15;
+export const MAX_DURATION = 480;
 
 export class CreateFormulaDto {
   @ApiProperty({ example: 'Bilan' })
@@ -34,6 +37,13 @@ export class CreateFormulaDto {
   @Min(0, { message: 'Le prix ne peut pas être négatif.' })
   @Max(MAX_PRICE_CENTS, { message: 'Le prix ne peut pas dépasser 10 000 €.' })
   priceCents?: number | null;
+
+  @ApiPropertyOptional({ example: 60, description: 'Durée d’un rendez-vous de ce type, en minutes (45 par défaut)' })
+  @IsOptional()
+  @IsInt({ message: 'La durée n’est pas valide.' })
+  @Min(MIN_DURATION, { message: 'Comptez au moins 15 minutes.' })
+  @Max(MAX_DURATION, { message: 'La durée ne peut pas dépasser 8 heures.' })
+  durationMinutes?: number;
 }
 
 export class UpdateFormulaDto {
@@ -51,6 +61,13 @@ export class UpdateFormulaDto {
   @Min(0, { message: 'Le prix ne peut pas être négatif.' })
   @Max(MAX_PRICE_CENTS, { message: 'Le prix ne peut pas dépasser 10 000 €.' })
   priceCents?: number | null;
+
+  @ApiPropertyOptional({ example: 45, description: 'Durée d’un rendez-vous de ce type, en minutes' })
+  @IsOptional()
+  @IsInt({ message: 'La durée n’est pas valide.' })
+  @Min(MIN_DURATION, { message: 'Comptez au moins 15 minutes.' })
+  @Max(MAX_DURATION, { message: 'La durée ne peut pas dépasser 8 heures.' })
+  durationMinutes?: number;
 
   @ApiPropertyOptional({ description: 'false : proposer à nouveau une formule retirée' })
   @IsOptional()

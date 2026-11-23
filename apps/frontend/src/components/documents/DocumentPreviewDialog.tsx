@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react';
 
 import api from '../../lib/api';
 import { previewKind } from '../../lib/documents';
+import { saveFile } from '../../lib/download';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
@@ -17,14 +18,7 @@ export interface PreviewableDocument {
 /** Fetches a document's file (with the user's session) and saves it under its original name. */
 export async function downloadDocument(doc: Pick<PreviewableDocument, 'id' | 'originalName'>) {
   const res = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
-  const url = URL.createObjectURL(res.data as Blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = doc.originalName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  saveFile(res.data as Blob, doc.originalName);
 }
 
 /**

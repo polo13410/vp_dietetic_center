@@ -5,6 +5,7 @@ import type { GpReportDocumentDto, GpReportDto } from '@vp/types';
 import type { BadgeTone } from '../components/shared/StatusBadge';
 
 import api from './api';
+import { saveFile } from './download';
 import { formatLongDate } from './utils';
 
 export type { GpReportDocumentDto, GpReportDto };
@@ -144,13 +145,5 @@ export async function downloadGpReportPdf(patientId: string, id: string) {
     // The PDF renderer is heavy: loaded on the first download only
     import('../components/gp-reports/GpReportPdfDocument'),
   ]);
-  const blob = await renderGpReportPdf(report);
-  const href = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = href;
-  link.download = gpReportFilename(report);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(href);
+  saveFile(await renderGpReportPdf(report), gpReportFilename(report));
 }

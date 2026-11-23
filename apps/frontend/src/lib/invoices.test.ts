@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bilanInvoice, cancelledInvoice, creditNote, replacement } from '../test/invoice-fixtures';
+import { bilanInvoice, cancelledInvoice, coveredInvoice, creditNote, payerInvoice, replacement } from '../test/invoice-fixtures';
 
 import { invoiceDocumentContent } from './invoice-document';
 import {
@@ -82,7 +82,10 @@ describe('invoiceDocumentContent (the test patient of § 3.1)', () => {
     expect(c.issuedOn).toBe('23 septembre 2026');
     expect(c.practice).toEqual(['Valérie Perrot, diététicienne nutritionniste', '12 rue des Oliviers', '13100 Aix-en-Provence']);
     expect(c.identifiers).toEqual(['SIRET : 912 345 678 00011', 'N° ADELI : 139512345']);
-    expect(c.patient).toEqual(['Martine Roux', '12 rue des Lilas', '34000 Montpellier']);
+    expect(c.recipientLabel).toBe('Patient');
+    expect(c.recipient).toEqual(['Martine Roux', '12 rue des Lilas', '34000 Montpellier']);
+    expect(c.breakdown).toEqual([]);
+    expect(c.totalLabel).toBe('Total');
     expect(c.service).toEqual({ label: 'Bilan', date: 'Séance du 23 septembre 2026', amount: '60,00 €' });
     expect(c.paid).toBe('Acquittée — réglée par chèque');
     expect(c.vatMention).toBe('TVA non applicable, article 261-4-1° du CGI');
@@ -97,6 +100,38 @@ describe('invoiceDocumentContent (the test patient of § 3.1)', () => {
 
   it('names an RPPS number by its length', () => {
     expect(invoiceDocumentContent({ ...bilanInvoice, adeliRpps: '10101010101' }).identifiers).toContain('N° RPPS : 10101010101');
+  });
+
+  it('bills the patient part, with the price, the discount and « dont … pris en charge par … » (lot 16)', () => {
+    const c = invoiceDocumentContent(coveredInvoice);
+    expect(c.service).toMatchObject({ label: 'Suivi', amount: '60,00 €' });
+    expect(c.breakdown).toEqual([
+      { label: 'Remise (tarif solidaire)', amount: '-10,00 €' },
+      { label: 'Net', amount: '50,00 €' },
+      { label: 'dont 30,00 € pris en charge par Mutuelle Horizon Santé', amount: '-30,00 €' },
+    ]);
+    expect(c.totalLabel).toBe('Reste à votre charge');
+    expect(c.total).toBe('20,00 €');
+    expect(c.lines).toBeNull();
+  });
+
+  it('a payer invoice: the payer, the period, the convention, one line per session (lot 16)', () => {
+    const c = invoiceDocumentContent(payerInvoice);
+    expect(c.recipientLabel).toBe('Organisme');
+    expect(c.recipient).toEqual([
+      'Mutuelle Horizon Santé',
+      '8 boulevard de la Liberté',
+      '13001 Marseille',
+      'À l’attention de : Service prestations',
+    ]);
+    expect(c.references).toEqual(['Séances du 1 novembre 2026 au 30 novembre 2026', 'Convention : CONV-2026-114']);
+    expect(c.lines).toEqual([
+      { date: '15 novembre 2026', patient: 'Martine Roux', label: 'Suivi', coverageNumber: 'PEC-0042', amount: '30,00 €' },
+      { date: '20 novembre 2026', patient: 'Paul Garcia', label: 'Bilan', coverageNumber: '', amount: '20,00 €' },
+    ]);
+    expect(c.total).toBe('50,00 €');
+    expect(c.paid).toBeNull();
+    expect(invoiceDocumentContent({ ...payerInvoice, paidAt: '2026-12-15T00:00:00.000Z' }).paid).toBe('Réglée le 15 décembre 2026');
   });
 
   it('prints a credit note in negative, with the invoice it cancels', () => {

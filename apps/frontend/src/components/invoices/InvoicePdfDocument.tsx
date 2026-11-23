@@ -24,6 +24,10 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#D9E0D3' },
   cellLabel: { flex: 1 },
   cellAmount: { width: 110, textAlign: 'right' },
+  cellDate: { width: 92 },
+  cellPatient: { width: 120 },
+  cellNumber: { width: 90 },
+  breakdownRow: { flexDirection: 'row', paddingVertical: 4 },
   totalRow: { flexDirection: 'row', paddingVertical: 8 },
   total: { fontFamily: 'Helvetica-Bold', fontSize: 12 },
   paid: { fontFamily: 'Helvetica-Bold', color: GREEN, marginBottom: 12 },
@@ -31,7 +35,10 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 32, left: 48, right: 48, fontSize: 8, color: GREY, textAlign: 'center' },
 });
 
-/** An invoice or a credit note, on one A4 page, from its copies only. */
+/**
+ * An invoice or a credit note, from its copies only: a patient's (one session, with its discount
+ * and payer part) or a payer's (its sessions of a period, one line each, nothing medical).
+ */
 export function InvoicePdfDocument({ invoice }: { invoice: InvoiceDto }) {
   const c = invoiceDocumentContent(invoice);
   return (
@@ -58,8 +65,8 @@ export function InvoicePdfDocument({ invoice }: { invoice: InvoiceDto }) {
         </View>
 
         <View style={styles.patient}>
-          <Text style={styles.label}>Patient</Text>
-          {c.patient.map((line, i) => (
+          <Text style={styles.label}>{c.recipientLabel}</Text>
+          {c.recipient.map((line, i) => (
             <Text key={line} style={i === 0 ? styles.patientName : undefined}>
               {line}
             </Text>
@@ -74,23 +81,56 @@ export function InvoicePdfDocument({ invoice }: { invoice: InvoiceDto }) {
           </View>
         )}
 
-        <View style={styles.table}>
-          <View style={styles.tableHead}>
-            <Text style={[styles.cellLabel, styles.label]}>Prestation</Text>
-            <Text style={[styles.cellAmount, styles.label]}>Montant</Text>
-          </View>
-          <View style={styles.tableRow}>
-            <View style={styles.cellLabel}>
-              <Text style={styles.patientName}>{c.service.label}</Text>
-              <Text style={styles.muted}>{c.service.date}</Text>
+        {c.lines ? (
+          <View style={styles.table}>
+            <View style={styles.tableHead} fixed>
+              <Text style={[styles.cellDate, styles.label]}>Date</Text>
+              <Text style={[styles.cellPatient, styles.label]}>Patient</Text>
+              <Text style={[styles.cellLabel, styles.label]}>Prestation</Text>
+              <Text style={[styles.cellNumber, styles.label]}>N° de prise en charge</Text>
+              <Text style={[styles.cellAmount, styles.label]}>Pris en charge</Text>
             </View>
-            <Text style={styles.cellAmount}>{c.service.amount}</Text>
+            {c.lines.map((line, i) => (
+              <View key={i} style={styles.tableRow} wrap={false}>
+                <Text style={styles.cellDate}>{line.date}</Text>
+                <Text style={styles.cellPatient}>{line.patient}</Text>
+                <Text style={styles.cellLabel}>{line.label}</Text>
+                <Text style={styles.cellNumber}>{line.coverageNumber}</Text>
+                <Text style={styles.cellAmount}>{line.amount}</Text>
+              </View>
+            ))}
+            <View style={styles.totalRow}>
+              <Text style={[styles.cellLabel, styles.total]}>
+                {c.totalLabel} ({c.lines.length} séance{c.lines.length > 1 ? 's' : ''})
+              </Text>
+              <Text style={[styles.cellAmount, styles.total]}>{c.total}</Text>
+            </View>
           </View>
-          <View style={styles.totalRow}>
-            <Text style={[styles.cellLabel, styles.total]}>Total</Text>
-            <Text style={[styles.cellAmount, styles.total]}>{c.total}</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHead}>
+              <Text style={[styles.cellLabel, styles.label]}>Prestation</Text>
+              <Text style={[styles.cellAmount, styles.label]}>Montant</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <View style={styles.cellLabel}>
+                <Text style={styles.patientName}>{c.service.label}</Text>
+                <Text style={styles.muted}>{c.service.date}</Text>
+              </View>
+              <Text style={styles.cellAmount}>{c.service.amount}</Text>
+            </View>
+            {c.breakdown.map((line) => (
+              <View key={line.label} style={styles.breakdownRow}>
+                <Text style={styles.cellLabel}>{line.label}</Text>
+                <Text style={styles.cellAmount}>{line.amount}</Text>
+              </View>
+            ))}
+            <View style={styles.totalRow}>
+              <Text style={[styles.cellLabel, styles.total]}>{c.totalLabel}</Text>
+              <Text style={[styles.cellAmount, styles.total]}>{c.total}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {c.paid && <Text style={styles.paid}>{c.paid}</Text>}
         {c.vatMention && <Text style={styles.mention}>{c.vatMention}</Text>}

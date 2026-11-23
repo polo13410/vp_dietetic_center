@@ -150,6 +150,11 @@ export function SessionsPanel({
               })}
             </tbody>
           </table>
+          {sessions.some((s) => s.figures.bmr?.adultFormulaForMinor) && (
+            <p className="border-t px-5 py-3 text-sm text-muted-foreground">
+              Avant 18 ans, le MB est calculé avec la formule de Black, une formule adulte.
+            </p>
+          )}
         </div>
       )}
     </Section>

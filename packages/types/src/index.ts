@@ -206,11 +206,40 @@ export interface ChangePasswordDto {
 
 // ─── Patient ──────────────────────────────────────────────────────────────────
 
+/** Adult BMI categories (18 and over) */
 export type BmiCategory = 'UNDERWEIGHT' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY' | 'MASSIVE_OBESITY';
+
+/** Under 18: where the BMI falls among the IOTF curves (grade 3 is the most severe thinness) */
+export type IotfClass = 'THINNESS_3' | 'THINNESS_2' | 'THINNESS_1' | 'NORMAL' | 'OVERWEIGHT' | 'OBESITY';
+
+/** The IOTF cut-offs at one age, named by the adult BMI each curve reaches at 18 */
+export interface IotfCutoffsDto {
+  thinness3: number;
+  thinness2: number;
+  thinness1: number;
+  overweight: number;
+  obesity: number;
+}
 
 export interface BmiDto {
   value: number;
-  category: BmiCategory;
+  /** Adult category; null under 18, where `child` applies instead */
+  category: BmiCategory | null;
+  child: {
+    /** Exact age at the measurement, in years */
+    ageYears: number;
+    /** Null before 2 years or when the sex is not known */
+    class: IotfClass | null;
+    cutoffs: IotfCutoffsDto | null;
+  } | null;
+}
+
+/** Basal metabolic rate per day */
+export interface BmrDto {
+  mj: number;
+  kcal: number;
+  /** Under 18: the Black formula is an adult one, shown with « formule adulte » */
+  adultFormulaForMinor: boolean;
 }
 
 export interface PatientDto {
@@ -276,10 +305,13 @@ export type MissingData = 'weight' | 'height' | 'sex' | 'age';
 export interface SessionFiguresDto {
   /** Age on the session's date */
   age: number | null;
+  /** Under 18 on that date */
+  minor: boolean;
   weight: number | null;
+  /** The height known on that date (§ 3.1), with its date */
+  height: { value: number; measuredAt: string } | null;
   bmi: BmiDto | null;
-  /** Basal metabolic rate per day */
-  bmr: { mj: number; kcal: number } | null;
+  bmr: BmrDto | null;
   missing: MissingData[];
 }
 

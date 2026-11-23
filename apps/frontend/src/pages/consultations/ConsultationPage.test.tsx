@@ -47,7 +47,7 @@ const today: Consultation = {
   sessionWork: null,
   advice: null,
   previousAdvice: 'Une entrée ou un dessert, pas les deux.',
-  figures: { age: 56, weight: null, bmi: null, bmr: null, missing: ['weight'] },
+  figures: { age: 56, minor: false, weight: null, height: null, bmi: null, bmr: null, missing: ['weight'] },
   weightChange: { sincePrevious: null, sinceFirst: null },
   patient: { id: PATIENT_ID, firstName: 'Martine', lastName: 'Roux' },
   measurements: [],
@@ -56,7 +56,15 @@ const today: Consultation = {
 /** The same séance once weighed at 79 kg (§ 3.1). */
 const weighed: Consultation = {
   ...today,
-  figures: { age: 56, weight: 79, bmi: { value: 31.25, category: 'OBESITY' }, bmr: { mj: 5.86, kcal: 1400.3 }, missing: [] },
+  figures: {
+    age: 56,
+    minor: false,
+    weight: 79,
+    height: { value: 159, measuredAt: '2026-09-23T00:00:00.000Z' },
+    bmi: { value: 31.25, category: 'OBESITY', child: null },
+    bmr: { mj: 5.86, kcal: 1400.3, adultFormulaForMinor: false },
+    missing: [],
+  },
   weightChange: { sincePrevious: 2.5, sinceFirst: 0 },
   measurements: [{ id: 'm-4', type: 'WEIGHT', value: 79, measuredAt: today.date, consultationId: 'c-4' }],
 };

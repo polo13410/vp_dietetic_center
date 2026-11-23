@@ -96,7 +96,7 @@ describe('InvoicePdfDocument', () => {
       'Mutuelle Horizon Santé',
       '13001 Marseille',
       'N° 2026-0017',
-      'Séances du 1 novembre 2026 au 30 novembre 2026',
+      'Séances du 1er novembre 2026 au 30 novembre 2026',
       'Convention : CONV-2026-114',
       'Martine Roux',
       'PEC-0042',

@@ -75,7 +75,8 @@ const lines = (...values: (string | null | undefined)[]) => values.filter((v): v
 /** « 1er novembre 2026 » for a day stored at midnight UTC */
 function dayText(iso: string): string {
   const [year, month, date] = iso.slice(0, 10).split('-').map(Number);
-  return plain(longDate.format(new Date(Date.UTC(year, month - 1, date, 12))));
+  // « 1er octobre », as written in French
+  return plain(longDate.format(new Date(Date.UTC(year, month - 1, date, 12)))).replace(/^1 /, '1er ');
 }
 
 export function invoiceDocumentContent(invoice: InvoiceDto): InvoiceDocumentContent {

@@ -124,7 +124,7 @@ describe('invoiceDocumentContent (the test patient of § 3.1)', () => {
       '13001 Marseille',
       'À l’attention de : Service prestations',
     ]);
-    expect(c.references).toEqual(['Séances du 1 novembre 2026 au 30 novembre 2026', 'Convention : CONV-2026-114']);
+    expect(c.references).toEqual(['Séances du 1er novembre 2026 au 30 novembre 2026', 'Convention : CONV-2026-114']);
     expect(c.lines).toEqual([
       { date: '15 novembre 2026', patient: 'Martine Roux', label: 'Suivi', coverageNumber: 'PEC-0042', amount: '30,00 €' },
       { date: '20 novembre 2026', patient: 'Paul Garcia', label: 'Bilan', coverageNumber: '', amount: '20,00 €' },

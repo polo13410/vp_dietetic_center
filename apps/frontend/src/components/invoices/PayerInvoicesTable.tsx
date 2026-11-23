@@ -103,7 +103,7 @@ export function PayerInvoicesTable({ invoices }: { invoices: PayerInvoiceListIte
                   <td className="whitespace-nowrap px-3 py-3 text-right">
                     <span className={cn('tabular-nums', struck)}>{formatAmount(invoice.amountCents)}</span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="whitespace-nowrap px-3 py-3">
                     <InvoiceStatusBadge invoice={invoice} />
                   </td>
                   <td className="py-1.5 pr-3">

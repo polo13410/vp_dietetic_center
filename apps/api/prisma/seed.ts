@@ -1,9 +1,11 @@
 /*
  * Local demo data: three accounts, the practitioner's practice (printed on invoices) and two
- * formulas (Bilan 60 €, Suivi 50 €), and five patients with
+ * formulas (Bilan 60 €, Suivi 50 €), and seven patients with
  * realistic follow-ups (sessions, weights, medical file with its history, life events).
  * Martine Roux is the test case of docs/REFONTE.md § 3.1: woman, 56, 1.59 m, 79 → 78.2 →
- * 76.5 kg (BMI 31.25, BMR 5.86 / 5.83 / 5.77 MJ, 1 400.3 / 1 393.5 / 1 378.9 kcal).
+ * 76.5 kg (BMI 31.25, BMR 5.86 / 5.83 / 5.77 MJ, 1 400.3 / 1 393.5 / 1 378.9 kcal), with her
+ * weight history before the follow-up. Hugo Lefèvre is a 10-year-old boy whose heights from his
+ * health booklet follow his growth (BMI on the IOTF curves, § 3.1).
  * Past sessions are invoiced through the app's own rules, except the two latest (« à facturer »);
  * one invoice was corrected (credit note + new invoice). Martine has a report to her GP sent after
  * the bilan, and a draft pre-filled today by the app.
@@ -58,6 +60,7 @@ const PATIENT_IDS = {
   claire: '0b6f3d4e-1c55-4a7e-9d1a-000000000003',
   emma: '0b6f3d4e-1c55-4a7e-9d1a-000000000004',
   lucas: '0b6f3d4e-1c55-4a7e-9d1a-000000000005',
+  hugo: '0b6f3d4e-1c55-4a7e-9d1a-000000000007',
 };
 
 type Formulas = { bilan: string; suivi: string };
@@ -252,6 +255,15 @@ async function createSession(
   }
 }
 
+/** A measurement taken outside a session (a weight she was told, a height from the health booklet). */
+async function addMeasurement(patientId: string, type: MetricType, value: number, date: Date, note?: string) {
+  await prisma.measurement.create({ data: { patientId, type, value, measuredAt: dayOf(date), note } });
+}
+
+/** `years` (and `days`) after a birth date. */
+const yearsAfter = (birth: Date, years: number, days = 0) =>
+  new Date(Date.UTC(birth.getUTCFullYear() + years, birth.getUTCMonth(), birth.getUTCDate() + days));
+
 async function createFollowUp(patientId: string, practitionerId: string, formulas: Formulas, sessions: SessionSeed[]) {
   const ordered = [...sessions].sort((a, b) => b.daysAgo - a.daysAgo);
   for (const [index, s] of ordered.entries()) {
@@ -354,6 +366,26 @@ async function main() {
       file: { PHYSICAL_ACTIVITY: 'Marche 30 minutes trois fois par semaine, aquagym le mardi.' },
     },
   ]);
+  // Her weight history before the follow-up, entered at the bilan (« Histoire du poids et régimes »)
+  const martineBirth = bornYearsAgo(56, 90);
+  const martineHistory: [number, number, number, string][] = [
+    // age, days after the birthday, kg, note
+    [45, 30, 64, 'Avant la ménopause'],
+    [49, 120, 76, 'Début du régime hyperprotéiné'],
+    [49, 270, 68, 'Fin du régime : −8 kg'],
+    [50, 280, 77, 'Poids repris en un an'],
+  ];
+  for (const [age, days, kg, note] of martineHistory) {
+    await addMeasurement(PATIENT_IDS.martine, MetricType.WEIGHT, kg, yearsAfter(martineBirth, age, days), note);
+  }
+  for (const [age, days, title] of [
+    [47, 60, 'Ménopause'],
+    [49, 120, 'Régime hyperprotéiné'],
+  ] as const) {
+    await prisma.lifeEvent.create({
+      data: { patientId: PATIENT_IDS.martine, date: yearsAfter(martineBirth, age, days), title, category: LifeEventCategory.HEALTH },
+    });
+  }
   await seedGpReports(PATIENT_IDS.martine, pract.id);
 
   await patient(PATIENT_IDS.marie, {
@@ -565,6 +597,72 @@ async function main() {
       advice: '',
     },
   ]);
+  // A child: 10 years old (birthday 120 days ago), heights and weights from his health booklet, then
+  // the follow-up. His BMI is placed on the IOTF curves with the height of each date (§ 3.1).
+  const hugoBirth = bornYearsAgo(10, 120);
+  await patient(PATIENT_IDS.hugo, {
+    firstName: 'Hugo',
+    lastName: 'Lefèvre',
+    sex: Sex.M,
+    dateOfBirth: hugoBirth,
+    phone: '06 78 12 34 90',
+    city: 'Montpellier',
+    familySituation: 'Vit avec ses parents et son petit frère',
+    profession: 'Élève de CM2',
+    gpName: 'Dr Anne Morel (pédiatre)',
+    referralSource: 'Pédiatre',
+    consultationReason: 'Prise de poids depuis deux ans, grignotage au goûter et devant les écrans. Vient avec son père.',
+    createdAt: at(-50),
+  });
+  const booklet: [number, number, number][] = [
+    // age, cm, kg
+    [6, 116, 21],
+    [7, 122, 24.5],
+    [8, 127, 29],
+    [9, 132, 34],
+  ];
+  for (const [age, cm, kg] of booklet) {
+    const date = yearsAfter(hugoBirth, age, 15);
+    await addMeasurement(PATIENT_IDS.hugo, MetricType.HEIGHT, cm, date, 'Carnet de santé');
+    await addMeasurement(PATIENT_IDS.hugo, MetricType.WEIGHT, kg, date, 'Carnet de santé');
+  }
+  await prisma.lifeEvent.create({
+    data: {
+      patientId: PATIENT_IDS.hugo,
+      date: yearsAfter(hugoBirth, 8, 200),
+      title: 'Arrêt du football (entorse)',
+      category: LifeEventCategory.HEALTH,
+    },
+  });
+  await createFollowUp(PATIENT_IDS.hugo, pract.id, formulas, [
+    {
+      daysAgo: 45,
+      paymentMethod: PaymentMethod.CARD,
+      weight: 39,
+      measurements: { HEIGHT: 138 },
+      habits: 'Goûter en rentrant de l’école devant la télévision (gâteaux, jus de fruits). Cantine le midi.',
+      sessionWork: 'Bilan avec son père : rythme des repas, écrans, activité. Courbe de corpulence expliquée.',
+      advice: 'Goûter à table, sans écran : un fruit, un laitage, du pain. Eau plutôt que jus.',
+      file: {
+        HEALTH: 'Pas de traitement. Asthme léger dans la petite enfance.',
+        FAMILY_HISTORY: 'Père en surpoids. Grand-père diabétique de type 2.',
+        PHYSICAL_ACTIVITY: 'Plus de football depuis son entorse. Vélo le week-end.',
+        WEIGHT_HISTORY: 'Courbe de corpulence qui monte depuis l’âge de 8 ans (carnet de santé).',
+        ALLERGIES: 'Aucune connue.',
+        AVERSIONS: 'N’aime pas les légumes verts, sauf les haricots.',
+        TASTES: 'Aime les pâtes, les fruits, les yaourts.',
+      },
+    },
+    {
+      daysAgo: 10,
+      paymentMethod: PaymentMethod.CARD,
+      weight: 38.6,
+      measurements: { HEIGHT: 139 },
+      habits: 'Goûter à table la plupart du temps. A repris le vélo avec son frère.',
+      sessionWork: 'Point sur les goûters et les sorties. Idées de goûters qu’il aime.',
+      advice: 'Continuer le goûter à table. S’inscrire à une activité sportive à la rentrée.',
+    },
+  ]);
   console.log('✅ Patients and their files');
 
   // ── Upcoming appointments ───────────────────────────────────────────────────
@@ -621,8 +719,9 @@ Comptes (pas de mot de passe) :
 En local, avec DEV_LOGIN=true dans apps/api/.env : « Connexion de développement » sur la page
 de connexion, avec une de ces adresses.
 
-6 patients suivis par Valérie Perrot (formules Bilan 60 € et Suivi 50 €), dont Martine Roux,
-le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg).
+7 patients suivis par Valérie Perrot (formules Bilan 60 € et Suivi 50 €), dont Martine Roux,
+le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg) avec son histoire du
+poids avant le suivi, et Hugo Lefèvre, 10 ans, dont la taille suit la croissance.
 Séances passées facturées (sauf les deux dernières), une facture corrigée par un avoir.
   `);
 }

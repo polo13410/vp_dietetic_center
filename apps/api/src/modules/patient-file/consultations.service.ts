@@ -155,20 +155,19 @@ export class ConsultationsService {
     patientId: string,
     sessions: { id: string; date: Date; advice: string | null; measurements: { value: Prisma.Decimal }[] }[],
   ): Promise<Map<string, SessionInSeries>> {
-    const [patient, height] = await Promise.all([
+    const [patient, heights] = await Promise.all([
       this.prisma.patient.findUniqueOrThrow({
         where: { id: patientId },
         select: { sex: true, dateOfBirth: true },
       }),
-      // "Taille = dernière taille connue"
-      this.prisma.measurement.findFirst({
+      // « Taille = dernière taille connue à la date de la séance » (§ 3.1)
+      this.prisma.measurement.findMany({
         where: { patientId, type: MetricType.HEIGHT },
-        orderBy: [{ measuredAt: 'desc' }, { createdAt: 'desc' }],
-        select: { value: true },
+        select: { value: true, measuredAt: true },
       }),
     ]);
     return sessionSeries(
-      { ...patient, heightCm: height ? Number(height.value) : null },
+      { ...patient, heights: heights.map((h) => ({ value: Number(h.value), measuredAt: h.measuredAt })) },
       sessions.map((s) => ({
         id: s.id,
         date: s.date,

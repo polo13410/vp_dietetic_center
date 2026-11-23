@@ -22,9 +22,9 @@ import {
   usePatientFileMutation,
 } from '../../lib/patient-file';
 import { cn, formatLongDate, formatNumber } from '../../lib/utils';
-import { BmiBadge } from '../patient-file/BmiBadge';
+import { AdultFormulaNote, BmiBadge } from '../patient-file/BmiBadge';
 import { FileSectionCard, FileSectionEditor } from '../patient-file/FilePanel';
-import { fieldClass, LifeEventForm } from '../patient-file/LifeEventsPanel';
+import { fieldClass, LifeEventForm } from '../patient-file/LifeEventForm';
 import { Field } from '../shared/Field';
 import { SaveIndicator } from '../shared/SaveIndicator';
 import { Section } from '../shared/Section';
@@ -162,8 +162,12 @@ export function WeightSection({ session }: { session: Consultation }) {
             <Tile label="IMC" value={bmi ? formatNumber(bmi.value) : null}>
               <BmiBadge bmi={bmi} short />
             </Tile>
-            <Tile label="MB (MJ/jour)" value={bmr ? formatNumber(bmr.mj) : null} />
-            <Tile label="MB (kcal/jour)" value={bmr ? formatNumber(bmr.kcal, 1) : null} />
+            <Tile label="MB (MJ/jour)" value={bmr ? formatNumber(bmr.mj) : null}>
+              {bmr?.adultFormulaForMinor && <AdultFormulaNote bmr={bmr} />}
+            </Tile>
+            <Tile label="MB (kcal/jour)" value={bmr ? formatNumber(bmr.kcal, 1) : null}>
+              {bmr?.adultFormulaForMinor && <AdultFormulaNote bmr={bmr} />}
+            </Tile>
           </dl>
           {needsHeight && <p className="text-base text-muted-foreground">Ajoutez la taille pour calculer l’IMC et le MB.</p>}
           {bmrMissing && (

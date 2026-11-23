@@ -4,7 +4,7 @@ import { FileField, GpReportStatus, MetricType, Prisma, TaskStatus } from '@pris
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
-import { Bmi, computeBmi, sessionFigures } from './calculations';
+import { Bmi, computeBmi, corpulenceChart, exactAgeAt, sessionFigures } from './calculations';
 import {
   CreateLifeEventDto,
   CreateMeasurementDto,
@@ -131,27 +131,35 @@ export class PatientFileService {
     const lastConsultation = consultations[0] ?? null;
     const metrics = this.summarizeMetrics(measurements);
     const weight = metrics.find((m) => m.type === MetricType.WEIGHT);
-    const height = metrics.find((m) => m.type === MetricType.HEIGHT)?.latest.value;
-    const current = sessionFigures({
+    const basis = {
       sex: patient.sex,
       dateOfBirth: patient.dateOfBirth,
-      heightCm: height,
-      weightKg: weight?.latest.value,
-      date: now,
-    });
+      heights: points(measurements, MetricType.HEIGHT),
+    };
+    const current = sessionFigures({ ...basis, weightKg: weight?.latest.value, date: now });
+    // A weight history entered before the follow-up is not its start: the bilan's weight is
+    const firstConsultation = consultations.at(-1) ?? null;
+    const atBilan = firstConsultation
+      ? (points(measurements, MetricType.WEIGHT).find((w) => w.measuredAt >= dayOf(firstConsultation.date)) ?? null)
+      : null;
+    const start = atBilan ?? weight?.first ?? null;
 
     return {
       patient: { ...patient, age: current.age },
       consultationCount: consultations.length,
-      firstConsultationAt: consultations.at(-1)?.date ?? null,
+      firstConsultationAt: firstConsultation?.date ?? null,
       lastConsultation,
       nextAppointment,
       metrics,
+      /** The weight the change is counted from: the bilan's, or the first one without a session */
+      weightAtStart: start,
       bmi: {
         current: current.bmi,
-        atStart: computeBmi(weight?.first.value, height),
+        atStart: start ? sessionFigures({ ...basis, weightKg: start.value, date: start.measuredAt }).bmi : null,
       },
       bmr: current.bmr,
+      /** Under 18 today: no adult BMI category, BMR « formule adulte » */
+      minor: current.minor,
       /** What is missing to compute BMI and BMR now */
       missing: current.missing,
       file,
@@ -183,18 +191,27 @@ export class PatientFileService {
     }));
   }
 
-  /** Latest BMI of each patient (latest weight with latest height), for lists and headers. */
+  /**
+   * Today's BMI of each patient (latest weight, height known today), for lists and headers. Under
+   * 18 it has no adult category.
+   */
   async bmiFor(patientIds: string[]): Promise<Map<string, Bmi>> {
     if (patientIds.length === 0) return new Map();
-    const latest = await this.prisma.measurement.findMany({
-      where: {
-        patientId: { in: patientIds },
-        type: { in: [MetricType.WEIGHT, MetricType.HEIGHT] },
-      },
-      distinct: ['patientId', 'type'],
-      orderBy: [{ patientId: 'asc' }, { type: 'asc' }, { measuredAt: 'desc' }, { createdAt: 'desc' }],
-      select: { patientId: true, type: true, value: true },
-    });
+    const [patients, latest] = await Promise.all([
+      this.prisma.patient.findMany({
+        where: { id: { in: patientIds } },
+        select: { id: true, sex: true, dateOfBirth: true },
+      }),
+      this.prisma.measurement.findMany({
+        where: {
+          patientId: { in: patientIds },
+          type: { in: [MetricType.WEIGHT, MetricType.HEIGHT] },
+        },
+        distinct: ['patientId', 'type'],
+        orderBy: [{ patientId: 'asc' }, { type: 'asc' }, { measuredAt: 'desc' }, { createdAt: 'desc' }],
+        select: { patientId: true, type: true, value: true },
+      }),
+    ]);
     const values = new Map<string, { weight?: number; height?: number }>();
     for (const m of latest) {
       const v = values.get(m.patientId) ?? {};
@@ -202,10 +219,13 @@ export class PatientFileService {
       else v.height = Number(m.value);
       values.set(m.patientId, v);
     }
+    const now = new Date();
     const result = new Map<string, Bmi>();
-    for (const [id, v] of values) {
-      const bmi = computeBmi(v.weight, v.height);
-      if (bmi) result.set(id, bmi);
+    for (const patient of patients) {
+      const v = values.get(patient.id);
+      const ageYears = exactAgeAt(patient.dateOfBirth, now);
+      const bmi = v ? computeBmi(v.weight, v.height, { sex: patient.sex, ageYears }) : null;
+      if (bmi) result.set(patient.id, bmi);
     }
     return result;
   }
@@ -219,6 +239,53 @@ export class PatientFileService {
       orderBy: [{ measuredAt: 'asc' }, { createdAt: 'asc' }],
     });
     return rows.map(toNumberValue);
+  }
+
+  /**
+   * The « Mesures » tab: every measurement, latest first, each weight with its BMI and BMR computed
+   * with the height known on its date; the life events that annotate the curves; and, when the
+   * patient was weighed between 2 and 18 years, the IOTF corpulence chart (§ 3.1). Measurements
+   * taken in a session say which one (« Bilan », « Suivi 2 »…).
+   */
+  async getMeasureTimeline(user: AccessUser, patientId: string) {
+    await this.access.assertPatient(user, patientId);
+    const [patient, rows, sessions, lifeEvents] = await Promise.all([
+      this.prisma.patient.findUniqueOrThrow({
+        where: { id: patientId },
+        select: { sex: true, dateOfBirth: true },
+      }),
+      this.prisma.measurement.findMany({
+        where: { patientId },
+        orderBy: [{ measuredAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.prisma.consultation.findMany({
+        where: { patientId },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, date: true },
+      }),
+      this.prisma.lifeEvent.findMany({
+        where: { patientId },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      }),
+    ]);
+    const bySession = new Map(sessions.map((s, index) => [s.id, { ...s, sequence: index }]));
+    const basis = { ...patient, heights: points(rows, MetricType.HEIGHT) };
+    const measurements = rows.map((row) => {
+      const value = Number(row.value);
+      return {
+        ...row,
+        value,
+        session: row.consultationId ? (bySession.get(row.consultationId) ?? null) : null,
+        figures:
+          row.type === MetricType.WEIGHT
+            ? sessionFigures({ ...basis, weightKg: value, date: row.measuredAt })
+            : null,
+      };
+    });
+    const weights = measurements
+      .filter((m) => m.type === MetricType.WEIGHT)
+      .map((m) => ({ id: m.id, value: m.value, measuredAt: m.measuredAt }));
+    return { measurements, lifeEvents, corpulence: corpulenceChart(basis, weights) };
   }
 
   async createMeasurement(user: AccessUser, patientId: string, dto: CreateMeasurementDto) {
@@ -433,6 +500,11 @@ function assertInRange(type: MetricType, value: number) {
   if (value < min || value > max) {
     throw new BadRequestException(`Valeur hors limites pour ${type} (entre ${min} et ${max})`);
   }
+}
+
+/** The values of one type, in the order of the rows. */
+function points(rows: MeasurementRow[], type: MetricType): Point[] {
+  return rows.filter((r) => r.type === type).map((r) => ({ value: Number(r.value), measuredAt: r.measuredAt }));
 }
 
 function toNumberValue<T extends { value: Prisma.Decimal }>(row: T) {

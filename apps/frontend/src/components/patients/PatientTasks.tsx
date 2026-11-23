@@ -3,6 +3,7 @@ import { CheckCircle2, CheckSquare, Circle, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import api from '../../lib/api';
+import { FILE_ANCHORS } from '../../lib/patient-file';
 import { cn, formatLongDate } from '../../lib/utils';
 import { Section } from '../shared/Section';
 import { StatusBadge } from '../shared/StatusBadge';
@@ -18,7 +19,7 @@ type TaskItem = {
   status: string;
 };
 
-/** The patient's to-dos: open ones first, ticked off in one click. */
+/** « À faire pour ce patient », in the « Suivi » tab: open ones first, ticked off in one click. */
 export function PatientTasks({ patientId }: { patientId: string }) {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,7 +51,8 @@ export function PatientTasks({ patientId }: { patientId: string }) {
       size="compact"
       icon={CheckSquare}
       area="patients"
-      title="Tâches"
+      title="À faire pour ce patient"
+      id={FILE_ANCHORS.tasks}
       description={visible.length > 0 ? `${todo} à faire` : undefined}
       action={
         <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>

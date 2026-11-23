@@ -5,11 +5,16 @@ import {
   bmiCategory,
   computeBmi,
   computeBmr,
+  corpulenceChart,
   estimatedBirthDate,
+  exactAgeAt,
+  heightAt,
   sessionFigures,
   sessionSeries,
   weightDelta,
 } from './calculations';
+
+const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 describe('calculations (docs/REFONTE.md § 3.1)', () => {
   // Test case from her sheet: woman, 56 years old, 1.59 m
@@ -20,11 +25,11 @@ describe('calculations (docs/REFONTE.md § 3.1)', () => {
     [78.2, 5.83, 1393.5],
     [76.5, 5.77, 1378.9],
   ])('BMR at %d kg is %d MJ and %d kcal', (weightKg, mj, kcal) => {
-    expect(computeBmr({ ...patient, weightKg })).toEqual({ mj, kcal });
+    expect(computeBmr({ ...patient, weightKg })).toEqual({ mj, kcal, adultFormulaForMinor: false });
   });
 
   it('BMI at 79 kg and 1.59 m is 31.25', () => {
-    expect(computeBmi(79, 159)).toEqual({ value: 31.25, category: 'OBESITY' });
+    expect(computeBmi(79, 159)).toEqual({ value: 31.25, category: 'OBESITY', child: null });
   });
 
   it('uses the male constant', () => {
@@ -42,7 +47,7 @@ describe('calculations (docs/REFONTE.md § 3.1)', () => {
 
   describe('BMI', () => {
     it('rounds to two decimals', () => {
-      expect(computeBmi(70, 175)).toEqual({ value: 22.86, category: 'NORMAL' });
+      expect(computeBmi(70, 175)).toEqual({ value: 22.86, category: 'NORMAL', child: null });
     });
 
     it('classifies with the practice thresholds', () => {
@@ -88,23 +93,25 @@ describe('calculations (docs/REFONTE.md § 3.1)', () => {
     const base = {
       sex: 'F' as const,
       dateOfBirth: estimatedBirthDate(56, new Date('2026-11-22T00:00:00Z')),
-      heightCm: 159,
+      heights: [{ value: 159, measuredAt: day('2026-09-01') }],
       date: new Date('2026-11-22T10:00:00Z'),
     };
 
     it('computes everything for the test patient', () => {
       expect(sessionFigures({ ...base, weightKg: 79 })).toEqual({
         age: 56,
+        minor: false,
         weight: 79,
-        bmi: { value: 31.25, category: 'OBESITY' },
-        bmr: { mj: 5.86, kcal: 1400.3 },
+        height: { value: 159, measuredAt: day('2026-09-01') },
+        bmi: { value: 31.25, category: 'OBESITY', child: null },
+        bmr: { mj: 5.86, kcal: 1400.3, adultFormulaForMinor: false },
         missing: [],
       });
     });
 
     it('says what is missing', () => {
       expect(
-        sessionFigures({ date: base.date, sex: null, dateOfBirth: null, heightCm: null, weightKg: 79 }),
+        sessionFigures({ date: base.date, sex: null, dateOfBirth: null, heights: [], weightKg: 79 }),
       ).toMatchObject({ bmi: null, bmr: null, missing: ['height', 'sex', 'age'] });
       expect(sessionFigures({ ...base, weightKg: null }).missing).toEqual(['weight']);
     });
@@ -114,7 +121,7 @@ describe('calculations (docs/REFONTE.md § 3.1)', () => {
     const woman = {
       sex: 'F' as const,
       dateOfBirth: new Date('1970-01-01'),
-      heightCm: 159,
+      heights: [{ value: 159, measuredAt: day('2026-09-01') }],
     };
     const session = (id: string, date: string, weightKg: number | null, advice: string | null) => ({
       id,
@@ -156,6 +163,135 @@ describe('calculations (docs/REFONTE.md § 3.1)', () => {
         weightChange: { sincePrevious: -1.7, sinceFirst: -2.5 },
         previousAdvice: null,
       });
+    });
+  });
+
+  describe('height known at the date', () => {
+    const heights = [
+      { value: 120, measuredAt: day('2022-03-01') },
+      { value: 132, measuredAt: day('2024-03-01') },
+      { value: 126, measuredAt: day('2023-03-01') },
+    ];
+
+    it('takes the latest height measured on or before that day, not the latest overall', () => {
+      expect(heightAt(heights, day('2023-02-28'), false)?.value).toBe(120);
+      expect(heightAt(heights, new Date('2023-03-01T15:00:00Z'), false)?.value).toBe(126);
+      expect(heightAt(heights, day('2023-12-01'), false)?.value).toBe(126);
+      expect(heightAt(heights, day('2026-01-01'), false)?.value).toBe(132);
+    });
+
+    it('uses the first height for an adult weighed before it was measured', () => {
+      expect(heightAt(heights, day('2020-01-01'), true)?.value).toBe(120);
+    });
+
+    it('has no height for a child weighed before any was measured', () => {
+      expect(heightAt(heights, day('2020-01-01'), false)).toBeNull();
+      expect(heightAt([], day('2020-01-01'), true)).toBeNull();
+    });
+
+    it('computes an old weight with the height of the time', () => {
+      const growing = { sex: 'M' as const, dateOfBirth: day('2014-06-01'), heights };
+      const earlier = sessionFigures({ ...growing, weightKg: 25, date: day('2022-09-01') });
+      const later = sessionFigures({ ...growing, weightKg: 25, date: day('2024-09-01') });
+      expect(earlier.height?.value).toBe(120);
+      expect(earlier.bmi?.value).toBe(17.36);
+      expect(later.height?.value).toBe(132);
+      expect(later.bmi?.value).toBe(14.35);
+    });
+
+    it('computes an adult weight history before the bilan with the height measured at the bilan', () => {
+      const woman = { sex: 'F' as const, dateOfBirth: day('1970-08-24'), heights: [{ value: 159, measuredAt: day('2026-09-23') }] };
+      const before = sessionFigures({ ...woman, weightKg: 70, date: day('2019-05-01') });
+      expect(before).toMatchObject({ age: 48, height: { value: 159 }, bmi: { value: 27.69, category: 'OVERWEIGHT' } });
+    });
+
+    it('follows growth across the sessions of a series', () => {
+      const series = sessionSeries({ sex: 'F', dateOfBirth: day('2014-06-01'), heights }, [
+        { id: 'a', date: new Date('2022-06-01T09:00:00Z'), advice: null, weightKg: 24 },
+        { id: 'b', date: new Date('2024-06-01T09:00:00Z'), advice: null, weightKg: 30 },
+      ]);
+      expect(series.get('a')?.figures.height?.value).toBe(120);
+      expect(series.get('b')?.figures.height?.value).toBe(132);
+    });
+  });
+
+  describe('under 18', () => {
+    const girl = {
+      sex: 'F' as const,
+      dateOfBirth: day('2014-06-01'),
+      heights: [{ value: 140, measuredAt: day('2026-06-01') }],
+    };
+
+    it('counts the exact age for the curves', () => {
+      expect(exactAgeAt(day('2014-06-01'), day('2026-06-01'))).toBeCloseTo(12, 2);
+      expect(exactAgeAt(day('2014-06-01'), new Date('2026-12-01T18:00:00Z'))).toBeCloseTo(12.5, 2);
+      expect(exactAgeAt(day('2014-06-01'), day('2014-01-01'))).toBeNull();
+    });
+
+    it('gives no adult category but the IOTF class', () => {
+      // 12 years, 140 cm, 45 kg: girls' cut-offs at 12 are 21.68 (overweight) and 26.67 (obesity)
+      const figures = sessionFigures({ ...girl, weightKg: 45, date: day('2026-06-01') });
+      expect(figures.minor).toBe(true);
+      expect(figures.bmi).toEqual({
+        value: 22.96,
+        category: null,
+        child: {
+          ageYears: 12,
+          class: 'OVERWEIGHT',
+          cutoffs: { thinness3: 13.39, thinness2: 14.28, thinness1: 15.62, overweight: 21.68, obesity: 26.67 },
+        },
+      });
+      expect(sessionFigures({ ...girl, weightKg: 36, date: day('2026-06-01') }).bmi?.child?.class).toBe('NORMAL');
+    });
+
+    it('shows the BMR with the adult formula mention', () => {
+      const figures = sessionFigures({ ...girl, weightKg: 45, date: day('2026-06-01') });
+      expect(figures.bmr).toMatchObject({ adultFormulaForMinor: true });
+      expect(computeBmr({ sex: 'F', weightKg: 79, heightCm: 159, age: 17 })?.adultFormulaForMinor).toBe(true);
+      expect(computeBmr({ sex: 'F', weightKg: 79, heightCm: 159, age: 18 })?.adultFormulaForMinor).toBe(false);
+    });
+
+    it('switches to the adult categories at 18', () => {
+      expect(computeBmi(60, 165, { sex: 'F', ageYears: 17.99 })?.category).toBeNull();
+      expect(computeBmi(60, 165, { sex: 'F', ageYears: 18 })).toMatchObject({ category: 'NORMAL', child: null });
+    });
+
+    it('cannot place the BMI before 2 years or without the sex', () => {
+      expect(computeBmi(10, 80, { sex: 'M', ageYears: 1.5 })?.child).toEqual({ ageYears: 1.5, class: null, cutoffs: null });
+      expect(computeBmi(30, 130, { sex: null, ageYears: 9 })?.child).toMatchObject({ class: null, cutoffs: null });
+    });
+  });
+
+  describe('corpulence chart', () => {
+    const boy = {
+      sex: 'M' as const,
+      dateOfBirth: day('2016-01-01'),
+      heights: [
+        { value: 110, measuredAt: day('2021-01-01') },
+        { value: 125, measuredAt: day('2024-01-01') },
+      ],
+    };
+
+    it('places each weight between 2 and 18 with the height of its date', () => {
+      const chart = corpulenceChart(boy, [
+        { id: 'w2', value: 26, measuredAt: day('2024-01-01') },
+        { id: 'w1', value: 19, measuredAt: day('2021-01-01') },
+        // Before any height: not placed
+        { id: 'w0', value: 15, measuredAt: day('2020-01-01') },
+      ]);
+      expect(chart?.sex).toBe('M');
+      expect(chart?.cutoffs).toHaveLength(33);
+      expect(chart?.points).toEqual([
+        { measurementId: 'w1', measuredAt: day('2021-01-01'), ageYears: 5, bmi: 15.7 },
+        { measurementId: 'w2', measuredAt: day('2024-01-01'), ageYears: 8, bmi: 16.64 },
+      ]);
+      expect(chart?.sources[0]).toMatch(/Cole/);
+    });
+
+    it('is not drawn for an adult or without the sex', () => {
+      const adult = { sex: 'F' as const, dateOfBirth: day('1970-01-01'), heights: [{ value: 159, measuredAt: day('2026-01-01') }] };
+      expect(corpulenceChart(adult, [{ id: 'w', value: 79, measuredAt: day('2026-01-01') }])).toBeNull();
+      expect(corpulenceChart({ ...boy, sex: null }, [{ id: 'w', value: 26, measuredAt: day('2024-01-01') }])).toBeNull();
     });
   });
 

@@ -4,7 +4,7 @@
  */
 import { FileField, type Sex } from '@prisma/client';
 
-import { ageAt, computeBmi, computeBmr } from './calculations';
+import { ageAt, type HeightPoint, sessionFigures } from './calculations';
 
 export interface PracticeHeader {
   practiceName?: string | null;
@@ -34,9 +34,9 @@ export interface GpReportDraftInput {
     gpName?: string | null;
     consultationReason?: string | null;
   };
-  /** Latest known height */
-  heightCm?: number | null;
-  /** Weights, oldest first */
+  /** Every height measured: each weight is computed with the height known on its date (§ 3.1) */
+  heights: HeightPoint[];
+  /** Weights, oldest first (a history entered before the bilan is left out of the letter) */
   weights: { value: number; measuredAt: Date }[];
   /** Sessions, oldest first (the first one is the « Bilan ») */
   sessions: { date: Date; sessionWork?: string | null; advice?: string | null }[];
@@ -194,17 +194,20 @@ function followUp({ sessions }: GpReportDraftInput): string | null {
 }
 
 /** Weight and BMI at the start and now, the change, and the basal metabolic rate. */
-function evolution({ weights, heightCm, sessions, patient, today }: GpReportDraftInput): string[] {
+function evolution({ weights: all, heights, sessions, patient, today }: GpReportDraftInput): string[] {
+  // The follow-up starts at the bilan: older weights are her history, not its evolution
+  const weights = sessions.length > 0 ? all.filter((w) => !beforeDay(w.measuredAt, sessions[0].date)) : all;
   if (weights.length === 0) return [];
   const first = weights[0];
   const latest = weights[weights.length - 1];
-  const withBmi = (w: { value: number }) => {
-    const bmi = computeBmi(w.value, heightCm);
+  const figures = (w: { value: number }, at: Date) =>
+    sessionFigures({ sex: patient.sex, dateOfBirth: patient.dateOfBirth, heights, weightKg: w.value, date: at });
+  const withBmi = (w: { value: number; measuredAt: Date }) => {
+    const bmi = figures(w, w.measuredAt).bmi;
     return bmi ? `${kg(w.value)} (IMC ${formatNumber(bmi.value, 2)})` : kg(w.value);
   };
   const atBilan = sessions.length > 0 && sameDay(first.measuredAt, sessions[0].date);
-  const bmr = (w: { value: number }, at: Date) =>
-    computeBmr({ sex: patient.sex, weightKg: w.value, heightCm, age: ageAt(patient.dateOfBirth, at) });
+  const bmr = (w: { value: number }, at: Date) => figures(w, at).bmr;
   const mb = (b: { mj: number; kcal: number }) =>
     `${formatNumber(b.mj, 2, true)} MJ (${formatNumber(b.kcal, 1, true)} kcal) par jour`;
 
@@ -255,6 +258,12 @@ function recentList(
     .slice(-RECENT_SESSIONS)
     .map((s) => `– le ${shortDate(s.date, today)} : ${lowerFirst(asSentence(s[key] as string))}`);
   return list(intro, items);
+}
+
+/** `a` is on an earlier day than `b` (Paris time). */
+function beforeDay(a: Date, b: Date): boolean {
+  const day = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' });
+  return day.format(a) < day.format(b);
 }
 
 function sameDay(a: Date, b: Date): boolean {

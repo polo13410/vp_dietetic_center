@@ -1,14 +1,17 @@
 import { Ruler } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { Link } from 'react-router';
 
 import { useAutosave } from '../../hooks/useAutosave';
 import api from '../../lib/api';
 import {
   bmrConstant,
+  FILE_ANCHORS,
   formatMetric,
   type Measurement,
   missingMessage,
   type Patient,
+  patientTabLink,
   useInvalidatePatientFile,
   useMeasurements,
   usePatient,
@@ -21,7 +24,7 @@ import { Section } from '../shared/Section';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 
-import { BmiBadge } from './BmiBadge';
+import { AdultFormulaNote, BmiBadge } from './BmiBadge';
 
 /**
  * The top of her « Dossier médical » sheet, in her order: age, sex, weight, height, then the
@@ -43,7 +46,18 @@ export function BaseMeasures({ patientId }: { patientId: string }) {
   );
 
   return (
-    <Section size="compact" icon={Ruler} area="patients" title="Mesures">
+    <Section
+      size="compact"
+      icon={Ruler}
+      area="patients"
+      title="Mesures"
+      id={FILE_ANCHORS.baseMeasures}
+      action={
+        <Button size="sm" variant="ghost" asChild>
+          <Link to={patientTabLink(patientId, 'mesures', FILE_ANCHORS.timeline)}>Voir toutes les mesures</Link>
+        </Button>
+      }
+    >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <AgeField patient={patient} />
@@ -70,8 +84,12 @@ export function BaseMeasures({ patientId }: { patientId: string }) {
           <Figure label="IMC" value={brief.bmi.current ? formatNumber(brief.bmi.current.value) : null}>
             <BmiBadge bmi={brief.bmi.current} short />
           </Figure>
-          <Figure label="MB (MJ/jour)" value={brief.bmr ? formatNumber(brief.bmr.mj) : null} />
-          <Figure label="MB (kcal/jour)" value={brief.bmr ? formatNumber(brief.bmr.kcal, 1) : null} />
+          <Figure label="MB (MJ/jour)" value={brief.bmr ? formatNumber(brief.bmr.mj) : null}>
+            <AdultFormulaNote bmr={brief.bmr} />
+          </Figure>
+          <Figure label="MB (kcal/jour)" value={brief.bmr ? formatNumber(brief.bmr.kcal, 1) : null}>
+            <AdultFormulaNote bmr={brief.bmr} />
+          </Figure>
         </dl>
         {missing.length > 0 && <p className="text-sm text-muted-foreground">{missing.join('. ')}.</p>}
       </div>

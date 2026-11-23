@@ -4,7 +4,7 @@ import { render, type RenderResult } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 
-import type { Brief, Consultation, FileSectionDto, Measurement, Patient } from '../lib/patient-file';
+import type { Brief, Consultation, FileSectionDto, Measurement, MeasureTimeline, Patient } from '../lib/patient-file';
 
 export const PATIENT_ID = 'p-1';
 
@@ -82,8 +82,10 @@ export const brief: Brief = {
       latest: { value: 76.5, measuredAt: '2026-11-15T00:00:00.000Z' },
     },
   ],
-  bmi: { current: { value: 30.26, category: 'OBESITY' }, atStart: { value: 31.25, category: 'OBESITY' } },
-  bmr: { mj: 5.77, kcal: 1378.9 },
+  weightAtStart: { value: 79, measuredAt: '2026-09-23T00:00:00.000Z' },
+  bmi: { current: { value: 30.26, category: 'OBESITY', child: null }, atStart: { value: 31.25, category: 'OBESITY', child: null } },
+  bmr: { mj: 5.77, kcal: 1378.9, adultFormulaForMinor: false },
+  minor: false,
   missing: [],
   file: sections,
   recentEvents: [],
@@ -125,7 +127,15 @@ const session = (
   createdAt: date,
   updatedAt: date,
   sequence,
-  figures: { age: 56, weight, bmi: { value: bmi, category: 'OBESITY' }, bmr: { mj, kcal }, missing: [] },
+  figures: {
+    age: 56,
+    minor: false,
+    weight,
+    height: { value: 159, measuredAt: '2026-09-23T00:00:00.000Z' },
+    bmi: { value: bmi, category: 'OBESITY', child: null },
+    bmr: { mj, kcal, adultFormulaForMinor: false },
+    missing: [],
+  },
   weightChange: { sincePrevious: null, sinceFirst: null },
   previousAdvice: null,
   ...extra,
@@ -146,6 +156,58 @@ export const sessions: Consultation[] = [
   session('c-1', 0, '2026-09-23T09:00:00.000Z', 79, 31.25, 5.86, 1400.3),
 ];
 
+/**
+ * The « Mesures » tab of the test patient: her three séance weights, the height taken at the bilan,
+ * and a weight from before the follow-up with a note.
+ */
+export const measureTimeline: MeasureTimeline = {
+  measurements: [
+    ...sessions.map((s, i) => ({
+      id: `m-${3 - i}`,
+      type: 'WEIGHT' as const,
+      value: s.figures.weight!,
+      measuredAt: s.date.slice(0, 10) + 'T00:00:00.000Z',
+      consultationId: s.id,
+      note: null,
+      createdAt: s.date,
+      session: { id: s.id, date: s.date, sequence: s.sequence },
+      figures: s.figures,
+    })),
+    {
+      id: 'm-h',
+      type: 'HEIGHT',
+      value: 159,
+      measuredAt: '2026-09-23T00:00:00.000Z',
+      consultationId: 'c-1',
+      note: null,
+      createdAt: '2026-09-23T09:00:00.000Z',
+      session: { id: 'c-1', date: '2026-09-23T09:00:00.000Z', sequence: 0 },
+      figures: null,
+    },
+    {
+      id: 'm-0',
+      type: 'WEIGHT',
+      value: 70,
+      measuredAt: '2019-05-01T00:00:00.000Z',
+      consultationId: null,
+      note: 'Avant sa grossesse',
+      createdAt: '2026-09-23T09:30:00.000Z',
+      session: null,
+      figures: {
+        age: 48,
+        minor: false,
+        weight: 70,
+        height: { value: 159, measuredAt: '2026-09-23T00:00:00.000Z' },
+        bmi: { value: 27.69, category: 'OVERWEIGHT', child: null },
+        bmr: { mj: 5.64, kcal: 1347.9, adultFormulaForMinor: false },
+        missing: [],
+      },
+    },
+  ],
+  lifeEvents: [{ id: 'ev-1', date: '2020-01-15T00:00:00.000Z', title: 'Grossesse', category: 'HEALTH' }],
+  corpulence: null,
+};
+
 /** Answers GET requests by path, like the API would. */
 export function apiGet(routes: Record<string, unknown>) {
   return async (url: string) => {
@@ -162,6 +224,7 @@ export const ROUTES = {
   [`/patients/${PATIENT_ID}/measurements`]: measurements,
   [`/patients/${PATIENT_ID}/life-events`]: [],
   [`/patients/${PATIENT_ID}/consultations`]: sessions,
+  [`/patients/${PATIENT_ID}/measurements/timeline`]: measureTimeline,
   [`/patients/${PATIENT_ID}/file-entries`]: [
     { id: 'e-psy-2', field: 'PSYCHOLOGY', content: 'Grignotage lié au stress.', date: '2026-11-15T00:00:00.000Z' },
     { id: 'e-psy-1', field: 'PSYCHOLOGY', content: 'Grignote le soir.', date: '2026-09-23T00:00:00.000Z' },

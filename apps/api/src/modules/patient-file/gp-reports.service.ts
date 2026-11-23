@@ -134,7 +134,7 @@ export class GpReportsService {
       practice: practitioner.practice,
       practitioner,
       patient,
-      heightCm: points(MetricType.HEIGHT).at(-1)?.value ?? null,
+      heights: points(MetricType.HEIGHT),
       weights: points(MetricType.WEIGHT),
       sessions,
       file: entries,

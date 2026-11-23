@@ -3,11 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   BmiCategory,
   BmiDto as Bmi,
+  BmrDto as Bmr,
   ConsultationDto,
   FileEntryDto,
   FileField as FileFieldEnum,
   FileSectionDto,
   GpReportStatus,
+  IotfClass,
+  IotfCutoffsDto,
   MissingData,
   PatientDto,
   PaymentMethod as PaymentMethodEnum,
@@ -19,7 +22,7 @@ import api from './api';
 
 // ─── Types (as returned by the API) ──────────────────────────────────────────
 
-export type { Bmi, BmiCategory, FileEntryDto, FileSectionDto, MissingData };
+export type { Bmi, BmiCategory, Bmr, FileEntryDto, FileSectionDto, IotfClass, MissingData };
 
 /** The patient as returned by GET /patients/:id (clinical fields only for the practitioner). */
 export interface Patient extends PatientDto {
@@ -87,8 +90,12 @@ export interface Brief {
   } | null;
   nextAppointment: { id: string; startAt: string; type: string; reason: string | null } | null;
   metrics: MetricSummary[];
+  /** The weight the change is counted from: the bilan's (not an older history), else the first one */
+  weightAtStart: { value: number; measuredAt: string } | null;
   bmi: { current: Bmi | null; atStart: Bmi | null };
-  bmr: { mj: number; kcal: number } | null;
+  bmr: Bmr | null;
+  /** Under 18 today */
+  minor: boolean;
   missing: MissingData[];
   file: FileSectionDto[];
   recentEvents: LifeEvent[];
@@ -97,6 +104,37 @@ export interface Brief {
   latestGpReport: { id: string; date: string; status: `${GpReportStatus}`; sentAt: string | null } | null;
   /** The latest report to the GP is a draft */
   gpReportToDo: boolean;
+}
+
+/** One measurement of the « Mesures » tab, with the séance it was taken in and its figures. */
+export interface TimelineMeasurement extends Measurement {
+  note: string | null;
+  createdAt: string;
+  session: { id: string; date: string; sequence: number } | null;
+  /** Weights only: BMI and BMR with the height known on that date (§ 3.1) */
+  figures: Consultation['figures'] | null;
+}
+
+/** The IOTF cut-offs at one exact age */
+export interface IotfRow extends IotfCutoffsDto {
+  age: number;
+}
+
+/** Under 18: the patient's BMI against age on the IOTF curves (§ 3.1). */
+export interface CorpulenceChartData {
+  sex: 'F' | 'M';
+  cutoffs: IotfRow[];
+  points: { measurementId: string; measuredAt: string; ageYears: number; bmi: number }[];
+  sources: string[];
+}
+
+/** GET /patients/:id/measurements/timeline */
+export interface MeasureTimeline {
+  /** Latest first */
+  measurements: TimelineMeasurement[];
+  /** Latest first */
+  lifeEvents: LifeEvent[];
+  corpulence: CorpulenceChartData | null;
 }
 
 /** An appointment, as listed in the patient's file. */
@@ -195,6 +233,19 @@ export const BMI_CATEGORIES: Record<BmiCategory, { label: string; tone: BadgeTon
   MASSIVE_OBESITY: { label: 'Obésité massive', tone: 'danger' },
 };
 
+/**
+ * Under 18 there is no adult category: the BMI is placed on the IOTF curves (§ 3.1). Thinness
+ * grade 3 is the most severe.
+ */
+export const IOTF_CLASSES: Record<IotfClass, { label: string; tone: BadgeTone }> = {
+  THINNESS_3: { label: 'Minceur grade 3', tone: 'danger' },
+  THINNESS_2: { label: 'Minceur grade 2', tone: 'warning' },
+  THINNESS_1: { label: 'Minceur grade 1', tone: 'info' },
+  NORMAL: { label: 'Corpulence normale', tone: 'success' },
+  OVERWEIGHT: { label: 'Surpoids', tone: 'warning' },
+  OBESITY: { label: 'Obésité', tone: 'warning' },
+};
+
 /** The constant of her BMR formula (§ 3.1), shown « 0,96 » like on her sheet. */
 export function bmrConstant(sex: 'F' | 'M' | null | undefined): number | null {
   if (sex === 'F') return 0.963;
@@ -236,6 +287,41 @@ export function formatDelta(type: MetricType, delta: number): string {
   if (Math.abs(delta) < 0.05) return '=';
   const sign = delta > 0 ? '+' : '−';
   return `${sign}${formatMetric(type, Math.abs(delta))}`;
+}
+
+// ─── Patient file tabs ────────────────────────────────────────────────────────
+
+/** The tabs of the patient's file, in her order (`?onglet=` in the address, none for the first). */
+export const PATIENT_TABS = [
+  { value: 'recapitulatif', label: 'Récapitulatif' },
+  { value: 'dossier', label: 'Dossier médical' },
+  { value: 'mesures', label: 'Mesures' },
+  { value: 'suivi', label: 'Suivi' },
+  { value: 'factures', label: 'Factures' },
+  { value: 'documents', label: 'Documents' },
+] as const;
+export type PatientTab = (typeof PATIENT_TABS)[number]['value'];
+
+/** The places a « Modifier » of the summary leads to: a tab, and a block in it. */
+export const FILE_ANCHORS = {
+  identity: 'identite',
+  baseMeasures: 'age-sexe-taille',
+  weight: 'poids',
+  height: 'taille',
+  timeline: 'frise',
+  tasks: 'a-faire',
+} as const;
+
+/** The block of a section of the medical file (« #allergies », « #aversions »…). */
+export const fileFieldAnchor = (field: FileField) => field.toLowerCase().replace(/_/g, '-');
+
+/**
+ * A link to a tab of the patient's file, scrolled to a block: in the address, so it works on reload
+ * (« /patients/42?onglet=mesures#poids »).
+ */
+export function patientTabLink(patientId: string, tab: PatientTab, anchor?: string): string {
+  const search = tab === 'recapitulatif' ? '' : `?onglet=${tab}`;
+  return `/patients/${patientId}${search}${anchor ? `#${anchor}` : ''}`;
 }
 
 // ─── Data hooks ───────────────────────────────────────────────────────────────
@@ -288,6 +374,15 @@ export const useMeasurements = (patientId?: string) => usePatientList<Measuremen
 export const useFileEntries = (patientId?: string) => usePatientList<FileEntryDto>(patientId, 'file-entries');
 export const useLifeEvents = (patientId?: string) => usePatientList<LifeEvent>(patientId, 'life-events');
 export const useConsultations = (patientId?: string) => usePatientList<Consultation>(patientId, 'consultations');
+
+/** The « Mesures » tab: every measurement and life event, latest first, with their figures. */
+export function useMeasureTimeline(patientId: string | undefined) {
+  return useQuery({
+    queryKey: [...fileKey(patientId ?? ''), 'measure-timeline'],
+    queryFn: async () => (await api.get<MeasureTimeline>(`/patients/${patientId}/measurements/timeline`)).data,
+    enabled: !!patientId,
+  });
+}
 
 export function useConsultation(id: string | undefined) {
   return useQuery({

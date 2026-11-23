@@ -31,7 +31,7 @@ describe('ConsultationsService', () => {
     );
     // The test patient of docs/REFONTE.md § 3.1: woman, 56, 1.59 m
     mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ sex: 'F', dateOfBirth: d('1970-01-01') });
-    mockPrisma.measurement.findFirst.mockResolvedValue({ value: new Prisma.Decimal(159) });
+    mockPrisma.measurement.findMany.mockResolvedValue([{ value: new Prisma.Decimal(159), measuredAt: d('2026-09-01') }]);
   });
 
   describe('create', () => {
@@ -207,6 +207,23 @@ describe('ConsultationsService', () => {
         previousAdvice: 'Collation',
       });
     });
+    it('computes each session with the height known on its date (a growing child)', async () => {
+      mockPrisma.patient.findUniqueOrThrow.mockResolvedValue({ sex: 'M', dateOfBirth: d('2016-01-01') });
+      mockPrisma.measurement.findMany.mockResolvedValue([
+        { value: new Prisma.Decimal(125), measuredAt: d('2024-01-01') },
+        { value: new Prisma.Decimal(118), measuredAt: d('2022-09-01') },
+      ]);
+      mockPrisma.consultation.findMany.mockResolvedValue([
+        { id: 'bilan', date: d('2022-09-01T10:00:00Z'), advice: null, measurements: weight(22) },
+        { id: 'suivi1', date: d('2024-01-10T10:00:00Z'), advice: null, measurements: weight(26) },
+      ]);
+
+      const [suivi1, bilan] = await service.list(user as any, 'p1');
+
+      expect(bilan.figures).toMatchObject({ minor: true, height: { value: 118 }, bmi: { value: 15.8, category: null } });
+      expect(suivi1.figures).toMatchObject({ height: { value: 125 }, bmi: { value: 16.64, child: { class: 'NORMAL' } } });
+      expect(suivi1.figures.bmr).toMatchObject({ adultFormulaForMinor: true });
+    });
   });
 
   describe('findOne', () => {
@@ -230,7 +247,7 @@ describe('ConsultationsService', () => {
     });
 
     it('says what is missing when the height is unknown', async () => {
-      mockPrisma.measurement.findFirst.mockResolvedValue(null);
+      mockPrisma.measurement.findMany.mockResolvedValue([]);
       mockPrisma.consultation.findUnique.mockResolvedValue(session);
       mockPrisma.consultation.findMany.mockResolvedValue([
         { id: 'c1', date: d('2026-09-01T10:00:00Z'), advice: null, measurements: [] },

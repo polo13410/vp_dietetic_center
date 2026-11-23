@@ -25,7 +25,7 @@ function martine(): GpReportDraftInput {
       gpName: 'Dr Laurent Garnier',
       consultationReason: 'Perte de poids (+15 kg depuis la ménopause), cholestérol un peu élevé.',
     },
-    heightCm: 159,
+    heights: [{ value: 159, measuredAt: day('2026-09-23') }],
     weights: [
       { value: 79, measuredAt: day('2026-09-23') },
       { value: 78.2, measuredAt: day('2026-10-23') },
@@ -127,7 +127,7 @@ describe('buildGpReportDraft', () => {
     const input = martine();
     const text = buildGpReportDraft({
       ...input,
-      heightCm: null,
+      heights: [],
       patient: { ...input.patient, sex: null, dateOfBirth: null },
     });
     expect(text).toContain('Lors du bilan, son poids était de 79 kg. Au 15 novembre 2026, il est de 76,5 kg, soit une perte de 2,5 kg.');
@@ -155,11 +155,11 @@ describe('buildGpReportDraft', () => {
     const gain = buildGpReportDraft({
       ...input,
       weights: [
-        { value: 76.5, measuredAt: day('2026-09-01') },
+        { value: 76.5, measuredAt: day('2026-09-30') },
         { value: 77.3, measuredAt: day('2026-11-15') },
       ],
     });
-    expect(gain).toContain('Le 1er septembre 2026, son poids était de 76,5 kg');
+    expect(gain).toContain('Le 30 septembre 2026, son poids était de 76,5 kg');
     expect(gain).toContain('soit une prise de 0,8 kg');
     expect(gain).toContain('au départ, est aujourd’hui');
 
@@ -168,6 +168,16 @@ describe('buildGpReportDraft', () => {
       weights: [input.weights[0], { value: 79, measuredAt: day('2026-11-15') }],
     });
     expect(stable).toContain('soit un poids stable');
+  });
+
+  it('leaves out a weight history entered before the bilan', () => {
+    const input = martine();
+    const text = buildGpReportDraft({
+      ...input,
+      weights: [{ value: 70, measuredAt: day('2019-05-01') }, ...input.weights],
+    });
+    expect(text).toContain('Lors du bilan, son poids était de 79 kg (IMC 31,25)');
+    expect(text).not.toContain('70 kg');
   });
 
   it('takes the work and advice of the latest sessions only, and skips empty ones', () => {

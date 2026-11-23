@@ -25,6 +25,7 @@ describe('FilePanel', () => {
     await screen.findByText('Mesures');
     const titles = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     expect(titles).toEqual([
+      'Patient',
       'Mesures',
       'Santé, maladies',
       'Antécédents familiaux',

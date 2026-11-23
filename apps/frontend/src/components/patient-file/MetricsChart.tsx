@@ -93,7 +93,8 @@ export function MetricsChart({
               type="number"
               scale="time"
               domain={[first - 7 * DAY, last + 7 * DAY]}
-              tickFormatter={(t) => formatDate(new Date(t), 'dd/MM')}
+              // Over a long history (weights entered from years before) the year matters more than the day
+              tickFormatter={(t) => formatDate(new Date(t), last - first > 300 * DAY ? 'MM/yyyy' : 'dd/MM')}
               tick={{ fontSize: 13, fill: 'hsl(var(--muted-foreground))' }}
               stroke="hsl(var(--border))"
             />

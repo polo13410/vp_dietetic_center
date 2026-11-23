@@ -11,6 +11,10 @@
  * Past sessions are invoiced through the app's own rules, except the two latest (« à facturer »);
  * one invoice was corrected (credit note + new invoice). Martine has a report to her GP sent after
  * the bilan, and a draft pre-filled today by the app.
+ * Lot 16: the Mutuelle Horizon Santé covers Martine (60 % of each session, 10 sessions) and Marie
+ * (20 € per session); its invoice of the month of Martine's bilan is issued, the next month is
+ * to bill. Thomas has a student discount, Marie a discount on her last session, Claire one
+ * session offered.
  * Dates are relative to today, so the dashboard always has something to show.
  * Re-running the seed rebuilds the demo patients from scratch.
  */
@@ -24,6 +28,7 @@ import {
   PaymentMethod,
   PrismaClient,
   Sex,
+  ShareKind,
   TaskPriority,
   TaskStatus,
   UserRole,
@@ -31,6 +36,11 @@ import {
 
 import { PatientAccessService } from '../src/common/access/patient-access.service';
 import { InvoicesService } from '../src/modules/invoices/invoices.service';
+import { parisDay } from '../src/modules/invoices/numbering';
+import { PayerInvoicesService } from '../src/modules/invoices/payer-invoices.service';
+import { firstOfMonth, lastOfMonth } from '../src/modules/invoices/payer-periods';
+import { PayersService } from '../src/modules/invoices/payers.service';
+import { splitColumns } from '../src/modules/invoices/session-split';
 import { GpReportsService } from '../src/modules/patient-file/gp-reports.service';
 
 const prisma = new PrismaClient();
@@ -156,13 +166,19 @@ async function upsertActivity(userId: string) {
   });
 }
 
-/** Removes the demo patients and everything attached to them. */
-async function resetDemoPatients() {
+/** Removes the demo patients, the practitioner's payers, and everything attached to them. */
+async function resetDemoPatients(practitionerId: string) {
   const patientId = { in: Object.values(PATIENT_IDS) };
+  const ofPayers = { recipient: 'PAYER' as const, practitionerId };
   await prisma.$transaction(async (tx) => {
     // Demo invoices only: issued invoices are otherwise never deleted (database guard)
     await tx.$executeRawUnsafe("SET LOCAL app.allow_invoice_delete = 'on'");
+    await tx.invoiceLine.deleteMany({ where: { invoice: { OR: [{ patientId }, ofPayers] } } });
+    await tx.invoice.updateMany({ where: ofPayers, data: { creditNoteId: null, replacedById: null } });
+    await tx.invoice.deleteMany({ where: ofPayers });
     await tx.invoice.deleteMany({ where: { patientId } });
+    await tx.patientCoverage.deleteMany({ where: { patientId } });
+    await tx.payer.deleteMany({ where: { practitionerId } });
     await tx.gpReport.deleteMany({ where: { patientId } });
     await tx.fileEntry.deleteMany({ where: { patientId } });
     await tx.measurement.deleteMany({ where: { patientId } });
@@ -182,17 +198,29 @@ async function resetDemoPatients() {
  * Martine's « Suivi 1 » was invoiced « Non réglé », the cheque was noted afterwards: its invoice
  * is corrected today (credit note + new invoice).
  */
-async function seedInvoices(practitionerId: string) {
+async function seedInvoices(practitionerId: string, payerInvoice: PayerInvoiceSeed) {
   const user = { id: practitionerId, role: UserRole.PRATICIENNE };
-  const invoices = new InvoicesService(prisma as any, new PatientAccessService(prisma as any));
+  const access = new PatientAccessService(prisma as any);
+  const payerInvoices = new PayerInvoicesService(prisma as any, access);
+  const invoices = new InvoicesService(prisma as any, access, payerInvoices);
   const sessions = await prisma.consultation.findMany({
     where: { practitionerId, patientId: { in: Object.values(PATIENT_IDS) } },
     orderBy: { date: 'asc' },
   });
   const corrected = sessions.filter((s) => s.patientId === PATIENT_IDS.martine)[1];
   let toCorrect: string | null = null;
+  let payerIssued = false;
+  // In the order they were issued: numbers follow the dates, patients and payers in one series
+  const issuePayerInvoice = () =>
+    payerInvoices.issue(user, payerInvoice.payerId, payerInvoice.from, payerInvoice.to, payerInvoice.issuedAt);
   for (const s of sessions.slice(0, -2)) {
     const issuedAt = new Date(s.date.getTime() + 3600 * 1000);
+    if (!payerIssued && issuedAt > payerInvoice.issuedAt) {
+      await issuePayerInvoice();
+      payerIssued = true;
+    }
+    // A session offered, or paid in full by the payer, has no patient invoice
+    if (s.patientCents === 0) continue;
     if (s.id !== corrected.id) {
       await invoices.issue(user, s.id, issuedAt);
       continue;
@@ -201,7 +229,100 @@ async function seedInvoices(practitionerId: string) {
     toCorrect = (await invoices.issue(user, s.id, issuedAt)).id;
     await prisma.consultation.update({ where: { id: s.id }, data: { paymentMethod: PaymentMethod.CHECK } });
   }
+  if (!payerIssued) await issuePayerInvoice();
   if (toCorrect) await invoices.correct(user, toCorrect, at(0, 9));
+}
+
+interface PayerInvoiceSeed {
+  payerId: string;
+  from: string;
+  to: string;
+  issuedAt: Date;
+}
+
+/**
+ * Lot 16: two payers (a mutuelle billed monthly, an association on demand); the mutuelle covers
+ * Martine (60 % of each session, 10 sessions, from her bilan) and Marie (20 € per session from
+ * the same day). Thomas has a 20 % student discount, Marie 10 € off her last session, Claire her
+ * third session offered. Then each
+ * session's split is computed, as the app does. Returns the mutuelle's invoice to issue: the
+ * month of Martine's bilan, billed on the 1st of the next month.
+ */
+async function seedPayers(practitionerId: string): Promise<PayerInvoiceSeed> {
+  const user = { id: practitionerId, role: UserRole.PRATICIENNE };
+  const payers = new PayersService(prisma as any, new PatientAccessService(prisma as any));
+  const mutuelle = await payers.create(user, {
+    name: 'Mutuelle Horizon Santé',
+    address: '8 boulevard de la Liberté',
+    zipCode: '13001',
+    city: 'Marseille',
+    contact: 'Service prestations, prestations@horizon-sante.example',
+    conventionReference: 'CONV-2026-114',
+  });
+  await payers.create(user, {
+    name: 'Association Sport Santé Provence',
+    city: 'Aix-en-Provence',
+    billingRhythm: 'ON_DEMAND',
+    notes: 'Prend en charge le bilan des adhérents sur présentation de la carte.',
+  });
+  const bilanDay = parisDay(at(-60));
+  await prisma.patientCoverage.create({
+    data: {
+      patientId: PATIENT_IDS.martine,
+      payerId: mutuelle.id,
+      kind: ShareKind.PERCENT,
+      value: 60,
+      maxSessions: 10,
+      startDate: new Date(`${bilanDay}T00:00:00Z`),
+      coverageNumber: 'PEC-0042',
+    },
+  });
+  await prisma.patientCoverage.create({
+    data: {
+      patientId: PATIENT_IDS.marie,
+      payerId: mutuelle.id,
+      kind: ShareKind.AMOUNT,
+      value: 2000,
+      startDate: new Date(`${bilanDay}T00:00:00Z`),
+      coverageNumber: 'PEC-0057',
+    },
+  });
+
+  const sessions = await prisma.consultation.findMany({
+    where: { practitionerId, patientId: { in: Object.values(PATIENT_IDS) } },
+    orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+  });
+  for (const s of sessions.filter((s) => s.patientId === PATIENT_IDS.thomas)) {
+    await prisma.consultation.update({
+      where: { id: s.id },
+      data: { discountKind: ShareKind.PERCENT, discountValue: 20, discountReason: 'tarif étudiant' },
+    });
+  }
+  // Discount and payer on the same session: 50 € − 10 € = 40 €, 20 € by the mutuelle, 20 € for Marie
+  const lastOfMarie = sessions.filter((s) => s.patientId === PATIENT_IDS.marie).at(-1);
+  if (lastOfMarie) {
+    await prisma.consultation.update({
+      where: { id: lastOfMarie.id },
+      data: { discountKind: ShareKind.AMOUNT, discountValue: 1000, discountReason: 'geste' },
+    });
+  }
+  const offered = sessions.filter((s) => s.patientId === PATIENT_IDS.claire)[2];
+  if (offered) {
+    await prisma.consultation.update({
+      where: { id: offered.id },
+      data: { discountKind: ShareKind.PERCENT, discountValue: 100, discountReason: 'séance offerte' },
+    });
+  }
+  // The split of every session, one after the other (the covered ones count)
+  for (const { id } of sessions) {
+    const s = await prisma.consultation.findUniqueOrThrow({ where: { id } });
+    await prisma.consultation.update({ where: { id }, data: await splitColumns(prisma, s) });
+  }
+
+  const from = firstOfMonth(bilanDay);
+  const to = lastOfMonth(bilanDay);
+  const [year, month] = to.split('-').map(Number);
+  return { payerId: mutuelle.id, from, to, issuedAt: new Date(Date.UTC(year, month, 1, 9)) };
 }
 
 /**
@@ -350,7 +471,7 @@ async function main() {
   console.log('✅ Users, activity, practices and formulas');
 
   // ── Patients ────────────────────────────────────────────────────────────────
-  await resetDemoPatients();
+  await resetDemoPatients(pract.id);
   const patient = (id: string, data: Omit<Parameters<typeof prisma.patient.create>[0]['data'], 'practitionerId'>) =>
     prisma.patient.create({ data: { ...data, id, practitionerId: pract.id } as any });
 
@@ -752,8 +873,9 @@ async function main() {
   }
   console.log('✅ Upcoming appointments');
 
-  // ── Invoices ────────────────────────────────────────────────────────────────
-  await seedInvoices(pract.id);
+  // ── Payers, discounts and invoices ──────────────────────────────────────────
+  const payerInvoice = await seedPayers(pract.id);
+  await seedInvoices(pract.id, payerInvoice);
 
   // ── Tasks ───────────────────────────────────────────────────────────────────
   const tasks = [
@@ -790,6 +912,9 @@ défaut) et à Marseille (Marie Dubois, Lucas Moreau), dont Martine Roux,
 le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg) avec son histoire du
 poids avant le suivi, et Hugo Lefèvre, 10 ans, dont la taille suit la croissance.
 Séances passées facturées (sauf les deux dernières), une facture corrigée par un avoir.
+La Mutuelle Horizon Santé prend en charge Martine (60 %) et Marie (20 € par séance) : sa facture
+du mois du bilan de Martine est faite, le mois suivant est à facturer. Thomas a une remise
+étudiante, Claire une séance offerte.
   `);
 }
 

@@ -22,14 +22,6 @@ export function formatDate(date: string | Date | null, format = 'dd/MM/yyyy'): s
     .replace('mm', minutes);
 }
 
-export function formatDateTime(date: string | Date | null): string {
-  return formatDate(date, 'dd/MM/yyyy HH:mm');
-}
-
-export function getInitials(firstName: string, lastName: string): string {
-  return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
-}
-
 export function calculateAge(dateOfBirth: string | null): string {
   if (!dateOfBirth) return '—';
   const dob = new Date(dateOfBirth);

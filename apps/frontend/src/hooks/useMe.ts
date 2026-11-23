@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ActivityDto,
   CreateFormulaDto,
+  CreatePracticeDto,
   FormulaDto,
   MeDto,
   PracticeDto,
@@ -8,6 +10,7 @@ import type {
   Theme,
   UpdateFormulaDto,
   UpdateMeDto,
+  UpdatePracticeDto,
 } from '@vp/types';
 import { useEffect } from 'react';
 
@@ -16,7 +19,10 @@ import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 
 const ME = ['me'] as const;
-const PRACTICE = ['me', 'practice'] as const;
+const ACTIVITY = ['me', 'activity'] as const;
+const PRACTICES = ['me', 'practices'] as const;
+/** What appointments are booked with (types, practices): changes when those settings change */
+export const BOOKING_OPTIONS = ['booking-options'] as const;
 const FORMULAS = ['me', 'formulas'] as const;
 
 /** The message the API gives for a refused change, else the fallback. */
@@ -76,23 +82,69 @@ export function useThemeFromAccount() {
   }, [serverTheme, setTheme]);
 }
 
-// ─── Practice ─────────────────────────────────────────────────────────────────
+// ─── Activity ─────────────────────────────────────────────────────────────────
 
-export function usePractice(enabled = true) {
-  return useQuery<PracticeDto>({
-    queryKey: PRACTICE,
-    queryFn: async () => (await api.get<PracticeDto>('/me/practice')).data,
+export function useActivity(enabled = true) {
+  return useQuery<ActivityDto>({
+    queryKey: ACTIVITY,
+    queryFn: async () => (await api.get<ActivityDto>('/me/activity')).data,
     enabled,
   });
 }
 
-export function useUpdatePractice() {
+export function useUpdateActivity() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (dto: Partial<PracticeDto>) =>
-      (await api.patch<PracticeDto>('/me/practice', dto)).data,
-    onSuccess: (practice) => queryClient.setQueryData(PRACTICE, practice),
+    mutationFn: async (dto: Partial<ActivityDto>) =>
+      (await api.patch<ActivityDto>('/me/activity', dto)).data,
+    onSuccess: (activity) => queryClient.setQueryData(ACTIVITY, activity),
   });
+}
+
+// ─── Practices ───────────────────────────────────────────────────────────────
+
+/** Her practices: active ones first (the default one first), then archived ones. */
+export function usePractices(enabled = true) {
+  return useQuery<PracticeDto[]>({
+    queryKey: PRACTICES,
+    queryFn: async () => (await api.get<PracticeDto[]>('/me/practices')).data,
+    enabled,
+  });
+}
+
+/**
+ * Whether the practice is worth naming (on an appointment, a séance, a row of the follow-up):
+ * the practitioner has several active ones. Assistants book for every practitioner: they always
+ * see it.
+ */
+export function useShowPractices() {
+  const role = useAuthStore((s) => s.user?.role);
+  const { data } = usePractices(role === 'PRATICIENNE');
+  if (role === 'ASSISTANTE') return true;
+  return (data ?? []).filter((p) => !p.archivedAt).length > 1;
+}
+
+function usePracticeMutation<T>(mutationFn: (arg: T) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: PRACTICES });
+      void queryClient.invalidateQueries({ queryKey: BOOKING_OPTIONS });
+    },
+  });
+}
+
+export function useCreatePractice() {
+  return usePracticeMutation(async (dto: CreatePracticeDto) =>
+    (await api.post<PracticeDto>('/me/practices', dto)).data,
+  );
+}
+
+export function useUpdatePractice() {
+  return usePracticeMutation(async ({ id, dto }: { id: string; dto: UpdatePracticeDto }) =>
+    (await api.patch<PracticeDto>(`/me/practices/${id}`, dto)).data,
+  );
 }
 
 // ─── Formulas ────────────────────────────────────────────────────────────────
@@ -109,7 +161,10 @@ function useFormulaMutation<T>(mutationFn: (arg: T) => Promise<unknown>) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: FORMULAS }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: FORMULAS });
+      void queryClient.invalidateQueries({ queryKey: BOOKING_OPTIONS });
+    },
   });
 }
 

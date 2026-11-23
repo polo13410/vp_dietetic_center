@@ -1,24 +1,26 @@
+import { ActivitySection } from '../../components/settings/ActivitySection';
 import { AppearanceSection } from '../../components/settings/AppearanceSection';
 import { FormulasSection } from '../../components/settings/FormulasSection';
-import { PracticeSection } from '../../components/settings/PracticeSection';
+import { PracticesSection } from '../../components/settings/PracticesSection';
 import { ProfileSection } from '../../components/settings/ProfileSection';
 import { SecuritySection } from '../../components/settings/SecuritySection';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
-import { useFormulas, useMe, usePractice } from '../../hooks/useMe';
+import { useActivity, useFormulas, useMe, usePractices } from '../../hooks/useMe';
 import { useAuthStore } from '../../stores/authStore';
 
 /**
  * Settings: each change is saved by itself (see components/settings/autosave.tsx). The
- * practice and the prices only concern practitioners.
+ * activity, the practices and the prices only concern practitioners.
  */
 export default function SettingsPage() {
   const isPractitioner = useAuthStore((s) => s.user?.role === 'PRATICIENNE');
   const me = useMe();
-  const practice = usePractice(isPractitioner);
+  const activity = useActivity(isPractitioner);
+  const practices = usePractices(isPractitioner);
   const formulas = useFormulas(isPractitioner);
 
-  const queries = isPractitioner ? [me, practice, formulas] : [me];
+  const queries = isPractitioner ? [me, activity, practices, formulas] : [me];
   const failed = queries.some((q) => q.isError);
   const loading = queries.some((q) => q.isPending);
 
@@ -38,7 +40,8 @@ export default function SettingsPage() {
       ) : (
         <div className="space-y-6">
           <ProfileSection me={me.data} />
-          {isPractitioner && practice.data && <PracticeSection practice={practice.data} />}
+          {isPractitioner && activity.data && <ActivitySection activity={activity.data} />}
+          {isPractitioner && practices.data && <PracticesSection practices={practices.data} />}
           {isPractitioner && formulas.data && <FormulasSection formulas={formulas.data} />}
           <SecuritySection me={me.data} />
           <AppearanceSection />

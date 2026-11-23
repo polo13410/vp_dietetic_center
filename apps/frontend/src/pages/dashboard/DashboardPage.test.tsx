@@ -1,5 +1,12 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { DashboardAppointmentDto, DashboardSummary, SessionToInvoiceDto, TaskDto, UserRole } from '@vp/types';
+import type {
+  DashboardAppointmentDto,
+  DashboardSummary,
+  PayerRemindersDto,
+  SessionToInvoiceDto,
+  TaskDto,
+  UserRole,
+} from '@vp/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import api from '../../lib/api';
@@ -59,6 +66,7 @@ const toInvoice = (id: string, firstName: string, extra: Partial<SessionToInvoic
   date: '2026-11-15T09:00:00.000Z',
   formulaLabel: 'Suivi',
   priceCents: 5000,
+  patientCents: 5000,
   paymentMethod: 'CHECK' as SessionToInvoiceDto['paymentMethod'],
   patient: { id: `p-${id}`, firstName, lastName: 'Test' },
   ...extra,
@@ -86,9 +94,16 @@ const EMPTY: DashboardSummary = { todayAppointments: [], followUps: [], tasks: [
 const aix = { id: 'pr-aix', name: 'Cabinet d’Aix', address: null, zipCode: null, city: 'Aix-en-Provence', phone: null, siret: null, isDefault: true, archivedAt: null };
 let practices = [aix];
 
-function serve(data: DashboardSummary, sessionsToInvoice: SessionToInvoiceDto[] = [toInvoice('c-8', 'Martine')]) {
+const NO_REMINDERS: PayerRemindersDto = { periodsToBill: [], overdueInvoices: [] };
+
+function serve(
+  data: DashboardSummary,
+  sessionsToInvoice: SessionToInvoiceDto[] = [toInvoice('c-8', 'Martine')],
+  reminders: PayerRemindersDto = NO_REMINDERS,
+) {
   vi.mocked(api.get).mockImplementation(async (url: string) => {
     if (url === '/dashboard/summary') return { data };
+    if (url === '/payers/reminders') return { data: reminders };
     if (url === '/invoices/to-issue') return { data: sessionsToInvoice };
     if (url === '/me/practices') return { data: practices };
     if (url === '/appointments/options') return { data: { formulas: [], practices } };
@@ -265,5 +280,35 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: 'Démarrer la séance' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Rouvrir' })).not.toBeInTheDocument();
     expect(api.get).not.toHaveBeenCalledWith('/invoices/to-issue');
+    expect(api.get).not.toHaveBeenCalledWith('/payers/reminders');
+  });
+
+  describe('Organismes (lot 16)', () => {
+    it('shows the payer periods to bill and the invoices pending for more than 60 days', async () => {
+      serve(EMPTY, [], {
+        periodsToBill: [
+          { payer: { id: 'payer-1', name: 'Mutuelle Horizon' }, from: '2026-10-01', to: '2026-10-31', ended: true, sessionCount: 3, totalCents: 9000 },
+        ],
+        overdueInvoices: [
+          { id: 'i-9', number: '2026-0009', payerId: 'payer-1', payerName: 'Mutuelle Horizon', issuedAt: '2026-08-31T10:00:00.000Z', amountCents: 6000, days: 84 },
+        ],
+      });
+      renderWithProviders(<DashboardPage />, '/dashboard');
+      const section = (await screen.findByRole('heading', { name: 'Organismes' })).closest('section')!;
+      expect(section).toHaveTextContent('Période terminée du 1er au 31 octobre 2026 · 3 séances · 90 €');
+      expect(within(section).getByRole('link', { name: 'Préparer la facture' })).toHaveAttribute(
+        'href',
+        '/invoices?vue=organismes&preparer=payer-1',
+      );
+      expect(section).toHaveTextContent('Facture n° 2026-0009 · Mutuelle Horizon');
+      expect(section).toHaveTextContent('60 € · en attente depuis 84 jours');
+    });
+
+    it('says nothing when all is up to date', async () => {
+      serve(EMPTY, []);
+      renderWithProviders(<DashboardPage />, '/dashboard');
+      await screen.findByRole('heading', { name: 'Factures à faire' });
+      expect(screen.queryByRole('heading', { name: 'Organismes' })).not.toBeInTheDocument();
+    });
   });
 });

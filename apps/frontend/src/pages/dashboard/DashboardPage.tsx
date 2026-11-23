@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DashboardAppointmentDto, DashboardSummary } from '@vp/types';
-import { CalendarDays, CalendarPlus, Check, ListChecks, Phone, Play, Receipt, RotateCcw } from 'lucide-react';
+import { Building2, CalendarDays, CalendarPlus, Check, ListChecks, Phone, Play, Receipt, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -17,7 +17,14 @@ import { useCurrentUser, useIsRole } from '../../hooks/useAuth';
 import { apiErrorMessage, useShowPractices } from '../../hooks/useMe';
 import api from '../../lib/api';
 import { appointmentSummary } from '../../lib/appointments';
-import { type SessionToInvoiceDto, useIssueInvoice, useSessionsToInvoice } from '../../lib/invoices';
+import {
+  patientBilling,
+  periodText,
+  type SessionToInvoiceDto,
+  useIssueInvoice,
+  usePayerReminders,
+  useSessionsToInvoice,
+} from '../../lib/invoices';
 import { formatPrice } from '../../lib/patient-file';
 import { cn, formatLongDate, formatTime, todayISO } from '../../lib/utils';
 
@@ -68,6 +75,7 @@ export default function DashboardPage() {
             <InvoicesToIssue />
           </div>
         )}
+        {isPractitioner && <PayerReminders />}
         <Tasks tasks={data.tasks} />
       </div>
     </>
@@ -328,7 +336,8 @@ export function InvoicesToIssue() {
 
 function InvoiceRow({ session }: { session: SessionToInvoiceDto }) {
   const issue = useIssueInvoice();
-  const ready = !!session.formulaLabel && session.priceCents !== null;
+  const billing = patientBilling(session);
+  const ready = billing.state === 'ready';
 
   const run = () =>
     issue.mutate(session.id, {
@@ -345,7 +354,7 @@ function InvoiceRow({ session }: { session: SessionToInvoiceDto }) {
         </Link>
         <p className="text-sm text-muted-foreground">
           {formatLongDate(session.date, true)}
-          {ready ? ` · ${session.formulaLabel} ${formatPrice(session.priceCents!)}` : ' · formule à choisir'}
+          {ready ? ` · ${session.formulaLabel} ${formatPrice(billing.cents)}` : ' · formule à choisir'}
         </p>
       </div>
       {ready ? (
@@ -358,6 +367,54 @@ function InvoiceRow({ session }: { session: SessionToInvoiceDto }) {
         </Button>
       )}
     </li>
+  );
+}
+
+// ─── Payers ───────────────────────────────────────────────────────────────────
+
+/**
+ * What the payers need (lot 16): periods ended and not billed yet, and their invoices still « en
+ * attente » more than 60 days after. Nothing when all is up to date.
+ */
+export function PayerReminders() {
+  const { data } = usePayerReminders();
+  if (!data || (data.periodsToBill.length === 0 && data.overdueInvoices.length === 0)) return null;
+  return (
+    <Section icon={Building2} area="invoices" title="Organismes" description="Factures à préparer et règlements à relancer.">
+      <ul className="-my-3 divide-y divide-border">
+        {data.periodsToBill.map((p) => (
+          <li key={p.payer.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium">{p.payer.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Période terminée {periodText(p.from, p.to)} · {p.sessionCount} séance{p.sessionCount > 1 ? 's' : ''} ·{' '}
+                {formatPrice(p.totalCents)}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/invoices?vue=organismes&preparer=${p.payer.id}`}>
+                <Receipt aria-hidden /> Préparer la facture
+              </Link>
+            </Button>
+          </li>
+        ))}
+        {data.overdueInvoices.map((invoice) => (
+          <li key={invoice.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium">
+                Facture n° {invoice.number} · {invoice.payerName}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {formatPrice(invoice.amountCents)} · en attente depuis {invoice.days} jours
+              </p>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/invoices?vue=organismes">Voir les factures</Link>
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }
 

@@ -19,7 +19,7 @@ export interface InvoiceDocumentContent {
   paid: string | null;
   /** « Remplace la facture n° 2026-0012 du 20 novembre 2026 » */
   references: string[];
-  /** Typed by the practitioner in « Mon cabinet »; never invented here */
+  /** Typed by the practitioner in « Mon activité »; never invented here */
   vatMention: string | null;
   footer: string | null;
 }

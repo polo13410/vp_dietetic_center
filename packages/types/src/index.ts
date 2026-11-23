@@ -414,7 +414,7 @@ export interface GpReportDto {
   updatedAt: string;
 }
 
-/** A report as it will be printed: with the practice's letterhead (from « Mon cabinet »). */
+/** A report as it will be printed: with her letterhead (« Mon activité » and her default practice). */
 export interface GpReportDocumentDto extends GpReportDto {
   patient: { firstName: string; lastName: string; gpName: string | null };
   /** Name of the practice first, then address, phone, e-mail, ADELI or RPPS */

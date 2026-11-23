@@ -96,7 +96,7 @@ export function InvoicesTable({ invoices, showPatient = false }: { invoices: Inv
                   <span className={cn('tabular-nums', struck)}>{formatAmount(invoice.amountCents)}</span>
                   <span className="block text-sm text-muted-foreground">{PAYMENT_METHODS[invoice.paymentMethod]}</span>
                   {!!invoice.payerCents && invoice.payerCents > 0 && (
-                    <span className="block text-sm text-muted-foreground">
+                    <span className="block min-w-[9rem] whitespace-normal text-sm text-muted-foreground">
                       + {formatAmount(invoice.payerCents)} {invoice.payerName ?? 'organisme'}
                     </span>
                   )}

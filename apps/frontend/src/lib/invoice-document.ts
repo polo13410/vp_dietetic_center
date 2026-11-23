@@ -12,10 +12,23 @@ export interface InvoiceDocumentContent {
   practice: string[];
   /** SIRET, ADELI or RPPS */
   identifiers: string[];
-  patient: string[];
+  /** « Patient » or « Organisme » (a payer invoice) */
+  recipientLabel: 'Patient' | 'Organisme';
+  /** Name, address, zip code and city (and the contact of a payer) */
+  recipient: string[];
+  /** Patient invoices: the session */
   service: { label: string; date: string; amount: string };
+  /**
+   * Patient invoices with a discount or a payer part (lot 16): the lines between the price and
+   * what the patient pays (« Remise », « Net », « dont 30,00 € pris en charge par … »)
+   */
+  breakdown: { label: string; amount: string }[];
+  /** Payer invoices: one line per session, nothing medical */
+  lines: { date: string; patient: string; label: string; coverageNumber: string; amount: string }[] | null;
+  /** « Total », or « Reste à votre charge » when a payer pays a part */
+  totalLabel: string;
   total: string;
-  /** « Acquittée — réglée par chèque », for a paid invoice only */
+  /** « Acquittée — réglée par chèque », « Réglée le 15 décembre 2026 », for a paid invoice only */
   paid: string | null;
   /** « Remplace la facture n° 2026-0012 du 20 novembre 2026 » */
   references: string[];
@@ -59,9 +72,21 @@ function formatSiret(siret: string): string {
 const cityLine = (zipCode: string | null, city: string | null) => [zipCode, city].filter(Boolean).join(' ');
 const lines = (...values: (string | null | undefined)[]) => values.filter((v): v is string => !!v && v.trim() !== '');
 
+/** « 1er novembre 2026 » for a day stored at midnight UTC */
+function dayText(iso: string): string {
+  const [year, month, date] = iso.slice(0, 10).split('-').map(Number);
+  // « 1er octobre », as written in French
+  return plain(longDate.format(new Date(Date.UTC(year, month - 1, date, 12)))).replace(/^1 /, '1er ');
+}
+
 export function invoiceDocumentContent(invoice: InvoiceDto): InvoiceDocumentContent {
   const creditNote = invoice.type === 'CREDIT_NOTE';
+  const payerInvoice = invoice.recipient === 'PAYER';
   const references: string[] = [];
+  if (payerInvoice && invoice.periodStart && invoice.periodEnd) {
+    references.push(`Séances du ${dayText(invoice.periodStart)} au ${dayText(invoice.periodEnd)}`);
+  }
+  if (payerInvoice && invoice.conventionReference) references.push(`Convention : ${invoice.conventionReference}`);
   if (invoice.cancels) {
     references.push(`Annule la facture n° ${invoice.cancels.number} du ${formatLongDay(invoice.cancels.issuedAt)}`);
   }
@@ -74,27 +99,67 @@ export function invoiceDocumentContent(invoice: InvoiceDto): InvoiceDocumentCont
     invoice.adeliRpps && `${invoice.adeliRpps.length === 11 ? 'N° RPPS' : 'N° ADELI'} : ${invoice.adeliRpps}`,
   );
 
+  // A patient invoice shows its price, its discount and the payer part (« dont … pris en charge »)
+  const discount = invoice.discountCents ?? 0;
+  const payer = invoice.payerCents ?? 0;
+  const split = !payerInvoice && !creditNote && invoice.priceCents !== null && (discount > 0 || payer > 0);
+  const breakdown: InvoiceDocumentContent['breakdown'] = [];
+  if (split) {
+    if (discount > 0) {
+      breakdown.push({ label: invoice.discountReason ? `Remise (${invoice.discountReason})` : 'Remise', amount: formatAmount(-discount) });
+      breakdown.push({ label: 'Net', amount: formatAmount(invoice.priceCents! - discount) });
+    }
+    if (payer > 0) {
+      breakdown.push({
+        label: `dont ${formatAmount(payer)} pris en charge par ${invoice.payerName ?? 'un organisme'}`,
+        amount: formatAmount(-payer),
+      });
+    }
+  }
+
+  let paid: string | null = null;
+  if (!creditNote && payerInvoice && invoice.paidAt) paid = `Réglée le ${dayText(invoice.paidAt)}`;
+  if (!creditNote && !payerInvoice && invoice.paymentMethod !== 'NONE') {
+    paid = `Acquittée — réglée ${PAID_BY[invoice.paymentMethod]}`;
+  }
+
   return {
     title: creditNote ? 'Avoir' : 'Facture',
     number: invoice.number,
     issuedOn: formatLongDay(invoice.issuedAt),
     practice: lines(invoice.practiceName, invoice.practiceAddress, cityLine(invoice.practiceZipCode, invoice.practiceCity)),
     identifiers,
-    patient: lines(
-      `${invoice.patientFirstName} ${invoice.patientLastName}`,
-      invoice.patientAddress,
-      cityLine(invoice.patientZipCode, invoice.patientCity),
-    ),
+    recipientLabel: payerInvoice ? 'Organisme' : 'Patient',
+    recipient: payerInvoice
+      ? lines(
+          invoice.payerName,
+          invoice.payerAddress,
+          cityLine(invoice.payerZipCode, invoice.payerCity),
+          invoice.payerContact && `À l’attention de : ${invoice.payerContact}`,
+        )
+      : lines(
+          [invoice.patientFirstName, invoice.patientLastName].filter(Boolean).join(' '),
+          invoice.patientAddress,
+          cityLine(invoice.patientZipCode, invoice.patientCity),
+        ),
     service: {
       label: invoice.serviceLabel,
       date: `Séance du ${formatLongDay(invoice.serviceDate)}`,
-      amount: formatAmount(invoice.amountCents),
+      amount: formatAmount(split ? invoice.priceCents! : invoice.amountCents),
     },
+    breakdown,
+    lines: payerInvoice
+      ? (invoice.lines ?? []).map((line) => ({
+          date: formatLongDay(line.serviceDate),
+          patient: `${line.patientFirstName} ${line.patientLastName}`,
+          label: line.serviceLabel,
+          coverageNumber: line.coverageNumber ?? '',
+          amount: formatAmount(line.amountCents),
+        }))
+      : null,
+    totalLabel: split && payer > 0 ? 'Reste à votre charge' : 'Total',
     total: formatAmount(invoice.amountCents),
-    paid:
-      !creditNote && invoice.paymentMethod !== 'NONE'
-        ? `Acquittée — réglée ${PAID_BY[invoice.paymentMethod]}`
-        : null,
+    paid,
     references,
     vatMention: invoice.vatMention?.trim() || null,
     footer: invoice.invoiceFooter?.trim() || null,

@@ -355,6 +355,28 @@ export interface ConsultationDto {
   /** Where it took place: its address goes on the invoice */
   practiceId: string | null;
   practice?: { id: string; name: string } | null;
+  /** Discount (« remise »): cents (AMOUNT) or percent (PERCENT); null: none */
+  discountKind: ShareKind | null;
+  discountValue: number | null;
+  discountReason: string | null;
+  /** The split of the price, computed then kept (lot 16). Null without a price. */
+  discountCents: number | null;
+  /** price − discount = payer part + patient part */
+  netCents: number | null;
+  payerCents: number | null;
+  patientCents: number | null;
+  /** The payer of the payer part */
+  payerId: string | null;
+  payer?: { id: string; name: string } | null;
+  /** The coverage considered (kept even when it no longer applied: sessions or period over) */
+  coverageId: string | null;
+  coverage?: {
+    id: string;
+    maxSessions: number | null;
+    startDate: string | null;
+    endDate: string | null;
+    payer: { name: string };
+  } | null;
   /** Habitudes et évolution */
   habits: string | null;
   /** Travail en consultation */
@@ -376,6 +398,10 @@ export interface UpdateConsultationDto {
   formulaId?: string | null;
   paymentMethod?: PaymentMethod;
   practiceId?: string;
+  /** null removes the discount (its value and reason with it) */
+  discountKind?: ShareKind | null;
+  discountValue?: number | null;
+  discountReason?: string | null;
   habits?: string;
   sessionWork?: string;
   advice?: string;
@@ -582,6 +608,23 @@ export enum InvoiceType {
   CREDIT_NOTE = 'CREDIT_NOTE',
 }
 
+/** Who an invoice is addressed to: the patient (one session) or a payer (a period). */
+export type InvoiceRecipient = 'PATIENT' | 'PAYER';
+
+/** One session of a payer invoice (or of its credit note, in negative): nothing medical. */
+export interface InvoiceLineDto {
+  id: string;
+  invoiceId: string;
+  consultationId: string | null;
+  position: number;
+  serviceDate: string;
+  serviceLabel: string;
+  patientFirstName: string;
+  patientLastName: string;
+  coverageNumber: string | null;
+  amountCents: number;
+}
+
 /** Another document an invoice is linked to */
 export interface InvoiceLinkDto {
   id: string;
@@ -600,18 +643,40 @@ export interface InvoiceDto {
   patientId: string | null;
   consultationId: string | null;
   type: InvoiceType;
+  /** Patient invoices and payer invoices share one series of numbers */
+  recipient: InvoiceRecipient;
+  /** Payer invoices: the payer billed */
+  payerId: string | null;
   year: number;
   sequence: number;
   /** "2026-0001" or "A-2026-0001" */
   number: string;
   issuedAt: string;
-  /** Negative for a credit note */
+  /** Negative for a credit note. Patient invoices: the patient part. */
   amountCents: number;
+  /** Payer invoices: NONE (their payment is followed with paidAt) */
   paymentMethod: PaymentMethod;
   /** Formula of the session */
   serviceLabel: string;
-  /** Date of the session */
+  /** Date of the session (payer invoices: end of the period) */
   serviceDate: string;
+  /** Patient invoices (lot 16): price, discount, payer part. Null on invoices issued before. */
+  priceCents: number | null;
+  discountCents: number | null;
+  discountReason: string | null;
+  payerCents: number | null;
+  /** Patient invoices: the payer of the payer part. Payer invoices: the payer billed. */
+  payerName: string | null;
+  /** Payer invoices: the payer as it was at issue, and the period (days, both included) */
+  payerAddress: string | null;
+  payerZipCode: string | null;
+  payerCity: string | null;
+  payerContact: string | null;
+  conventionReference: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  /** Payer invoices: « réglée le … »; null: « en attente » */
+  paidAt: string | null;
   practiceName: string;
   practiceAddress: string | null;
   practiceZipCode: string | null;
@@ -620,8 +685,9 @@ export interface InvoiceDto {
   adeliRpps: string | null;
   vatMention: string | null;
   invoiceFooter: string | null;
-  patientFirstName: string;
-  patientLastName: string;
+  /** Null on payer invoices */
+  patientFirstName: string | null;
+  patientLastName: string | null;
   patientAddress: string | null;
   patientZipCode: string | null;
   patientCity: string | null;
@@ -639,19 +705,34 @@ export interface InvoiceDto {
   cancels: InvoiceLinkDto | null;
   /** The invoice this one replaces */
   replaces: InvoiceLinkDto | null;
+  /** GET /invoices/:id/document of a payer invoice: its sessions */
+  lines?: InvoiceLineDto[];
 }
 
 /** What an invoice no longer matches in its session */
-export type InvoiceMismatch = 'formula' | 'price' | 'paymentMethod' | 'date' | 'practice';
+export type InvoiceMismatch = 'formula' | 'price' | 'discount' | 'payer' | 'paymentMethod' | 'date' | 'practice';
+
+/** Invoiced to patients, or to payers: what was paid and what is still due. */
+export interface RecipientTotalsDto {
+  invoicedCents: number;
+  /** Patients: paid by any means. Payers: « réglée ». */
+  collectedCents: number;
+  /** Patients: « Non réglé ». Payers: « en attente ». */
+  unpaidCents: number;
+  count: number;
+}
 
 /** Totals of invoices in force (cancelled invoices and credit notes are left out). */
 export interface InvoiceTotalsDto {
-  /** Paid by any means (« encaissé ») */
+  /** Paid by patients and by payers (« encaissé ») */
   collectedCents: number;
-  /** Invoiced « Non réglé » */
+  /** Not paid yet: patients' « Non réglé » and payers' « en attente » */
   unpaidCents: number;
   count: number;
+  /** Patient invoices only */
   byPaymentMethod: Record<PaymentMethod, number>;
+  patients: RecipientTotalsDto;
+  payers: RecipientTotalsDto;
 }
 
 /** GET /invoices?from=&to= (Paris days, both included) */
@@ -675,6 +756,8 @@ export interface SessionInvoicesDto {
   mismatches: InvoiceMismatch[];
   /** Cancelled invoices and credit notes of the session, latest first */
   history: InvoiceDto[];
+  /** The payer invoice in force that includes the session */
+  payerInvoice: { id: string; number: string; payerName: string | null; issuedAt: string } | null;
 }
 
 /** GET /invoices/to-issue: a session without an invoice in force */
@@ -683,6 +766,8 @@ export interface SessionToInvoiceDto {
   date: string;
   formulaLabel: string | null;
   priceCents: number | null;
+  /** What the patient is billed (null without a price) */
+  patientCents: number | null;
   paymentMethod: PaymentMethod;
   patient: Pick<PatientDto, 'id' | 'firstName' | 'lastName'>;
 }
@@ -690,4 +775,145 @@ export interface SessionToInvoiceDto {
 /** POST /invoices/:id/cancel */
 export interface CancelInvoiceDto {
   reason?: string;
+}
+
+// ─── Payers (« tiers payant », lot 16) ────────────────────────────────────────
+
+/** A discount or a coverage: an amount in cents, or a percentage (0–100). */
+export type ShareKind = 'AMOUNT' | 'PERCENT';
+
+/** How often a payer is billed. */
+export type BillingRhythm = 'MONTHLY' | 'EVERY_N_MONTHS' | 'ON_DEMAND';
+
+/** An organisation that pays all or part of some patients' sessions. */
+export interface PayerDto {
+  id: string;
+  practitionerId: string;
+  name: string;
+  address: string | null;
+  zipCode: string | null;
+  city: string | null;
+  contact: string | null;
+  conventionReference: string | null;
+  billingRhythm: BillingRhythm;
+  /** EVERY_N_MONTHS: N */
+  rhythmMonths: number | null;
+  notes: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /payers: a payer with its next period to bill and its invoices « en attente ». */
+export interface PayerOverviewDto extends PayerDto {
+  _count: { coverages: number };
+  nextPeriod: {
+    from: string;
+    to: string;
+    /** Its last day is past (never for a payer billed on demand) */
+    ended: boolean;
+    sessionCount: number;
+    totalCents: number;
+  };
+  pending: { count: number; totalCents: number };
+}
+
+export interface CreatePayerDto {
+  name: string;
+  address?: string | null;
+  zipCode?: string | null;
+  city?: string | null;
+  contact?: string | null;
+  conventionReference?: string | null;
+  billingRhythm?: BillingRhythm;
+  rhythmMonths?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdatePayerDto extends Partial<CreatePayerDto> {
+  /** true: archive; false: offer again */
+  archived?: boolean;
+}
+
+/** What a payer covers for a patient, per session. */
+export interface PatientCoverageDto {
+  id: string;
+  patientId: string;
+  payerId: string;
+  payer: { id: string; name: string; archivedAt: string | null };
+  kind: ShareKind;
+  /** Cents (AMOUNT) or percent (PERCENT) of the net price */
+  value: number;
+  maxSessions: number | null;
+  /** Days, both included */
+  startDate: string | null;
+  endDate: string | null;
+  coverageNumber: string | null;
+  /** Sessions it already paid in part */
+  coveredSessions: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCoverageDto {
+  payerId: string;
+  kind: ShareKind;
+  value: number;
+  maxSessions?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  coverageNumber?: string | null;
+}
+
+/** A session « Préparer la facture » shows: nothing medical. */
+export interface PayerSessionDto {
+  id: string;
+  date: string;
+  formulaLabel: string | null;
+  payerCents: number | null;
+  patient: { id: string; firstName: string; lastName: string };
+  coverage: { coverageNumber: string | null } | null;
+}
+
+/** GET /payers/:id/preview?from=&to= */
+export interface PayerPreviewDto {
+  from: string;
+  to: string;
+  sessions: PayerSessionDto[];
+  totalCents: number;
+}
+
+/** What no longer matches between a payer invoice and its sessions */
+export interface PayerInvoiceMismatchesDto {
+  deleted: number;
+  changed: number;
+  added: number;
+}
+
+/** GET /payer-invoices: her payer invoices and their credit notes, latest first */
+export interface PayerInvoiceListItemDto extends InvoiceDto {
+  _count: { lines: number };
+  /** Invoices in force only; null when everything still matches */
+  mismatches: PayerInvoiceMismatchesDto | null;
+}
+
+/** GET /payers/reminders: for the dashboard */
+export interface PayerRemindersDto {
+  periodsToBill: {
+    payer: { id: string; name: string };
+    from: string;
+    to: string;
+    ended: boolean;
+    sessionCount: number;
+    totalCents: number;
+  }[];
+  overdueInvoices: {
+    id: string;
+    number: string;
+    payerId: string | null;
+    payerName: string | null;
+    issuedAt: string;
+    amountCents: number;
+    days: number;
+  }[];
 }

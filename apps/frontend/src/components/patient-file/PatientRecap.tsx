@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CheckSquare,
   ChevronRight,
+  HandCoins,
   History,
   type LucideIcon,
   Mail,
@@ -18,6 +19,7 @@ import {
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
+import { coverageTerms, usePatientCoverages } from '../../lib/invoices';
 import {
   type Brief,
   FILE_ANCHORS,
@@ -89,10 +91,38 @@ export function PatientRecap({ patientId, size = 'page', links, children, before
           <LastSession brief={brief} size={size} />
           <AversionsAndTastes brief={brief} edit={edit} />
           {page && <ToDo brief={brief} edit={edit} />}
+          {page && edit && <Coverage patientId={patientId} edit={edit} />}
         </div>
       </div>
       {page && children}
     </div>
+  );
+}
+
+// ─── Coverage (lot 16) ────────────────────────────────────────────────────────
+
+/** Who pays part of the séances, read only; edited in the Factures tab. Nothing when none. */
+function Coverage({ patientId, edit }: { patientId: string; edit: EditLink }) {
+  const { data: coverages = [] } = usePatientCoverages(patientId);
+  if (coverages.length === 0) return null;
+  return (
+    <Section
+      size="compact"
+      icon={HandCoins}
+      area="invoices"
+      title="Prise en charge"
+      action={edit('factures', FILE_ANCHORS.coverage, 'Modifier la prise en charge')}
+    >
+      <ul className="space-y-2">
+        {coverages.map((c) => (
+          <li key={c.id}>
+            <p className="text-base font-medium">{c.payer.name}</p>
+            <p className="text-base">{coverageTerms(c)}</p>
+            {c.coverageNumber && <p className="text-sm text-muted-foreground">N° {c.coverageNumber}</p>}
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }
 

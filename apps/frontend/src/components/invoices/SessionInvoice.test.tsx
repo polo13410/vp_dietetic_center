@@ -14,9 +14,9 @@ vi.mock('../../lib/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 /** « Suivi 2 » of the test patient: 50 €, not paid yet */
 const session = sessions[0];
 
-function mockSession(state: SessionInvoicesDto) {
+function mockSession(state: Omit<SessionInvoicesDto, 'payerInvoice'> & Partial<SessionInvoicesDto>) {
   vi.mocked(api.get).mockImplementation(
-    apiGet({ [`/consultations/${session.id}/invoices`]: state }) as never,
+    apiGet({ [`/consultations/${session.id}/invoices`]: { payerInvoice: null, ...state } }) as never,
   );
 }
 

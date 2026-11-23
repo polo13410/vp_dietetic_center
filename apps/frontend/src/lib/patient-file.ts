@@ -319,6 +319,7 @@ export const FILE_ANCHORS = {
   height: 'taille',
   timeline: 'frise',
   tasks: 'a-faire',
+  coverage: 'prise-en-charge',
 } as const;
 
 /** The block of a section of the medical file (« #allergies », « #aversions »…). */

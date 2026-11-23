@@ -5,7 +5,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import type { InvoiceDto } from '@vp/types';
 import { describe, expect, it } from 'vitest';
 
-import { bilanInvoice, creditNote, replacement } from '../../test/invoice-fixtures';
+import { bilanInvoice, coveredInvoice, creditNote, payerInvoice, replacement } from '../../test/invoice-fixtures';
 
 import { InvoicePdfDocument } from './InvoicePdfDocument';
 
@@ -71,6 +71,41 @@ describe('InvoicePdfDocument', () => {
     expect(text).toContain('N° A-2026-0001');
     expect(text).toContain('Annule la facture n° 2026-0010 du 23 octobre 2026');
     expect(text).toContain('-50,00 €');
+  });
+
+  it('bills the patient part, with « dont … pris en charge par … » (lot 16)', async () => {
+    const { text } = await render(coveredInvoice);
+    for (const mention of [
+      '60,00 €',
+      'Remise (tarif solidaire)',
+      '-10,00 €',
+      'Net',
+      'dont 30,00 € pris en charge par Mutuelle Horizon Santé',
+      'Reste à votre charge',
+      '20,00 €',
+    ]) {
+      expect(text).toContain(mention);
+    }
+  });
+
+  it('prints a payer invoice: the payer, the period and its sessions, nothing medical', async () => {
+    const { raw, text } = await render(payerInvoice);
+    expect(raw.match(/\/Type \/Page\b/g)).toHaveLength(1);
+    for (const mention of [
+      'ORGANISME',
+      'Mutuelle Horizon Santé',
+      '13001 Marseille',
+      'N° 2026-0017',
+      'Séances du 1er novembre 2026 au 30 novembre 2026',
+      'Convention : CONV-2026-114',
+      'Martine Roux',
+      'PEC-0042',
+      'Paul Garcia',
+      '50,00 €',
+    ]) {
+      expect(text).toContain(mention);
+    }
+    expect(text).not.toContain('Acquittée');
   });
 
   it('prints the invoice a corrected one replaces', async () => {

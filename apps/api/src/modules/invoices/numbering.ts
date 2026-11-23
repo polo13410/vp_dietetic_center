@@ -49,3 +49,11 @@ export async function nextInvoiceNumber(
   const sequence = (last._max.sequence ?? 0) + 1;
   return { year, sequence, number: formatInvoiceNumber(type, year, sequence) };
 }
+
+/** Midnight in Paris (UTC+1 in winter, UTC+2 in summer) of a day ("2026-11-22"), as an instant. */
+export function parisStartOfDay(day: string): Date {
+  const [year, month, date] = day.split('-').map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, date);
+  const summer = new Date(utcMidnight - 2 * 3600_000);
+  return parisDay(summer) === day ? summer : new Date(utcMidnight - 3600_000);
+}

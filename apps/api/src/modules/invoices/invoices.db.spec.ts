@@ -15,6 +15,7 @@ import { ConsultationsService } from '../patient-file/consultations.service';
 
 import { InvoicesService } from './invoices.service';
 import { nextInvoiceNumber } from './numbering';
+import { PayerInvoicesService } from './payer-invoices.service';
 
 const url = process.env.TEST_DATABASE_URL;
 
@@ -28,7 +29,7 @@ describe.skipIf(!url)('invoices on a real database', () => {
   beforeAll(async () => {
     prisma = new PrismaClient({ datasourceUrl: url });
     const access = new PatientAccessService(prisma as any);
-    invoices = new InvoicesService(prisma as any, access);
+    invoices = new InvoicesService(prisma as any, access, new PayerInvoicesService(prisma as any, access));
     sessions = new ConsultationsService(prisma as any, access, invoices);
     appointments = new AppointmentsService(prisma as any, access);
   });

@@ -90,7 +90,14 @@ export class PatientFileService {
       this.prisma.appointment.findFirst({
         where: { patientId, startAt: { gte: now }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
         orderBy: { startAt: 'asc' },
-        select: { id: true, startAt: true, duration: true, type: true, reason: true },
+        select: {
+          id: true,
+          startAt: true,
+          duration: true,
+          type: true,
+          reason: true,
+          formula: { select: { id: true, label: true } },
+        },
       }),
       this.prisma.measurement.findMany({
         where: { patientId },

@@ -31,7 +31,12 @@ export class DashboardService {
     const [todayAppointments, followUps, tasks] = await Promise.all([
       this.prisma.appointment.findMany({
         where: { ...this.access.appointmentScope(user), startAt: { gte: startOfDay, lt: endOfDay } },
-        include: { patient: PATIENT, consultation: { select: { id: true } } },
+        include: {
+          patient: PATIENT,
+          consultation: { select: { id: true } },
+          formula: { select: { id: true, label: true } },
+          practice: { select: { id: true, name: true } },
+        },
         orderBy: { startAt: 'asc' },
       }),
       this.followUps(user, now),

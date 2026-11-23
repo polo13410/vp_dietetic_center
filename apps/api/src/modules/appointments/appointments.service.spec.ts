@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -134,14 +134,159 @@ describe('AppointmentsService', () => {
         id: 'a1',
         practitionerId: 'pract-1',
         patientId: 'p1',
+        startAt: new Date('2026-12-02T10:00:00Z'),
         duration: 30,
+        type: 'IN_PERSON',
+        formulaId: 'f-of-pract-1',
+        practiceId: 'pr-of-pract-1',
       });
       mockAccess.assertPatient.mockResolvedValueOnce({ practitionerId: 'pract-2' });
+      mockPrisma.practice.findFirst.mockResolvedValue({ id: 'pr-of-pract-2' });
       mockPrisma.appointment.update.mockResolvedValue({});
 
       await service.update('a1', { patientId: 'p2' }, assistant as any);
 
-      expect(mockPrisma.appointment.update.mock.calls[0][0].data.practitionerId).toBe('pract-2');
+      // Her own type and practice, not the previous practitioner's
+      expect(mockPrisma.appointment.update.mock.calls[0][0].data).toMatchObject({
+        practitionerId: 'pract-2',
+        formulaId: null,
+        practiceId: 'pr-of-pract-2',
+      });
+    });
+  });
+
+  describe('type of appointment and practice', () => {
+    const suivi = { id: 'f-suivi', practitionerId: 'user-1', label: 'Suivi', durationMinutes: 45, archivedAt: null };
+    const marseille = { id: 'pr-marseille', practitionerId: 'user-1', archivedAt: null };
+    const base = { patientId: 'p1', startAt: '2026-12-01T10:00:00.000Z', type: 'IN_PERSON' as any };
+    const created = () => mockPrisma.appointment.create.mock.calls[0][0].data;
+
+    beforeEach(() => {
+      mockPrisma.appointment.create.mockResolvedValue({ id: 'a1' });
+      mockPrisma.formula.findUnique.mockResolvedValue(suivi);
+      mockPrisma.practice.findUnique.mockResolvedValue(marseille);
+      mockPrisma.practice.findFirst.mockResolvedValue({ id: 'pr-aix' });
+    });
+
+    it('takes the duration of the type, and places it in her default practice', async () => {
+      await service.create({ ...base, formulaId: 'f-suivi' }, user as any);
+      expect(created()).toMatchObject({
+        formulaId: 'f-suivi',
+        duration: 45,
+        endAt: new Date('2026-12-01T10:45:00.000Z'),
+        practiceId: 'pr-aix',
+        reason: null,
+      });
+    });
+
+    it('keeps a duration changed by hand, the practice chosen and the note', async () => {
+      await service.create(
+        { ...base, formulaId: 'f-suivi', duration: 60, practiceId: 'pr-marseille', reason: 'Apporter ses analyses' },
+        user as any,
+      );
+      expect(created()).toMatchObject({
+        duration: 60,
+        practiceId: 'pr-marseille',
+        reason: 'Apporter ses analyses',
+      });
+    });
+
+    it('takes place in no practice by video or phone', async () => {
+      await service.create({ ...base, type: 'VIDEO' as any, formulaId: 'f-suivi', practiceId: 'pr-marseille' }, user as any);
+      expect(created()).toMatchObject({ type: 'VIDEO', practiceId: null });
+      expect(mockPrisma.practice.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("refuses another practitioner's or an archived type or practice", async () => {
+      mockPrisma.formula.findUnique.mockResolvedValueOnce({ ...suivi, practitionerId: 'other' });
+      await expect(service.create({ ...base, formulaId: 'f-suivi' }, user as any)).rejects.toThrow(BadRequestException);
+      mockPrisma.formula.findUnique.mockResolvedValueOnce({ ...suivi, archivedAt: new Date() });
+      await expect(service.create({ ...base, formulaId: 'f-suivi' }, user as any)).rejects.toThrow(BadRequestException);
+      mockPrisma.practice.findUnique.mockResolvedValueOnce({ ...marseille, practitionerId: 'other' });
+      await expect(
+        service.create({ ...base, duration: 45, practiceId: 'pr-marseille' }, user as any),
+      ).rejects.toThrow(BadRequestException);
+      mockPrisma.practice.findUnique.mockResolvedValueOnce({ ...marseille, archivedAt: new Date() });
+      await expect(
+        service.create({ ...base, duration: 45, practiceId: 'pr-marseille' }, user as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.appointment.create).not.toHaveBeenCalled();
+    });
+
+    it('asks for a duration when there is neither a type nor one typed', async () => {
+      await expect(service.create(base, user as any)).rejects.toThrow('Indiquez la durée en minutes.');
+    });
+
+    describe('update', () => {
+      const booked = {
+        id: 'a1',
+        practitionerId: 'user-1',
+        patientId: 'p1',
+        startAt: new Date('2026-12-01T10:00:00.000Z'),
+        duration: 60,
+        type: 'IN_PERSON',
+        formulaId: 'f-bilan',
+        practiceId: 'pr-marseille',
+      };
+      const updated = () => mockPrisma.appointment.update.mock.calls[0][0].data;
+      beforeEach(() => {
+        mockPrisma.appointment.findUnique.mockResolvedValue(booked);
+        mockPrisma.appointment.update.mockResolvedValue({});
+      });
+
+      it('another type gives its duration and the new end', async () => {
+        await service.update('a1', { formulaId: 'f-suivi' }, user as any);
+        expect(updated()).toMatchObject({ formulaId: 'f-suivi', duration: 45, endAt: new Date('2026-12-01T10:45:00.000Z') });
+      });
+
+      it('keeps its type, duration and practice when only moved, even if no longer offered', async () => {
+        await service.update('a1', { startAt: '2026-12-03T14:00:00.000Z' }, user as any);
+        expect(updated()).toMatchObject({
+          formulaId: 'f-bilan',
+          duration: 60,
+          practiceId: 'pr-marseille',
+          endAt: new Date('2026-12-03T15:00:00.000Z'),
+        });
+        expect(mockPrisma.formula.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.practice.findUnique).not.toHaveBeenCalled();
+      });
+
+      it('leaves the practice when it becomes a phone appointment, and gets the default one back in person', async () => {
+        await service.update('a1', { type: 'PHONE' as any }, user as any);
+        expect(updated()).toMatchObject({ type: 'PHONE', practiceId: null });
+
+        mockPrisma.appointment.findUnique.mockResolvedValue({ ...booked, type: 'PHONE', practiceId: null });
+        await service.update('a1', { type: 'IN_PERSON' as any }, user as any);
+        expect(mockPrisma.appointment.update.mock.calls[1][0].data).toMatchObject({ practiceId: 'pr-aix' });
+      });
+    });
+  });
+
+  describe('options', () => {
+    it("gives her offered types (with their duration) and active practices, default first", async () => {
+      mockPrisma.formula.findMany.mockResolvedValue([{ id: 'f1' }]);
+      mockPrisma.practice.findMany.mockResolvedValue([{ id: 'pr1' }]);
+      await expect(service.options(user as any)).resolves.toEqual({ formulas: [{ id: 'f1' }], practices: [{ id: 'pr1' }] });
+      expect(mockPrisma.formula.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { practitionerId: 'user-1', archivedAt: null } }),
+      );
+      expect(mockPrisma.practice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { practitionerId: 'user-1', archivedAt: null },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        }),
+      );
+    });
+
+    it("gives an assistant those of the patient's practitioner, nothing before a patient is chosen", async () => {
+      const assistant = createMockUser({ id: 'assist-1', role: 'ASSISTANTE' });
+      await expect(service.options(assistant as any)).resolves.toEqual({ formulas: [], practices: [] });
+      mockAccess.assertPatient.mockResolvedValueOnce({ practitionerId: 'pract-1' });
+      mockPrisma.formula.findMany.mockResolvedValue([]);
+      mockPrisma.practice.findMany.mockResolvedValue([]);
+      await service.options(assistant as any, 'p1');
+      expect(mockAccess.assertPatient).toHaveBeenCalledWith(assistant, 'p1', 'record');
+      expect(mockPrisma.formula.findMany.mock.calls[0][0].where.practitionerId).toBe('pract-1');
     });
   });
 

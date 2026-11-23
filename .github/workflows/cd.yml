@@ -233,7 +233,6 @@ jobs:
 
           docker build \
             --target production \
-            --build-arg VITE_APP_NAME="VP Dietetic Center" \
             --build-arg VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
             --tag "$IMAGE" \
             --tag "$IMAGE_ENV" \

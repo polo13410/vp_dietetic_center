@@ -26,9 +26,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
 COPY . .
 
-ARG VITE_APP_NAME="VP Dietetic Center"
 ARG VITE_GOOGLE_CLIENT_ID
-ENV VITE_APP_NAME=$VITE_APP_NAME
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
 WORKDIR /app/apps/frontend

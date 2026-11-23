@@ -123,7 +123,10 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
 
   it('places her sessions and in-person appointments in it, not the video ones', async () => {
     const practice = await db.practice.findFirstOrThrow({ where: { practitionerId: 'u-val' } });
-    expect(await db.consultation.findUnique({ where: { id: 'c-1' } })).toMatchObject({ practiceId: practice.id });
+    // Only the columns of that time: later migrations (lot 16) added others
+    expect(await db.consultation.findUnique({ where: { id: 'c-1' }, select: { practiceId: true } })).toMatchObject({
+      practiceId: practice.id,
+    });
     expect(await db.appointment.findUnique({ where: { id: 'a-cab' } })).toMatchObject({
       practiceId: practice.id,
       formulaId: null,
@@ -141,7 +144,11 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
   });
 
   it('leaves issued invoices as they were', async () => {
-    expect(await db.invoice.findUnique({ where: { id: 'i-1' } })).toMatchObject({
+    const invoice = await db.invoice.findUnique({
+      where: { id: 'i-1' },
+      select: { number: true, practiceAddress: true, practiceCity: true, siret: true, amountCents: true },
+    });
+    expect(invoice).toMatchObject({
       number: '2026-0001',
       practiceAddress: '12 rue des Oliviers',
       practiceCity: 'Aix-en-Provence',

@@ -113,9 +113,9 @@ export interface UserDto {
   updatedAt: string;
 }
 
+/** No password: the person signs in with the Google account of this address. */
 export interface CreateUserDto {
   email: string;
-  password: string;
   firstName: string;
   lastName: string;
   role: UserRole;
@@ -142,9 +142,6 @@ export interface MeDto {
   lastName: string;
   phone: string | null;
   role: UserRole;
-  /** False for an account that only signs in with Google */
-  hasPassword: boolean;
-  googleLinked: boolean;
   theme: Theme;
 }
 
@@ -197,11 +194,6 @@ export interface UpdateFormulaDto {
 export interface RemoveFormulaResult {
   deleted: boolean;
   formula: FormulaDto | null;
-}
-
-export interface ChangePasswordDto {
-  currentPassword: string;
-  newPassword: string;
 }
 
 // ─── Patient ──────────────────────────────────────────────────────────────────

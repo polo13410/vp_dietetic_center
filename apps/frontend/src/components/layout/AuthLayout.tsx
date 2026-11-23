@@ -1,4 +1,3 @@
-import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
 
@@ -37,29 +36,5 @@ export function AuthError({ children }: { children: ReactNode }) {
     <p role="alert" className="rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-base text-danger">
       {children}
     </p>
-  );
-}
-
-/** The end of a signed-out flow: an icon, what happened, and where to go next. */
-export function AuthDone({
-  icon: Icon,
-  title,
-  children,
-  action,
-}: {
-  icon: LucideIcon;
-  title: string;
-  children: ReactNode;
-  action: ReactNode;
-}) {
-  return (
-    <div className="space-y-4 text-center">
-      <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-success-soft text-success" aria-hidden>
-        <Icon className="size-7" />
-      </span>
-      <h1 className="text-xl font-semibold">{title}</h1>
-      <p className="text-base text-muted-foreground">{children}</p>
-      {action}
-    </div>
   );
 }

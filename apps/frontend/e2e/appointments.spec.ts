@@ -1,12 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+import { signIn } from './sign-in';
+
 test.describe('Appointments', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'admin@vp-dietetic.fr');
-    await page.fill('input[type="password"]', 'Admin123!');
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/, { timeout: 5000 }).catch(() => {});
+    await signIn(page);
   });
 
   test('displays appointments page', async ({ page }) => {

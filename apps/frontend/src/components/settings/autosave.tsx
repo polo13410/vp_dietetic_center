@@ -18,8 +18,7 @@ import { Textarea } from '../ui/textarea';
 /**
  * The settings page saves every change by itself (docs/REFONTE.md § 2, principle 3): a field
  * is saved when the user leaves it or stops typing, a choice as soon as it is made. Each
- * section shows where its saving stands. Only actions keep a button (add a formula, change
- * the password).
+ * section shows where its saving stands. Only actions keep a button (add a formula).
  */
 export type SaveState =
   | { status: 'idle' }

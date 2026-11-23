@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
-  ChangePasswordDto,
   CreateFormulaDto,
   FormulaDto,
   MeDto,
@@ -75,14 +74,6 @@ export function useThemeFromAccount() {
   useEffect(() => {
     if (serverTheme && serverTheme !== useThemeStore.getState().theme) setTheme(serverTheme);
   }, [serverTheme, setTheme]);
-}
-
-export function useChangePassword() {
-  return useMutation({
-    mutationFn: async (dto: ChangePasswordDto) => {
-      await api.post('/auth/change-password', dto);
-    },
-  });
 }
 
 // ─── Practice ─────────────────────────────────────────────────────────────────

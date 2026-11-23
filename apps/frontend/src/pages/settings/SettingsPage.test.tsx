@@ -25,8 +25,6 @@ const practitioner: MeDto = {
   lastName: 'Perrot',
   phone: '06 12 34 56 78',
   role: 'PRATICIENNE' as MeDto['role'],
-  hasPassword: true,
-  googleLinked: false,
   theme: 'SYSTEM',
 };
 
@@ -101,7 +99,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
     }
     expect(screen.getByDisplayValue('06 12 34 56 78')).toBeInTheDocument();
-    expect(screen.getByText('valerie@example.fr')).toBeInTheDocument();
+    expect(section('Mon profil').getByText('valerie@example.fr')).toBeInTheDocument();
     expect(screen.getByDisplayValue('91234567800011')).toBeInTheDocument();
     expect(screen.getByDisplayValue('139512345')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Bilan')).toBeInTheDocument();
@@ -210,54 +208,20 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/me/formulas/f3', { archived: false }));
   });
 
-  it('changes the password after checking the two new ones match', async () => {
+  it('only explains that she signs in with her Google account, with no password to change', async () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Sécurité' });
     const security = section('Sécurité');
-    fireEvent.change(security.getByLabelText('Mot de passe actuel'), { target: { value: 'Ancien1' } });
-    fireEvent.change(security.getByLabelText('Nouveau mot de passe'), {
-      target: { value: 'Nouveau-mdp2' },
-    });
-    fireEvent.change(security.getByLabelText('Nouveau mot de passe, encore une fois'), {
-      target: { value: 'Autre-mdp2' },
-    });
-    fireEvent.click(security.getByRole('button', { name: 'Changer le mot de passe' }));
-    expect(await security.findByText('Les deux mots de passe ne sont pas identiques.')).toBeInTheDocument();
-    expect(api.post).not.toHaveBeenCalled();
-
-    fireEvent.change(security.getByLabelText('Nouveau mot de passe, encore une fois'), {
-      target: { value: 'Nouveau-mdp2' },
-    });
-    fireEvent.click(security.getByRole('button', { name: 'Changer le mot de passe' }));
-    await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/auth/change-password', {
-        currentPassword: 'Ancien1',
-        newPassword: 'Nouveau-mdp2',
-      }),
+    expect(
+      security.getByText(/Vous vous connectez avec votre compte Google/).textContent,
+    ).toBe(
+      'Vous vous connectez avec votre compte Google valerie@example.fr. Pour plus de sécurité, activez la validation en deux étapes sur ce compte.',
     );
-    expect(await security.findByText(/Vos autres appareils ont été déconnectés/)).toBeInTheDocument();
-  });
-
-  it('shows the API’s answer when the current password is wrong', async () => {
-    renderPage();
-    api.post.mockRejectedValueOnce({ response: { data: { message: 'Le mot de passe actuel n’est pas le bon.' } } });
-    await screen.findByRole('heading', { name: 'Sécurité' });
-    const security = section('Sécurité');
-    fireEvent.change(security.getByLabelText('Mot de passe actuel'), { target: { value: 'Faux1' } });
-    fireEvent.change(security.getByLabelText('Nouveau mot de passe'), {
-      target: { value: 'Nouveau-mdp2' },
-    });
-    fireEvent.change(security.getByLabelText('Nouveau mot de passe, encore une fois'), {
-      target: { value: 'Nouveau-mdp2' },
-    });
-    fireEvent.click(security.getByRole('button', { name: 'Changer le mot de passe' }));
-    expect(await security.findByText('Le mot de passe actuel n’est pas le bon.')).toBeInTheDocument();
-  });
-
-  it('tells a Google-only account it has no password to change', async () => {
-    renderPage({ ...practitioner, hasPassword: false, googleLinked: true });
-    expect(await screen.findByText(/Vous vous connectez avec Google/)).toBeInTheDocument();
-    expect(screen.queryByLabelText('Mot de passe actuel')).not.toBeInTheDocument();
+    const link = security.getByRole('link', { name: /validation en deux étapes/ });
+    expect(link).toHaveAttribute('href', 'https://myaccount.google.com/signinoptions/two-step-verification');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.queryByText(/mot de passe/i)).not.toBeInTheDocument();
+    expect(security.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('applies and saves the chosen appearance', async () => {

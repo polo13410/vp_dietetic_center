@@ -80,7 +80,8 @@ Formules confirmées sur sa feuille Numbers (2026-11-22) :
 
 - Catégories d'IMC inchangées (`apps/api/src/modules/patient-file/bmi.ts`).
 - Âge : dans sa feuille, c'est un nombre saisi une fois au bilan. Dans l'app, il est calculé depuis la date de naissance, à la date de chaque séance (plus juste sur un suivi long). Si elle ne connaît que l'âge, le champ « date de naissance » permet de saisir « âge : 56 » à la place ; l'app enregistre alors l'année de naissance estimée et l'indique (« 56 ans, âge déclaré »).
-- Taille = dernière taille connue.
+- Taille = dernière taille connue **à la date de la mesure ou de la séance** (pas la dernière tout court) : elle suit les enfants et ados en croissance, et un poids ancien se calcule avec la taille de l'époque.
+- **Moins de 18 ans** (elle suit des enfants et des ados, confirmé le 2026-11-23) : l'IMC s'affiche sans les catégories adultes ; il est placé sur une courbe de corpulence avec les seuils IOTF (Cole et al. 2000 pour surpoids/obésité, Cole et al. 2007 pour la minceur), données reprises des tables publiées et citées dans le code, jamais inventées. La formule de Black est une formule adulte : avant 18 ans, le MB s'affiche avec la mention « formule adulte » (question pour Valérie, § 5).
 - Si sexe, âge ou taille manquent : pas de calcul, et l'interface dit ce qui manque (« Ajoutez la taille pour calculer l'IMC »).
 - **Cas de test obligatoire** (tiré de sa feuille) : femme, 56 ans, 1,59 m, 79 kg → IMC 31,25 · MB 5,86 MJ · 1 400,3 kcal. Puis 78,2 kg → 5,83 MJ · 1 393,5 kcal ; 76,5 kg → 5,77 MJ · 1 378,9 kcal.
 
@@ -359,6 +360,79 @@ Contexte : c'est la tâche qu'elle redoute. Elle doit recouper sa feuille, ses n
 
 ---
 
+### Deuxième passe — retours du 2026-11-23
+
+Après les lots 0 à 8 et 10, retours sur staging. À faire avant les lots 9 et 11.
+
+Ordre :
+
+```
+Lot 12 Bugs ────────────────────┐
+Lot 13 Fiche patient et mesures ├─► Lot 15 Cabinets et types de RDV ─► Lot 16 Remise et tiers payant ─► Lots 9, 11
+Lot 14 Connexion Google seule ──┘
+```
+
+#### Lot 12 — Bugs
+
+- **Téléchargement des PDF impossible** (factures ; vérifier aussi le compte rendu au médecin et l'export du dossier, même moteur) : l'appel à l'API renvoie bien les données, mais aucun fichier n'arrive et rien ne s'affiche. Piste à vérifier en premier : le PDF est fabriqué dans le navigateur par `@react-pdf/renderer`, dont le moteur de mise en page (yoga) est en WebAssembly ; la CSP de `apps/frontend/nginx.conf` n'autorise pas `'wasm-unsafe-eval'`, et en local (Vite, sans nginx) tout marche. Reproduire avec l'image nginx de production (docker compose), corriger à la racine (CSP minimale nécessaire, jamais `'unsafe-eval'`), et faire en sorte qu'un échec affiche toujours un message.
+- **Double défilement sur Paramètres** : la page défile dans son conteneur et la page entière défile aussi, barre latérale comprise. Un seul défilement, celui du contenu, comme sur les autres pages ; vérifier qu'aucune autre page n'a le problème.
+- Fini quand : une facture, un avoir, un compte rendu et l'export du dossier se téléchargent depuis l'image de production ; Paramètres défile comme les autres pages.
+
+#### Lot 13 — Fiche patient : un récapitulatif qui se lit, des modifications qui se font ailleurs
+
+Constat : « Pour aller plus loin » mélange les logiques. « Mesures complémentaires → Modifier » ouvre une fenêtre, « Aversions / goûts → Modifier » emmène à l'onglet Dossier médical. Et on ne peut pas saisir de mesure à une date passée (« à cette époque je faisais 70 kg, puis tel événement, j'ai pris 8 kg en 6 mois »), ni suivre la taille d'un enfant.
+
+Règle : **le Récapitulatif se lit, il ne se modifie pas.** Chaque bloc du récapitulatif a un lien « Modifier » qui emmène à l'onglet qui possède la donnée, à l'endroit de la donnée. Plus aucune fenêtre de modification pour les données du dossier.
+
+- Onglets : Récapitulatif · Dossier médical · **Mesures** (nouveau) · Suivi · Factures · Documents.
+- Supprimer l'accordéon « Pour aller plus loin » : ce qu'il contenait est affiché dans le récapitulatif (en lecture) ou rangé dans l'onglet qui le possède :
+  - mesures complémentaires → onglet Mesures ;
+  - tâches → onglet Suivi (« À faire pour ce patient ») et un résumé lisible dans le récapitulatif ;
+  - historique des accès, export du dossier en PDF, archiver → menu « … » de l'en-tête de la fiche.
+- **Onglet Mesures** : une frise unique, du plus récent au plus ancien, avec le poids, la taille, les mesures complémentaires et les faits marquants. « Ajouter une mesure » à n'importe quelle date (y compris avant le suivi), avec une note facultative (« avant sa grossesse », « pendant le traitement »). Chaque ligne se corrige ou se supprime sur place. Les mesures prises en séance y apparaissent avec le lien vers la séance. La courbe de poids (et de taille si elle change) est en haut ; avant 18 ans, la courbe de corpulence de § 3.1.
+- L'IMC et le MB de chaque mesure utilisent la taille connue à sa date (§ 3.1).
+- Fini quand : le récapitulatif n'a plus de champ modifiable ni de fenêtre de modification, chaque « Modifier » mène au bon onglet, on peut saisir l'histoire du poids d'un patient avant son bilan et la voir sur la courbe, et la taille d'un enfant suit sa croissance.
+
+#### Lot 14 — Connexion avec Google uniquement
+
+Décision du 2026-11-23 : plus de mot de passe. On s'appuie sur la sécurité du compte Google (validation en deux étapes conseillée à chaque praticienne).
+
+- Supprimer : connexion par e-mail et mot de passe (stratégie locale, hachage, verrouillage après échecs), mot de passe oublié et réinitialisation (pages, routes, jetons), changement de mot de passe dans Paramètres, et le module d'envoi d'e-mails (plus aucun e-mail n'est envoyé). Retirer les variables SMTP de l'API et de `infra/terraform` ; le propriétaire applique Terraform lui-même.
+- Garder : seule une adresse déjà enregistrée et active peut se connecter (jamais de création de compte à la connexion), e-mail Google vérifié obligatoire, session de 10 h, journal des connexions.
+- Paramètres > Sécurité devient une simple information : « Vous vous connectez avec votre compte Google (adresse). Pour plus de sécurité, activez la validation en deux étapes sur ce compte. » avec le lien vers la page Google.
+- La page de connexion n'a plus qu'un bouton « Se connecter avec Google », gros et clair.
+- **Développement local et tests de bout en bout** : prévoir un moyen de se connecter sans Google, qui ne peut **pas** être activé sur staging ou prod (refusé au démarrage si l'environnement n'est pas local/test, avec un test qui le prouve). Mettre à jour `create-user.cjs`, le seed, les README et `docs/PLAN.md` (§ 5).
+- Fini quand : aucune route, page ou colonne de mot de passe ne reste, la connexion Google marche, l'accès de développement est impossible à activer en production.
+
+#### Lot 15 — Plusieurs cabinets et types de rendez-vous
+
+Elle peut consulter dans plusieurs cabinets. Et le motif d'un rendez-vous, c'est en fait un type de séance avec son tarif et sa durée.
+
+- **Cabinets** : nouveau modèle (praticienne, nom, adresse, téléphone facultatif, SIRET facultatif s'il diffère de celui de l'activité, par défaut oui/non, archivé). L'identité de l'activité reste dans `PractitionerProfile` (nom affiché, SIRET, ADELI/RPPS, mention TVA, pied de facture) ; l'adresse passe au cabinet. Paramètres : section « Mes cabinets » (ajouter, modifier, choisir celui par défaut, archiver). Au moins un cabinet par praticienne, créé avec l'adresse actuelle.
+- **Types de rendez-vous** = les formules de « Mes tarifs », avec en plus une **durée** (ex. Bilan 60 €, 1 h ; Suivi 50 €, 45 min).
+- **Prise de rendez-vous** : « Type de rendez-vous » est un sélecteur des formules (fini le motif en texte libre ; une note facultative reste possible). Choisir un type remplit la durée, qui reste modifiable. « Cabinet » : sélecteur affiché seulement s'il y en a plusieurs, pré-rempli avec celui par défaut, masqué pour une consultation en visio ou par téléphone.
+- La séance créée depuis un rendez-vous reprend son type (formule et prix) et son cabinet. La facture reprend l'adresse et, s'il y en a un, le SIRET du cabinet de la séance.
+- Agenda : le type et, s'il y a plusieurs cabinets, le cabinet sont visibles sur chaque rendez-vous.
+- Fini quand : un rendez-vous se prend en trois choix (patient, type, créneau), la durée suit le type, la facture porte l'adresse du bon cabinet.
+
+#### Lot 16 — Remise et tiers payant
+
+Deux réalités de son cabinet : elle fait parfois un geste pour un patient qui ne peut pas payer, et certains patients ont un organisme qui paie tout ou partie (mutuelle, employeur, association, convention…).
+
+**Remise** (le terme d'usage sur une facture)
+- Sur la séance : remise en euros ou en %, avec un motif facultatif (« geste », « tarif solidaire »…). Pré-remplie avec celle de la séance précédente du patient, pour ne pas la ressaisir.
+- La facture affiche le prix, la remise et le net à payer (la remise doit figurer sur la facture). Une remise de 100 % = séance offerte : pas de facture à faire, et elle ne figure pas dans « Factures à faire ».
+
+**Tiers payant**
+- **Organismes** : gérés dans un 2e onglet « Organismes » de la page Factures (décision du 2026-11-23). Un organisme a : nom, adresse, contact, référence de convention, rythme de facturation (tous les mois, tous les N mois, ou à la demande), notes.
+- **Prise en charge** d'un patient (dans sa fiche, onglet Factures, bloc lisible dans le récapitulatif) : organisme, part prise en charge en euros **ou** en % par séance (au choix, décision du 2026-11-23), nombre de séances et période couverts (facultatifs), numéro de prise en charge.
+- Calcul par séance : prix de la formule − remise = net ; part de l'organisme (plafonnée au net, et arrêtée quand le nombre de séances ou la période est dépassé) ; le patient paie le reste.
+- **Facture du patient** : seulement sa part, avec la mention « dont X € pris en charge par (organisme) ». Si l'organisme paie tout, pas de facture patient.
+- **Facture de l'organisme** : groupée par période. Dans l'onglet Organismes, chaque organisme montre la prochaine période à facturer selon son rythme ; « Préparer la facture » propose la période (modifiable : dates de début et de fin), affiche les séances incluses, puis l'émet. Contenu : par séance, la date, le patient, la prestation et le montant pris en charge, rien de médical. Même numérotation continue que les factures patients (une seule série de factures) ; corrections par avoir comme au lot 5.
+- Suivi du règlement : une facture d'organisme est « en attente » jusqu'à ce qu'on indique « réglée le … ». Le tableau de bord signale les périodes terminées à facturer et les factures en attente depuis plus de 60 jours.
+- Totaux et export CSV de la page Factures : distinguer ce qui est payé par les patients et par les organismes.
+- Fini quand : une séance avec remise et tiers payant donne la bonne facture patient, la facture groupée d'un organisme sur une période choisie reprend exactement les bonnes séances, les tests couvrent les plafonds (montant, %, nombre de séances, période).
+
 ### Lot 11 — Recette avec Valérie
 
 La refonte fait des choix sur sa pratique (§ 2.1) : c'est elle qui les valide.
@@ -389,5 +463,7 @@ Déjà tranché : le « Compte rendu : À faire » est bien celui au médecin tr
 
 7. Moyens de paiement : espèces, chèque, carte, virement — en manque-t-il ?
 8. Mention TVA, numérotation, avoir ou simple annulation : à vérifier avec son comptable.
-9. Envoi de la facture par e-mail au patient : utile ? (pas prévu ici ; Brevo est déjà branché, ce serait un petit lot de plus.)
+9. Envoi de la facture par e-mail au patient (ou à un organisme) : utile ? Pas prévu ici ; le lot 14 retire l’envoi d’e-mails, il faudrait le remettre (Brevo est toujours configuré côté domaine).
 10. Jours de consultation : travaille-t-elle le samedi ou le dimanche ? (le lot 0 affiche les 7 jours dans tous les cas.)
+11. Enfants : quelle formule de MB utilisez-vous avant 18 ans (Black est une formule adulte ; Schofield est courante chez l'enfant) ? Et quelles courbes de corpulence (IOTF, carnet de santé) ?
+12. Tiers payant : quels organismes rencontrez-vous, et ont-ils un format de facture imposé ?

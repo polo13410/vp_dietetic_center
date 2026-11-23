@@ -10,8 +10,6 @@ import { ADMIN_ROLES, CLINICAL_ROLES, PRACTITIONER_ROLES } from './lib/roles';
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PatientsListPage = lazy(() => import('./pages/patients/PatientsListPage'));
 const PatientDetailPage = lazy(() => import('./pages/patients/PatientDetailPage'));
@@ -33,8 +31,6 @@ export function AppRouter() {
         {/* Auth routes */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         {/* App routes — protégées */}

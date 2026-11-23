@@ -11,8 +11,6 @@ const user = {
   lastName: 'Perrot',
   phone: null,
   role: 'PRATICIENNE',
-  passwordHash: '$2b$12$hash',
-  googleId: null,
   preferences: null,
 };
 
@@ -25,7 +23,7 @@ describe('MeService', () => {
     mockPrisma.user.findUniqueOrThrow.mockResolvedValue(user);
   });
 
-  it('says whether there is a password, never giving the hash', async () => {
+  it('gives her profile, with the theme by default', async () => {
     const profile = await service.getProfile('user-1');
     expect(profile).toEqual({
       id: 'user-1',
@@ -34,21 +32,14 @@ describe('MeService', () => {
       lastName: 'Perrot',
       phone: null,
       role: 'PRATICIENNE',
-      hasPassword: true,
-      googleLinked: false,
       theme: 'SYSTEM',
     });
   });
 
-  it('recognises a Google-only account and the stored theme', async () => {
-    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({
-      ...user,
-      passwordHash: null,
-      googleId: 'google-sub',
-      preferences: { theme: 'DARK' },
-    });
+  it('gives the stored theme', async () => {
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ ...user, preferences: { theme: 'DARK' } });
     const profile = await service.getProfile('user-1');
-    expect(profile).toMatchObject({ hasPassword: false, googleLinked: true, theme: 'DARK' });
+    expect(profile).toMatchObject({ theme: 'DARK' });
   });
 
   it('saves the name and phone on the user, the theme in her preferences', async () => {

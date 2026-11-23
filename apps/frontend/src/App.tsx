@@ -23,7 +23,8 @@ const queryClient = new QueryClient({
 
 export function App() {
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    // The sign-in button in French (« Se connecter avec Google »)
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID} locale="fr">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AppRouter />

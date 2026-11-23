@@ -14,7 +14,7 @@ describe('UsersService default formulas', () => {
     mockPrisma.formula.count.mockResolvedValue(0);
   });
 
-  const dto = { email: 'new@example.fr', password: 'Motdepasse1', firstName: 'Anne', lastName: 'Roy' };
+  const dto = { email: 'new@example.fr', firstName: 'Anne', lastName: 'Roy' };
 
   it('gives a new practitioner the formulas « Bilan » and « Suivi » without a price', async () => {
     mockPrisma.user.create.mockResolvedValue({ id: 'u2', role: 'PRATICIENNE' });

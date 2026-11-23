@@ -214,11 +214,6 @@ resource "google_cloud_run_v2_service" "api" {
         value = "3"
       }
       env {
-        # Public address of the app (it serves the API at /api), used in emails
-        name  = "APP_URL"
-        value = local.app_url
-      }
-      env {
         name  = "GCS_BUCKET_NAME"
         value = google_storage_bucket.documents.name
       }
@@ -241,30 +236,6 @@ resource "google_cloud_run_v2_service" "api" {
           secret_key_ref {
             secret  = "${var.env}-jwt-secret"
             version = "latest"
-          }
-        }
-      }
-      # Emails (password resets) through Brevo's SMTP relay, once its credentials are stored
-      dynamic "env" {
-        for_each = var.smtp_enabled ? {
-          SMTP_HOST = "smtp-relay.brevo.com"
-          SMTP_PORT = "587"
-          SMTP_FROM = var.smtp_from
-        } : {}
-        content {
-          name  = env.key
-          value = env.value
-        }
-      }
-      dynamic "env" {
-        for_each = var.smtp_enabled ? { SMTP_USER = "smtp-user", SMTP_PASS = "smtp-password" } : {}
-        content {
-          name = env.key
-          value_source {
-            secret_key_ref {
-              secret  = env.value
-              version = "latest"
-            }
           }
         }
       }

@@ -20,23 +20,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
-const password = z
-  .string()
-  .min(8, 'Le mot de passe doit faire 8 caractères au moins.')
-  .regex(/[A-Z]/, 'Ajoutez au moins une majuscule.')
-  .regex(/\d/, 'Ajoutez au moins un chiffre.');
-
-const baseSchema = z.object({
+const schema = z.object({
   firstName: z.string().trim().min(1, 'Indiquez le prénom.'),
   lastName: z.string().trim().min(1, 'Indiquez le nom.'),
   email: z.string().email('L’adresse e-mail n’est pas valide.'),
   role: z.enum(UserRole),
 });
 
-const createSchema = baseSchema.extend({ password });
-const editSchema = baseSchema.extend({ password: password.or(z.literal('')) });
-
-type UserFormData = z.infer<typeof createSchema>;
+type UserFormData = z.infer<typeof schema>;
 
 // ─── Role labels ─────────────────────────────────────────────────────────────
 
@@ -75,12 +66,11 @@ export function UserFormDialog({
     reset,
     formState: { errors },
   } = useForm<UserFormData>({
-    resolver: zodResolver(isEdit ? editSchema : createSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       firstName: '',
       lastName: '',
       email: '',
-      password: '',
       role: UserRole.PRATICIENNE,
     },
   });
@@ -93,14 +83,12 @@ export function UserFormDialog({
               firstName: user.firstName,
               lastName: user.lastName,
               email: user.email,
-              password: '',
               role: user.role,
             }
           : {
               firstName: '',
               lastName: '',
               email: '',
-              password: '',
               role: UserRole.PRATICIENNE,
             },
       );
@@ -108,20 +96,7 @@ export function UserFormDialog({
   }, [open, user, reset]);
 
   const handleFormSubmit = (data: UserFormData) => {
-    if (isEdit) {
-      const payload: UpdateUserDto & { password?: string } = {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        role: data.role,
-      };
-      if (data.password) {
-        payload.password = data.password;
-      }
-      onSubmit(payload);
-    } else {
-      onSubmit(data);
-    }
+    onSubmit(data);
   };
 
   return (
@@ -132,7 +107,7 @@ export function UserFormDialog({
           <DialogDescription>
             {isEdit
               ? 'Les changements prennent effet à la prochaine connexion.'
-              : 'La personne se connectera avec cette adresse e-mail et ce mot de passe.'}
+              : 'La personne se connectera avec le compte Google de cette adresse, sans mot de passe.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,21 +121,13 @@ export function UserFormDialog({
             </Field>
           </div>
 
-          <Field label="Adresse e-mail" required error={errors.email?.message}>
-            <Input type="email" {...register('email')} autoComplete="off" />
-          </Field>
-
           <Field
-            label={isEdit ? 'Nouveau mot de passe' : 'Mot de passe'}
-            required={!isEdit}
-            hint={
-              isEdit
-                ? 'Laissez vide pour garder le mot de passe actuel.'
-                : '8 caractères au moins, dont une majuscule et un chiffre.'
-            }
-            error={errors.password?.message}
+            label="Adresse e-mail de son compte Google"
+            required
+            hint="L’adresse utilisée pour se connecter à Google (Gmail ou autre)."
+            error={errors.email?.message}
           >
-            <Input type="password" {...register('password')} autoComplete="new-password" />
+            <Input type="email" {...register('email')} autoComplete="off" />
           </Field>
 
           <Field label="Rôle" required hint={ROLE_HINT}>

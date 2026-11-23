@@ -50,7 +50,8 @@ Avant une séance, le **brief** rassemble l'essentiel : dernière séance et ses
 
 ### Décisions produit
 
-- Pas de rappels de rendez-vous aux patients pour l'instant. Seuls les e-mails de réinitialisation de mot de passe sont envoyés.
+- Pas de rappels de rendez-vous aux patients pour l'instant. L'app n'envoie aucun e-mail.
+- Connexion avec Google uniquement, sans mot de passe (décision du 2026-11-23, [REFONTE.md](REFONTE.md) lot 14).
 - Plusieurs praticiennes possibles, chacune ne voit que ses patients.
 - Budget d'hébergement visé : 16 CHF/mois maximum.
 
@@ -69,7 +70,7 @@ Firebase Hosting ──(rewrite **)──► Cloud Run « frontend » (nginx + b
                                        ├──► Cloud SQL PostgreSQL 15 (instance partagée, une base par env)
                                        ├──► Cloud Storage (documents patients)
                                        ├──► Secret Manager (secrets)
-                                       └──► Brevo SMTP (e-mails)
+                                       └──► Google (vérification des jetons de connexion)
 ```
 
 - **Même origine** : le navigateur ne parle qu'à l'app. nginx relaie `/api` vers l'API, donc pas de CORS et un cookie de session first-party.
@@ -86,7 +87,7 @@ Firebase Hosting ──(rewrite **)──► Cloud Run « frontend » (nginx + b
 | staging | `staging` | https://staging.app.dietetiquecenter.fr   | En ligne             |
 | prod    | `prod`    | https://app.dietetiquecenter.fr           | **Pas encore créée** |
 
-Le domaine `dietetiquecenter.fr` est chez LWS (site vitrine actuel). Les enregistrements DNS de l'app et de Brevo y sont ajoutés à la main ; `terraform output dns_records` donne ceux de l'app.
+Le domaine `dietetiquecenter.fr` est chez LWS (site vitrine actuel). Les enregistrements DNS de l'app y sont ajoutés à la main ; `terraform output dns_records` donne ceux de l'app.
 
 ---
 
@@ -95,7 +96,7 @@ Le domaine `dietetiquecenter.fr` est chez LWS (site vitrine actuel). Les enregis
 | Partie      | Outils                                                                                                  |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
 | Frontend    | React 19, Vite, TypeScript, React Router, TanStack Query, zustand, React Hook Form + zod, Tailwind CSS 4, shadcn/ui (Radix), Recharts, date-fns |
-| API         | Node.js 24, NestJS 11, Prisma 6, PostgreSQL 15, Passport (JWT, Google), class-validator, helmet, throttler, pino, Swagger, nodemailer |
+| API         | Node.js 24, NestJS 11, Prisma 6, PostgreSQL 15, Passport (JWT, Google), class-validator, helmet, throttler, pino, Swagger |
 | Tests       | Vitest (API et frontend), Playwright (scaffold, hors CI)                                                 |
 | Monorepo    | pnpm workspaces + Turborepo ; `packages/types` (types partagés), `packages/config` (ESLint, Prettier, TS) |
 | Infra       | Terraform (`infra/terraform`), script d'amorçage (`infra/bootstrap`), coupure budgétaire (`infra/budget-cutoff`) |
@@ -126,10 +127,10 @@ Rien n'est verrouillé : une séance passée se corrige comme celle du jour, le 
 
 ## 5. Authentification et sécurité
 
-- **Connexion** : e-mail + mot de passe, ou Google. 5 échecs bloquent le compte 15 minutes.
+- **Connexion** : avec Google uniquement, aucun mot de passe dans l'app. L'API vérifie le jeton d'identité Google (signature, client OAuth) et exige une adresse vérifiée par Google. Seul un compte déjà enregistré et actif peut se connecter : la connexion ne crée jamais de compte (les comptes sont créés par l'admin, ou par `create-user.cjs`). À la première connexion, le compte Google (`sub`) est rattaché à l'utilisateur. La sécurité repose sur celle du compte Google : la validation en deux étapes est conseillée dans Paramètres > Sécurité.
+- **Connexion de développement** : pour le développement local et les tests de bout en bout, `POST /api/v1/auth/dev-login` connecte un compte enregistré par son e-mail, avec les mêmes vérifications. La route n'existe qu'avec `DEV_LOGIN=true`, et l'API refuse de démarrer avec ce réglage hors `NODE_ENV=development`/`test` ou sur Cloud Run (staging et prod). Le formulaire n'est présent que dans le build de développement du frontend.
 - **Jetons** : jeton d'accès de 15 minutes, gardé en mémoire uniquement. Session de **10 heures** depuis la connexion (une journée de travail) dans le cookie httpOnly `__session` (chemin `/api/v1/auth`). Chaque rafraîchissement fait tourner le jeton sans prolonger la session.
-- **Mot de passe oublié** : jeton stocké haché (sha256), valable 1 heure ; une réinitialisation ferme toutes les sessions.
-- **Limites de débit** : 300 requêtes/min par IP, 10/min sur la connexion, Google, mot de passe oublié et réinitialisation.
+- **Limites de débit** : 300 requêtes/min par IP, 10/min sur la connexion (Google et connexion de développement).
 - **Journal d'accès** : décorateur `@Audited` + intercepteur global ; consultation et modification des dossiers, connexions. Visible par l'admin (page Journal d'accès) et sur chaque dossier.
 - **En-têtes** : helmet côté API ; CSP, X-Frame-Options, nosniff côté nginx. Les réponses `/api` sont `no-store`.
 - **Secrets** : uniquement dans Secret Manager (prod/staging) ou `.env` (local). Aucune clé de compte de service (interdit par une règle d'organisation). Tous les secrets ont été renouvelés le 2026-11-20 après l'incident du 16 octobre.
@@ -168,7 +169,7 @@ Sur push vers `staging` ou `prod` : build des images modifiées (API, frontend),
 - Tableau de bord et agenda semaine / jour / liste.
 - Documents dans Cloud Storage avec aperçu.
 - Journal d'accès.
-- E-mails via Brevo.
+- Connexion avec Google uniquement.
 - API accessible uniquement par le frontend.
 - Domaine personnalisé pour staging.
 - Région Paris, coupure budgétaire.
@@ -197,4 +198,4 @@ Sur push vers `staging` ou `prod` : build des images modifiées (API, frontend),
 
 ## 8. Variables d'environnement
 
-Les modèles commentés sont dans `apps/api/.env.example` et `apps/frontend/.env.example`. En staging/prod, Terraform les fournit aux services Cloud Run, et les valeurs sensibles viennent de Secret Manager : `DATABASE_URL`, `JWT_SECRET`, `PROXY_TOKEN`, identifiants SMTP.
+Les modèles commentés sont dans `apps/api/.env.example` et `apps/frontend/.env.example`. En staging/prod, Terraform les fournit aux services Cloud Run, et les valeurs sensibles viennent de Secret Manager : `DATABASE_URL`, `JWT_SECRET`, `PROXY_TOKEN`, `GOOGLE_CLIENT_ID`.

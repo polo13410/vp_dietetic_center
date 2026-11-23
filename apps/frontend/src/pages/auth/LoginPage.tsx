@@ -1,95 +1,118 @@
-import { zodResolver } from '@hookform/resolvers/zod';
 import { GoogleLogin } from '@react-oauth/google';
 import { Loader2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { Link } from 'react-router';
-import { z } from 'zod';
+import { type FormEvent, useLayoutEffect, useRef, useState } from 'react';
 
 import { AuthError, AuthTitle } from '../../components/layout/AuthLayout';
 import { Field } from '../../components/shared/Field';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { useGoogleLogin, useLogin } from '../../hooks/useAuth';
+import { useDevLogin, useGoogleLogin } from '../../hooks/useAuth';
+import { apiErrorMessage } from '../../hooks/useMe';
 
-const loginSchema = z.object({
-  email: z.string().email('L’adresse e-mail n’est pas valide.'),
-  password: z.string().min(8, 'Le mot de passe compte au moins 8 caractères.'),
-});
+const NETWORK_ERROR = 'La connexion n’a pas abouti. Vérifiez votre connexion à internet, puis réessayez.';
 
-type LoginForm = z.infer<typeof loginSchema>;
+/** What to tell her when the API refused the sign-in (not registered, deactivated…). */
+function signInError(error: unknown): string {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  return status === 400 || status === 401 ? apiErrorMessage(error, NETWORK_ERROR) : NETWORK_ERROR;
+}
+
+/** Google only lets its button be 200 to 400 px wide: as wide as the card allows. */
+function useButtonWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(320);
+  useLayoutEffect(() => {
+    const available = ref.current?.clientWidth;
+    if (available) setWidth(Math.max(200, Math.min(400, Math.floor(available))));
+  }, []);
+  return { ref, width };
+}
 
 export default function LoginPage() {
-  const { mutate: login, isPending, error } = useLogin();
-  const { mutate: googleLogin, error: googleError } = useGoogleLogin();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  const { mutate: googleLogin, isPending, error } = useGoogleLogin();
+  const [googleFailed, setGoogleFailed] = useState(false);
+  const button = useButtonWidth();
 
   return (
     <div>
-      <AuthTitle title="Connexion">Accédez à votre espace.</AuthTitle>
+      <AuthTitle title="Connexion">
+        Utilisez le compte Google dont l’adresse a été enregistrée pour vous. Aucun mot de passe à
+        retenir.
+      </AuthTitle>
 
-      <form onSubmit={handleSubmit((data) => login(data))} className="space-y-5" noValidate>
-        <Field label="Adresse e-mail" error={errors.email?.message}>
-          <Input
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            {...register('email')}
-            placeholder="praticienne@exemple.fr"
+      <div ref={button.ref} className="flex min-h-14 items-center justify-center">
+        {isPending ? (
+          <p role="status" className="flex items-center gap-2 text-base text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" aria-hidden />
+            Connexion en cours…
+          </p>
+        ) : (
+          <GoogleLogin
+            onSuccess={({ credential }) => {
+              setGoogleFailed(false);
+              if (credential) googleLogin(credential);
+            }}
+            onError={() => setGoogleFailed(true)}
+            text="signin_with"
+            size="large"
+            shape="rectangular"
+            width={button.width}
           />
-        </Field>
-
-        <div className="space-y-1">
-          <Field label="Mot de passe" error={errors.password?.message}>
-            <Input type="password" autoComplete="current-password" {...register('password')} />
-          </Field>
-          <Link
-            to="/forgot-password"
-            className="inline-flex min-h-11 items-center text-base font-medium text-primary hover:underline"
-          >
-            Mot de passe oublié ?
-          </Link>
-        </div>
-
-        {error && <AuthError>E-mail ou mot de passe incorrect. Vérifiez-les et réessayez.</AuthError>}
-
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending && <Loader2 className="animate-spin" aria-hidden />}
-          Se connecter
-        </Button>
-      </form>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center" aria-hidden>
-          <div className="w-full border-t border-border" />
-        </div>
-        <p className="relative flex justify-center text-sm">
-          <span className="bg-card px-3 text-muted-foreground">ou</span>
-        </p>
+        )}
       </div>
 
-      <div className="flex justify-center">
-        <GoogleLogin
-          onSuccess={(credentialResponse) => {
-            if (credentialResponse.credential) {
-              googleLogin(credentialResponse.credential);
-            }
-          }}
-          onError={() => {}}
-          text="signin_with"
-          size="large"
-        />
-      </div>
-
-      {googleError && (
-        <div className="mt-4">
-          <AuthError>Impossible de se connecter avec Google. Vérifiez que votre compte est autorisé.</AuthError>
+      {(error || googleFailed) && (
+        <div className="mt-5">
+          <AuthError>{error ? signInError(error) : 'Google n’a pas pu vous connecter. Réessayez.'}</AuthError>
         </div>
       )}
+
+      <p className="mt-6 text-sm text-muted-foreground">
+        Pas encore de compte ? Demandez à l’administratrice de l’application de l’ajouter avec
+        l’adresse de votre compte Google.
+      </p>
+
+      {/* Removed from production builds; the API has the route only with DEV_LOGIN=true */}
+      {import.meta.env.DEV && <DevLoginForm />}
     </div>
+  );
+}
+
+/** Local development and end-to-end tests: sign in with a registered e-mail, without Google. */
+function DevLoginForm() {
+  const { mutate: devLogin, isPending, error } = useDevLogin();
+  const [email, setEmail] = useState('');
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (email.trim()) devLogin(email.trim());
+  };
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+
+  return (
+    <form onSubmit={submit} className="mt-6 space-y-4 border-t border-dashed border-border pt-6" noValidate>
+      <p className="text-sm font-medium text-muted-foreground">Développement local uniquement</p>
+      <Field label="Adresse e-mail d’un compte enregistré">
+        <Input
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="praticienne@vp-dietetic.fr"
+        />
+      </Field>
+      {error && (
+        <AuthError>
+          {status === 404
+            ? 'La connexion de développement est désactivée : ajoutez DEV_LOGIN=true dans apps/api/.env, puis relancez l’API.'
+            : signInError(error)}
+        </AuthError>
+      )}
+      <Button type="submit" variant="outline" className="w-full" disabled={isPending}>
+        {isPending && <Loader2 className="animate-spin" aria-hidden />}
+        Connexion de développement
+      </Button>
+    </form>
   );
 }

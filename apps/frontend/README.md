@@ -10,6 +10,18 @@ pnpm install
 pnpm dev
 ```
 
+## Connexion
+
+Google uniquement (`VITE_GOOGLE_CLIENT_ID`, même client OAuth que l'API). En développement
+(`pnpm dev`), un formulaire « Connexion de développement » sous le bouton Google connecte un
+compte enregistré par son e-mail, sans Google : il faut que l'API tourne avec `DEV_LOGIN=true`
+(voir `apps/api/README.md`). Ce formulaire n'existe pas dans le build de production.
+
+## Tests de bout en bout (Playwright)
+
+Base migrée et seedée (`pnpm db:seed`), API lancée avec `DEV_LOGIN=true`, puis
+`pnpm test:e2e`. Les tests se connectent avec la connexion de développement (`e2e/sign-in.ts`).
+
 ## Structure
 
 ```
@@ -21,7 +33,7 @@ src/
 │   ├── notifications/   # NotificationCenter (bell dropdown)
 │   └── ui/              # Button, Card, Tabs, Input, Badge, Switch, Toaster...
 ├── pages/
-│   ├── auth/            # Login, ForgotPassword
+│   ├── auth/            # Login (Google, et connexion de développement en local)
 │   ├── dashboard/       # Dashboard
 │   ├── patients/        # List, Detail, New
 │   ├── appointments/    # List, Detail

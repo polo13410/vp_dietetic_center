@@ -36,6 +36,9 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+/** A refused sign-in is answered on the sign-in page: no session to refresh. */
+const SIGN_IN_URLS = ['/auth/google', '/auth/dev-login'];
+
 // Handle 401 — refresh token
 api.interceptors.response.use(
   (response) => response,
@@ -43,7 +46,10 @@ api.interceptors.response.use(
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && !original._retry) {
-      if (original.url?.includes('/auth/refresh') || original.url?.includes('/auth/login')) {
+      if (SIGN_IN_URLS.some((url) => original.url?.includes(url))) {
+        return Promise.reject(error);
+      }
+      if (original.url?.includes('/auth/refresh')) {
         useAuthStore.getState().logout();
         return Promise.reject(error);
       }

@@ -131,24 +131,19 @@ enum AuditAction {
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
-  id                     String    @id @default(uuid()) @map("id")
-  email                  String    @unique
-  /// Null for an account that only signs in with Google
-  passwordHash           String?   @map("password_hash")
-  firstName              String    @map("first_name")
-  lastName               String    @map("last_name")
-  phone                  String?
-  role                   UserRole  @default(ASSISTANTE)
-  googleId               String?   @unique @map("google_id")
-  avatarUrl              String?   @map("avatar_url")
-  isActive               Boolean   @default(true) @map("is_active")
-  lastLoginAt            DateTime? @map("last_login_at")
-  loginAttempts          Int       @default(0) @map("login_attempts")
-  lockedUntil            DateTime? @map("locked_until")
-  passwordResetToken     String?   @unique @map("password_reset_token")
-  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
-  createdAt              DateTime  @default(now()) @map("created_at")
-  updatedAt              DateTime  @updatedAt @map("updated_at")
+  id          String    @id @default(uuid()) @map("id")
+  /// Address of the Google account used to sign in (the only way to sign in)
+  email       String    @unique
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  phone       String?
+  role        UserRole  @default(ASSISTANTE)
+  googleId    String?   @unique @map("google_id")
+  avatarUrl   String?   @map("avatar_url")
+  isActive    Boolean   @default(true) @map("is_active")
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
   preferences   UserPreferences?

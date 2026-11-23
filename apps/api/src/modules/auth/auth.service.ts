@@ -1,19 +1,22 @@
 import { createHash, randomBytes } from 'crypto';
 
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { MailService } from '../mail/mail.service';
 import { UsersService } from '../users/users.service';
+
+/** Shown on the sign-in page: the Google account is fine, but nobody registered its address. */
+export const NOT_REGISTERED =
+  'Cette adresse Google n’est pas enregistrée dans l’application. Demandez à l’administratrice de créer votre compte avec cette adresse.';
+export const ACCOUNT_DISABLED =
+  'Ce compte est désactivé. Demandez à l’administratrice de le réactiver.';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
   private readonly googleClient: OAuth2Client;
 
   constructor(
@@ -21,44 +24,8 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-    private readonly mailService: MailService,
   ) {
-    const googleClientId = this.config.get<string>('google.clientId');
-    this.googleClient = new OAuth2Client(googleClientId);
-  }
-
-  async validateUser(email: string, password: string): Promise<User | null> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user || !user.isActive) return null;
-
-    // Check account lock
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException(
-        'Compte temporairement bloqué. Réessayez dans quelques minutes.',
-      );
-    }
-
-    // A Google-only account has no password to check
-    const isValid = !!user.passwordHash && (await bcrypt.compare(password, user.passwordHash));
-
-    if (!isValid) {
-      // Increment login attempts
-      const attempts = user.loginAttempts + 1;
-      const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { loginAttempts: attempts, lockedUntil },
-      });
-      return null;
-    }
-
-    // Reset login attempts on success
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { loginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
-    });
-
-    return user;
+    this.googleClient = new OAuth2Client(this.config.get<string>('google.clientId'));
   }
 
   /**
@@ -72,7 +39,7 @@ export class AuthService {
 
     // Generate refresh token
     const rawToken = randomBytes(64).toString('hex');
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = hashToken(rawToken);
     const expiresAt =
       sessionExpiresAt ??
       new Date(Date.now() + this.parseExpiry(this.config.get('jwt.refreshExpiresIn', '10h')));
@@ -104,9 +71,8 @@ export class AuthService {
 
   async refreshTokens(rawToken: string | undefined, ipAddress?: string, userAgent?: string) {
     if (!rawToken) throw new UnauthorizedException('Session expirée');
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
-    const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+    const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(rawToken) } });
 
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token invalide ou expiré');
@@ -125,42 +91,34 @@ export class AuthService {
   }
 
   async logout(rawToken: string) {
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
     await this.prisma.refreshToken.updateMany({
-      where: { tokenHash },
+      where: { tokenHash: hashToken(rawToken) },
       data: { revokedAt: new Date() },
     });
   }
 
+  /**
+   * The only way to sign in: a Google ID token, verified with Google, whose verified e-mail
+   * belongs to a registered, active user. Never creates an account.
+   */
   async validateGoogleToken(idToken: string, ipAddress?: string, userAgent?: string) {
-    const googleClientId = this.config.get<string>('google.clientId');
-
     // A malformed, expired, forged or foreign token is a refused sign-in, not a server error
     const ticket = await this.googleClient
-      .verifyIdToken({ idToken, audience: googleClientId })
+      .verifyIdToken({ idToken, audience: this.config.get<string>('google.clientId') })
       .catch(() => {
-        throw new UnauthorizedException('Token Google invalide');
+        throw new UnauthorizedException('La connexion avec Google a échoué. Réessayez.');
       });
 
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.email_verified) {
-      throw new UnauthorizedException('Token Google invalide ou email non vérifié');
-    }
-
-    const user = await this.usersService.findByEmail(payload.email);
-    if (!user || !user.isActive) {
       throw new UnauthorizedException(
-        'Aucun compte associé à cet email. Contactez votre administrateur.',
+        'L’adresse de ce compte Google n’est pas vérifiée par Google. Vérifiez-la, puis réessayez.',
       );
     }
 
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException(
-        'Compte temporairement bloqué. Réessayez dans quelques minutes.',
-      );
-    }
+    const user = await this.findRegisteredUser(payload.email);
 
-    // Link Google ID on first Google sign-in
+    // Binds the Google account to the user on her first Google sign-in
     if (!user.googleId) {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -168,106 +126,28 @@ export class AuthService {
       });
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { loginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
-    });
-
-    return this.login(user, ipAddress, userAgent);
-  }
-
-  async requestPasswordReset(email: string): Promise<void> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) return; // Ne pas révéler si l'email existe
-
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
-
-    // Only a hash is stored: a database leak does not give working reset links
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordResetToken: hashToken(token),
-        passwordResetExpiresAt: expiresAt,
-      },
-    });
-
-    // Sent in the background: the answer comes as fast for an unknown email as for a known one
-    // (timing would reveal which accounts exist). A failed send is only logged; the user can
-    // simply ask again.
-    void this.mailService.sendPasswordReset(user.email, token, user.firstName).catch((error) => {
-      this.logger.error(`Password reset email not sent: ${error}`);
-    });
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { passwordResetToken: hashToken(token) },
-    });
-
-    if (
-      !user ||
-      !user.passwordResetExpiresAt ||
-      user.passwordResetExpiresAt < new Date()
-    ) {
-      throw new BadRequestException('Lien de réinitialisation invalide ou expiré.');
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash,
-        passwordResetToken: null,
-        passwordResetExpiresAt: null,
-        loginAttempts: 0,
-        lockedUntil: null,
-      },
-    });
-    // A new password ends every open session (e.g. a stolen one)
-    await this.prisma.refreshToken.updateMany({
-      where: { userId: user.id, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    return this.startSession(user, ipAddress, userAgent);
   }
 
   /**
-   * Changes the password of a signed-in user after checking the current one, then ends her other
-   * sessions (the one making the change, identified by its refresh token, stays open).
+   * Local development and end-to-end tests only (see DevLoginModule, which exists only there):
+   * signs in a registered, active user by e-mail, with the same checks as Google.
    */
-  async changePassword(
-    userId: string,
-    currentPassword: string,
-    newPassword: string,
-    currentRefreshToken?: string,
-  ): Promise<void> {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!user.passwordHash) {
-      throw new BadRequestException(
-        'Ce compte se connecte avec Google : il n’a pas de mot de passe à changer.',
-      );
-    }
-    // 400, not 401: a wrong password here must not look like an expired session
-    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      throw new BadRequestException('Le mot de passe actuel n’est pas le bon.');
-    }
-    if (currentPassword === newPassword) {
-      throw new BadRequestException('Le nouveau mot de passe doit être différent de l’actuel.');
-    }
+  async devLogin(email: string, ipAddress?: string, userAgent?: string) {
+    const user = await this.findRegisteredUser(email);
+    return this.startSession(user, ipAddress, userAgent);
+  }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash: await bcrypt.hash(newPassword, 12) },
-    });
-    await this.prisma.refreshToken.updateMany({
-      where: {
-        userId,
-        revokedAt: null,
-        ...(currentRefreshToken ? { tokenHash: { not: hashToken(currentRefreshToken) } } : {}),
-      },
-      data: { revokedAt: new Date() },
-    });
+  private async findRegisteredUser(email: string): Promise<User> {
+    const user = await this.usersService.findByEmail(email.trim().toLowerCase());
+    if (!user) throw new UnauthorizedException(NOT_REGISTERED);
+    if (!user.isActive) throw new UnauthorizedException(ACCOUNT_DISABLED);
+    return user;
+  }
+
+  private async startSession(user: User, ipAddress?: string, userAgent?: string) {
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    return this.login(user, ipAddress, userAgent);
   }
 
   private parseExpiry(expiry: string): number {

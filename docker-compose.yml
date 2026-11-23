@@ -17,16 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: vp_mailpit
-    restart: unless-stopped
-    ports:
-      - "1025:1025" # SMTP
-      - "8026:8025" # Web UI
-    logging:
-      driver: none
-
   api:
     build:
       context: .
@@ -44,10 +34,8 @@ services:
       JWT_SECRET: dev-jwt-secret-change-in-production
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 10h
-      APP_URL: http://localhost:5173
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      SMTP_FROM: noreply@vp-dietetic.local
+      # Sign-in without Google (local only): « Connexion de développement » on the sign-in page
+      DEV_LOGIN: "true"
     ports:
       - "3000:3000"
     volumes:

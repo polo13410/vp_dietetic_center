@@ -1,36 +1,29 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuditAction } from '@prisma/client';
 import type { CookieOptions, Request, Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { LocalAuthGuard } from '../../common/guards/local-auth.guard';
-import { Audited } from '../audit/audited.decorator';
+import { Audited, type AuditedOptions } from '../audit/audited.decorator';
 
 import { AuthService } from './auth.service';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
-import { LoginDto } from './dto/login.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
 
 // Firebase Hosting (in front of the app) only guarantees to forward a cookie with this name
 const REFRESH_COOKIE = '__session';
 
-/** Sign-in endpoints: few attempts per IP (password guessing, reset emails). */
-const SIGN_IN_LIMIT = { default: { limit: 10, ttl: 60_000 } };
+/** Sign-in endpoints: few attempts per IP. */
+export const SIGN_IN_LIMIT = { default: { limit: 10, ttl: 60_000 } };
+
+/** A sign-in is logged as LOGIN for the user it signed in. */
+export const SIGN_IN_AUDIT: AuditedOptions = {
+  action: AuditAction.LOGIN,
+  entity: 'session',
+  entityId: 'result:user.id',
+  userId: 'result:user.id',
+};
 
 // Sent only to /api/v1/auth/* (refresh and logout), never readable by scripts
 const REFRESH_COOKIE_OPTIONS: CookieOptions = {
@@ -40,9 +33,15 @@ const REFRESH_COOKIE_OPTIONS: CookieOptions = {
   path: '/api/v1/auth',
 };
 
-/** The cookie expires with the session it belongs to. */
-function setRefreshCookie(res: Response, token: string, expires: Date) {
-  res.cookie(REFRESH_COOKIE, token, { ...REFRESH_COOKIE_OPTIONS, expires });
+type Session = Awaited<ReturnType<AuthService['login']>>;
+
+/** Sets the refresh cookie, which expires with the session, and returns the rest to the app. */
+export function sendSession(res: Response, session: Session) {
+  res.cookie(REFRESH_COOKIE, session.refreshToken, {
+    ...REFRESH_COOKIE_OPTIONS,
+    expires: session.refreshExpiresAt,
+  });
+  return { accessToken: session.accessToken, expiresIn: session.expiresIn, user: session.user };
 }
 
 @ApiTags('auth')
@@ -51,27 +50,22 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @UseGuards(LocalAuthGuard)
-  @Post('login')
-  @Audited({ action: AuditAction.LOGIN, entity: 'session', entityId: 'result:user.id' })
+  @Post('google')
+  @Audited(SIGN_IN_AUDIT)
   @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Connexion avec email + mot de passe' })
-  @ApiBody({ type: LoginDto })
-  async login(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const user = req.user as any;
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
-
-    const result = await this.authService.login(user, ipAddress, userAgent);
-
-    setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
-
-    return {
-      accessToken: result.accessToken,
-      expiresIn: result.expiresIn,
-      user: result.user,
-    };
+  @ApiOperation({ summary: 'Connexion avec Google (le seul moyen de se connecter)' })
+  async googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const session = await this.authService.validateGoogleToken(
+      dto.idToken,
+      req.ip,
+      req.headers['user-agent'],
+    );
+    return sendSession(res, session);
   }
 
   // Public: the refresh token (an opaque value from the cookie) is checked by the service
@@ -80,19 +74,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Rafraichir le token d'acces" })
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const rawToken = req.cookies[REFRESH_COOKIE];
-    const result = await this.authService.refreshTokens(
-      rawToken,
+    const session = await this.authService.refreshTokens(
+      req.cookies[REFRESH_COOKIE],
       req.ip,
       req.headers['user-agent'],
     );
-
-    setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
-
-    return {
-      accessToken: result.accessToken,
-      expiresIn: result.expiresIn,
-    };
+    const { accessToken, expiresIn } = sendSession(res, session);
+    return { accessToken, expiresIn };
   }
 
   @Post('logout')
@@ -105,71 +93,6 @@ export class AuthController {
       await this.authService.logout(rawToken);
     }
     res.clearCookie(REFRESH_COOKIE, REFRESH_COOKIE_OPTIONS);
-  }
-
-  @Public()
-  @Post('google')
-  @Audited({ action: AuditAction.LOGIN, entity: 'session', entityId: 'result:user.id', userId: 'result:user.id' })
-  @Throttle(SIGN_IN_LIMIT)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Connexion via Google' })
-  async googleLogin(
-    @Body() dto: GoogleLoginDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
-
-    const result = await this.authService.validateGoogleToken(
-      dto.idToken,
-      ipAddress,
-      userAgent,
-    );
-
-    setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
-
-    return {
-      accessToken: result.accessToken,
-      expiresIn: result.expiresIn,
-      user: result.user,
-    };
-  }
-
-  @Public()
-  @Post('forgot-password')
-  @Throttle(SIGN_IN_LIMIT)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Demander un reset de mot de passe' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    await this.authService.requestPasswordReset(dto.email);
-  }
-
-  @Public()
-  @Post('reset-password')
-  @Throttle(SIGN_IN_LIMIT)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
-  async resetPassword(@Body() dto: ResetPasswordDto) {
-    await this.authService.resetPassword(dto.token, dto.password);
-  }
-
-  @Post('change-password')
-  @Audited({ action: AuditAction.UPDATE, entity: 'password' })
-  @Throttle(SIGN_IN_LIMIT)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Changer son mot de passe (ferme ses autres sessions)' })
-  async changePassword(
-    @CurrentUser() user: { id: string },
-    @Body() dto: ChangePasswordDto,
-    @Req() req: Request,
-  ) {
-    await this.authService.changePassword(
-      user.id,
-      dto.currentPassword,
-      dto.newPassword,
-      req.cookies[REFRESH_COOKIE],
-    );
   }
 
   @Get('me')

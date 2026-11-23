@@ -12,15 +12,13 @@ interface LoginResponse {
   user: UserDto;
 }
 
-export function useLogin() {
+/** Signs in, then opens the home page of her role. */
+function useSignIn<T>(request: (arg: T) => Promise<LoginResponse>) {
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: async (credentials: { email: string; password: string }) => {
-      const { data } = await api.post<LoginResponse>('/auth/login', credentials);
-      return data;
-    },
+    mutationFn: request,
     onSuccess: (data) => {
       setAuth(data.user as any, data.accessToken);
       navigate(homePathFor(data.user.role));
@@ -28,20 +26,14 @@ export function useLogin() {
   });
 }
 
+/** The only way to sign in: the ID token Google gives the sign-in button. */
 export function useGoogleLogin() {
-  const { setAuth } = useAuthStore();
-  const navigate = useNavigate();
+  return useSignIn(async (idToken: string) => (await api.post<LoginResponse>('/auth/google', { idToken })).data);
+}
 
-  return useMutation({
-    mutationFn: async (idToken: string) => {
-      const { data } = await api.post<LoginResponse>('/auth/google', { idToken });
-      return data;
-    },
-    onSuccess: (data) => {
-      setAuth(data.user as any, data.accessToken);
-      navigate(homePathFor(data.user.role));
-    },
-  });
+/** Local development and end-to-end tests only: the API has this route only with DEV_LOGIN=true. */
+export function useDevLogin() {
+  return useSignIn(async (email: string) => (await api.post<LoginResponse>('/auth/dev-login', { email })).data);
 }
 
 export function useLogout() {

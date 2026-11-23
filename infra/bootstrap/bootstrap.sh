@@ -106,10 +106,6 @@ read_secret() { gcloud secrets versions access latest --secret "$1" --project "$
 API_READERS=()
 for env in $ENVS; do API_READERS+=("vp-$env-api@$PROJECT.iam.gserviceaccount.com"); done
 ensure_secret google-oauth-client-id "${API_READERS[@]}"
-# Brevo SMTP credentials, shared by the environments. Values are added by the owner (see
-# infra/terraform/README.md), then smtp_enabled=true in Terraform.
-ensure_secret smtp-user "${API_READERS[@]}"
-ensure_secret smtp-password "${API_READERS[@]}"
 
 for env in $ENVS; do
   api="vp-$env-api@$PROJECT.iam.gserviceaccount.com"

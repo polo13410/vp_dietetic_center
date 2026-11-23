@@ -4,9 +4,11 @@ import { ShieldCheck } from 'lucide-react';
 import api from '../../lib/api';
 import { AUDIT_ACTIONS, AUDIT_ENTITIES, type AuditEntry } from '../../lib/audit';
 import { formatLongDate, formatTime } from '../../lib/utils';
-import { Section } from '../shared/Section';
 
-/** Who opened or changed this patient's file, and when (the latest 100 entries). */
+/**
+ * Who opened or changed this patient's file, and when (the latest 100 entries), from the « … » menu
+ * of the file's header.
+ */
 export function PatientAccessLog({ patientId }: { patientId: string }) {
   const { data: entries = [] } = useQuery({
     queryKey: ['patient-access-log', patientId],
@@ -14,13 +16,10 @@ export function PatientAccessLog({ patientId }: { patientId: string }) {
   });
 
   return (
-    <Section
-      size="compact"
-      icon={ShieldCheck}
-      area="audit"
-      title="Historique des accès"
-      description="Chaque ouverture ou modification de ce dossier est enregistrée."
-    >
+    <div className="space-y-3">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <ShieldCheck className="size-4" aria-hidden /> Chaque ouverture ou modification de ce dossier est enregistrée.
+      </p>
       {entries.length === 0 ? (
         <p className="text-base text-muted-foreground">Aucun accès enregistré.</p>
       ) : (
@@ -40,6 +39,6 @@ export function PatientAccessLog({ patientId }: { patientId: string }) {
           ))}
         </ul>
       )}
-    </Section>
+    </div>
   );
 }

@@ -18,6 +18,8 @@ interface SectionProps {
   /** `compact`: smaller header and padding, for dense screens (patient summary, side panel) */
   size?: 'default' | 'compact';
   className?: string;
+  /** Anchor of the card, for links that lead to it (« ?onglet=mesures#poids ») */
+  id?: string;
   children?: ReactNode;
 }
 
@@ -31,6 +33,7 @@ export function Section({
   flush,
   size = 'default',
   className,
+  id,
   children,
 }: SectionProps) {
   const style = area ? AREAS[area] : undefined;
@@ -38,7 +41,8 @@ export function Section({
 
   return (
     <section
-      className={cn('rounded-xl border bg-card text-card-foreground shadow-sm', className)}
+      id={id}
+      className={cn('scroll-mt-4 rounded-xl border bg-card text-card-foreground shadow-sm', className)}
     >
       <div
         className={cn(

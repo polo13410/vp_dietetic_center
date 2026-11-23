@@ -1,17 +1,21 @@
+import { UserRound } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { useAutosave } from '../../hooks/useAutosave';
 import { useGrowingTextarea } from '../../hooks/useGrowingTextarea';
 import api from '../../lib/api';
 import {
+  FILE_ANCHORS,
   FILE_FIELD_TYPES,
   FILE_FIELDS,
   type FileEntryDto,
   type FileField,
+  fileFieldAnchor,
   type FileSectionDto,
   useFileEntries,
   useFileSections,
   useInvalidatePatientFile,
+  usePatient,
   usePatientFileMutation,
 } from '../../lib/patient-file';
 import { formatLongDate } from '../../lib/utils';
@@ -25,14 +29,24 @@ import { Textarea } from '../ui/textarea';
 import { toast } from '../ui/toaster';
 
 import { BaseMeasures } from './BaseMeasures';
+import { PatientIdentityForm } from './PatientIdentityForm';
 
-/** The medical file: age, sex, height and the figures, then her sections in her order. */
+/**
+ * The medical file: identity and contact, age, sex, height and the figures, then her sections in
+ * her order. Each block has an anchor the summary's « Modifier » links lead to.
+ */
 export function FilePanel({ patientId }: { patientId: string }) {
   const { data: sections = [] } = useFileSections(patientId);
+  const { data: patient } = usePatient(patientId);
   const byField = new Map(sections.map((s) => [s.field as FileField, s]));
 
   return (
     <div className="space-y-4">
+      {patient && (
+        <Section size="compact" icon={UserRound} area="patients" title="Patient" id={FILE_ANCHORS.identity}>
+          <PatientIdentityForm patient={patient} />
+        </Section>
+      )}
       <BaseMeasures patientId={patientId} />
       <div className="grid gap-4 md:grid-cols-2">
         {FILE_FIELD_TYPES.map((field) => (
@@ -61,7 +75,7 @@ export function FileSectionCard({
   const labelId = `file-${field}`;
 
   return (
-    <Section size="compact" title={<span id={labelId}>{FILE_FIELDS[field]}</span>}>
+    <Section size="compact" title={<span id={labelId}>{FILE_FIELDS[field]}</span>} id={consultationId ? undefined : fileFieldAnchor(field)}>
       <div className="space-y-2">
         <FileSectionEditor
           patientId={patientId}

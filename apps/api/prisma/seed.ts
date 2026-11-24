@@ -17,6 +17,10 @@
  * session offered.
  * Dates are relative to today, so the dashboard always has something to show.
  * Re-running the seed rebuilds the demo patients from scratch.
+ *
+ * Staging (review with the practitioner): SEED_PRACTITIONER_EMAIL=<her Google address> puts the
+ * demo data on that existing, active practitioner account instead of creating the demo accounts.
+ * Never on a production database: the seed refuses a database whose name contains « prod ».
  */
 import {
   AppointmentStatus,
@@ -445,10 +449,31 @@ async function createFollowUp(
   }
 }
 
-async function main() {
-  console.log('🌱 Seeding database...');
+/** Refuses a production database: demo data never goes there. */
+function assertNotProduction() {
+  const url = process.env.DATABASE_URL ?? '';
+  let database = '';
+  try {
+    database = decodeURIComponent(new URL(url).pathname.replace(/^\//, ''));
+  } catch {
+    throw new Error('DATABASE_URL is missing or invalid');
+  }
+  if (/prod/i.test(database)) {
+    throw new Error(`Refusing to seed the database « ${database} »: demo data never goes to production`);
+  }
+}
 
-  // ── Users ───────────────────────────────────────────────────────────────────
+/** The practitioner the demo patients belong to: an existing account on staging, else the demo one. */
+async function demoPractitioner() {
+  const email = process.env.SEED_PRACTITIONER_EMAIL?.trim().toLowerCase();
+  if (email) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || user.role !== UserRole.PRATICIENNE || !user.isActive) {
+      throw new Error(`SEED_PRACTITIONER_EMAIL: no active practitioner account for ${email}`);
+    }
+    return { pract: user, demoAccounts: false };
+  }
+
   await upsertUser('admin@vp-dietetic.fr', {
     firstName: 'Paul',
     lastName: 'Administrateur',
@@ -465,6 +490,15 @@ async function main() {
     lastName: 'Martin',
     role: UserRole.ASSISTANTE,
   });
+  return { pract, demoAccounts: true };
+}
+
+async function main() {
+  assertNotProduction();
+  console.log('🌱 Seeding database...');
+
+  // ── Users ───────────────────────────────────────────────────────────────────
+  const { pract, demoAccounts } = await demoPractitioner();
   const formulas = await upsertFormulas(pract.id);
   await upsertActivity(pract.id);
   practices = await upsertPractices(pract.id);
@@ -897,15 +931,19 @@ async function main() {
     });
   }
 
-  console.log(`
-✅ Seed terminé
-
-Comptes (pas de mot de passe) :
+  const accounts = demoAccounts
+    ? `Comptes (pas de mot de passe) :
   admin@vp-dietetic.fr       (ADMIN)
   praticienne@vp-dietetic.fr (PRATICIENNE)
   assistante@vp-dietetic.fr  (ASSISTANTE)
 En local, avec DEV_LOGIN=true dans apps/api/.env : « Connexion de développement » sur la page
-de connexion, avec une de ces adresses.
+de connexion, avec une de ces adresses.`
+    : `Données rattachées au compte ${pract.email} (connexion Google).`;
+
+  console.log(`
+✅ Seed terminé
+
+${accounts}
 
 7 patients suivis par Valérie Perrot (Bilan 60 €, 1 h ; Suivi 50 €, 45 min), à Aix (cabinet par
 défaut) et à Marseille (Marie Dubois, Lucas Moreau), dont Martine Roux,

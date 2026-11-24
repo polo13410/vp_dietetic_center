@@ -40,3 +40,21 @@ test('generates a GP report draft pre-filled with the test case figures', async 
   await expect(text).toHaveValue(/il est de 76,5 kg \(IMC 30,26\), soit une perte de 2,5 kg/);
   await expect(text).toHaveValue(/5,77 MJ \(1\s378,9 kcal\)/);
 });
+
+test('searches patients without the name ever going in a URL', async ({ page }) => {
+  // URLs end up in every log (Cloud Run, nginx, the API): the term travels in a POST body only
+  const urls: string[] = [];
+  page.on('request', (request) => urls.push(request.url()));
+
+  await page.goto('/patients');
+  const search = page.waitForRequest(
+    (request) => request.method() === 'POST' && request.url().endsWith('/api/v1/patients/search'),
+  );
+  await page.getByRole('searchbox').fill('Moreau');
+  expect((await search).postDataJSON()).toMatchObject({ search: 'Moreau' });
+
+  await expect(page.getByRole('link', { name: 'Moreau Lucas', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Roux Martine', exact: true })).toHaveCount(0);
+  expect(page.url()).not.toContain('Moreau');
+  expect(urls.filter((url) => url.includes('Moreau'))).toEqual([]);
+});

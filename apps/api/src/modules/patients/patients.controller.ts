@@ -19,7 +19,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Audited } from '../audit/audited.decorator';
 
 import { CreatePatientDto } from './dto/create-patient.dto';
-import { PatientQueryDto } from './dto/patient-query.dto';
+import { PatientListQueryDto, PatientQueryDto } from './dto/patient-query.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientsService } from './patients.service';
 
@@ -32,8 +32,16 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lister les patients (paginé, recherche, archivés à part)' })
-  findAll(@CurrentUser() user: any, @Query() query: PatientQueryDto) {
+  @ApiOperation({ summary: 'Lister les patients (paginé, archivés à part)' })
+  findAll(@CurrentUser() user: any, @Query() query: PatientListQueryDto) {
+    return this.patientsService.findAll(user, query);
+  }
+
+  /** The search term travels in the body: a URL ends up in every log (see PatientListQueryDto). */
+  @Post('search')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rechercher des patients (paginé, archivés à part)' })
+  search(@CurrentUser() user: any, @Body() query: PatientQueryDto) {
     return this.patientsService.findAll(user, query);
   }
 

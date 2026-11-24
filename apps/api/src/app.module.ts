@@ -10,6 +10,7 @@ import { AppController } from './app.controller';
 import { AccessModule } from './common/access/access.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { requestLog, responseLog } from './common/logging/http-log';
 import { configuration } from './config/configuration';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -43,7 +44,8 @@ import { PrismaModule } from './prisma/prisma.module';
             ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
             : undefined,
         autoLogging: { ignore: (req: IncomingMessage) => req.url === '/api/v1/health' },
-        redact: ['req.headers.authorization', 'req.headers.cookie'],
+        // Method, path and status only: no headers (cookies, Set-Cookie, tokens), no query string
+        serializers: { req: requestLog, res: responseLog },
       },
     }),
 

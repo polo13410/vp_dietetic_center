@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
@@ -30,3 +30,9 @@ export class PatientQueryDto {
   @IsBoolean()
   archived?: boolean;
 }
+
+/**
+ * Listing without a search term (GET). A search term never goes in a URL, which every layer
+ * logs (Cloud Run, nginx, the API): searches use POST /patients/search with the term in the body.
+ */
+export class PatientListQueryDto extends OmitType(PatientQueryDto, ['search'] as const) {}

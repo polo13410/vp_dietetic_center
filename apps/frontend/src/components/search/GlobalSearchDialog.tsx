@@ -31,7 +31,8 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   const { data, isFetching } = useQuery({
     queryKey: ['search', query],
     queryFn: async () => {
-      const { data } = await api.get('/search', { params: { q: query } });
+      // POST: the term stays out of URLs, which every layer logs
+      const { data } = await api.post('/search', { q: query });
       return data;
     },
     enabled: open && query.length >= 2,

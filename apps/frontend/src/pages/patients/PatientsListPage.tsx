@@ -28,14 +28,35 @@ const SEARCH_DELAY_MS = 300;
 
 /**
  * The patients: those followed by default, archived ones behind the « Archivés » filter.
- * Search, filter and page live in the address, so going back returns to the same list.
+ * Filter and page live in the address, so going back returns to the same list. The search term
+ * does not: a URL ends up in every log (Cloud Run, nginx), and search terms are names. It is kept
+ * for the browser tab only (sessionStorage).
  */
+const SEARCH_KEY = 'patients-search';
+
+function readStoredSearch(): string {
+  try {
+    return sessionStorage.getItem(SEARCH_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function storeSearch(value: string) {
+  try {
+    if (value) sessionStorage.setItem(SEARCH_KEY, value);
+    else sessionStorage.removeItem(SEARCH_KEY);
+  } catch {
+    // Storage unavailable (private mode): the search simply is not remembered
+  }
+}
+
 export default function PatientsListPage() {
   // Assistants manage appointments: they neither create patients nor see their BMI
   const isAssistant = useIsRole('ASSISTANTE');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const search = searchParams.get('search') ?? '';
+  const [search, setSearch] = useState(readStoredSearch);
   const [typed, setTyped] = useState(search);
 
   const page = parseInt(searchParams.get('page') ?? '1');
@@ -53,12 +74,11 @@ export default function PatientsListPage() {
   useEffect(() => {
     if (typed.trim() === search) return;
     const timer = setTimeout(
-      () =>
-        update((p) => {
-          if (typed.trim()) p.set('search', typed.trim());
-          else p.delete('search');
-          p.delete('page');
-        }),
+      () => {
+        setSearch(typed.trim());
+        storeSearch(typed.trim());
+        update((p) => p.delete('page'));
+      },
       SEARCH_DELAY_MS,
     );
     return () => clearTimeout(timer);
@@ -67,8 +87,9 @@ export default function PatientsListPage() {
   const { data, isLoading } = useQuery<PaginatedResponse<PatientListItemDto>>({
     queryKey: ['patients', { page, search, archived }],
     queryFn: async () => {
+      // A search term never goes in a URL, which every layer logs: POST with the term in the body
+      if (search) return (await api.post('/patients/search', { search, page, limit: 20, archived })).data;
       const params = new URLSearchParams({ page: String(page), limit: '20' });
-      if (search) params.set('search', search);
       if (archived) params.set('archived', 'true');
       return (await api.get(`/patients?${params}`)).data;
     },

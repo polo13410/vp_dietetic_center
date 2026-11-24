@@ -28,3 +28,17 @@ describe('nginx Content-Security-Policy', () => {
     expect(cspDirectives().get('frame-src')).toContain('blob:');
   });
 });
+
+describe('nginx logs and referrers', () => {
+  it('log requests without query string, referer or user agent', () => {
+    const format = nginxConf.match(/log_format path_only '([^']+)'/);
+    expect(format?.[1]).toBeDefined();
+    expect(format![1]).toContain('$uri');
+    expect(format![1]).not.toMatch(/\$request(?![_a-z])|\$request_uri|\$args|\$query_string|\$http_referer|\$http_user_agent/);
+    expect(nginxConf).toMatch(/access_log \S+ path_only;/);
+  });
+
+  it('never send the page URL as referer, even to the API', () => {
+    expect(nginxConf).toContain('add_header Referrer-Policy "strict-origin" always;');
+  });
+});

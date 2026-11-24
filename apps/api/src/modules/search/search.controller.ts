@@ -1,11 +1,19 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import { IsString, MaxLength } from 'class-validator';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 
 import { SearchService } from './search.service';
+
+export class SearchDto {
+  @ApiProperty({ description: 'Terme recherché' })
+  @IsString()
+  @MaxLength(100)
+  q!: string;
+}
 
 @ApiTags('search')
 @ApiBearerAuth()
@@ -15,9 +23,11 @@ import { SearchService } from './search.service';
 export class SearchController {
   constructor(private readonly service: SearchService) {}
 
-  @Get('search')
+  /** POST: the term travels in the body, never in a URL (URLs end up in every log). */
+  @Post('search')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Recherche globale multi-entités' })
-  search(@Query('q') q: string, @CurrentUser() user: any) {
+  search(@Body() { q }: SearchDto, @CurrentUser() user: any) {
     return this.service.search(q, user);
   }
 

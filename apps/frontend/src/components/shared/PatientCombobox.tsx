@@ -38,7 +38,10 @@ export function PatientCombobox({
   const { data } = useQuery({
     queryKey: ['patients', 'combobox', search],
     queryFn: async () => {
-      const res = await api.get('/patients', { params: { search, limit: 10 } });
+      // POST: the term stays out of URLs, which every layer logs
+      const res = search
+        ? await api.post('/patients/search', { search, limit: 10 })
+        : await api.get('/patients', { params: { limit: 10 } });
       return res.data.data as Patient[];
     },
     enabled: open,

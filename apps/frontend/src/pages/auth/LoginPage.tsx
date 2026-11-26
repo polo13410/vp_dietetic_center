@@ -1,4 +1,5 @@
 import { GoogleLogin } from '@react-oauth/google';
+import type { TwoFactorChallengeDto } from '@vp/types';
 import { Loader2 } from 'lucide-react';
 import { type FormEvent, useLayoutEffect, useRef, useState } from 'react';
 
@@ -8,6 +9,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useDevLogin, useGoogleLogin } from '../../hooks/useAuth';
 import { apiErrorMessage } from '../../hooks/useMe';
+
+import { TwoFactorStep } from './TwoFactorStep';
 
 const NETWORK_ERROR = 'La connexion n’a pas abouti. Vérifiez votre connexion à internet, puis réessayez.';
 
@@ -29,15 +32,29 @@ function useButtonWidth() {
 }
 
 export default function LoginPage() {
-  const { mutate: googleLogin, isPending, error } = useGoogleLogin();
+  const { mutate: googleLogin, isPending, error, reset } = useGoogleLogin();
   const [googleFailed, setGoogleFailed] = useState(false);
+  const [challenge, setChallenge] = useState<TwoFactorChallengeDto>();
   const button = useButtonWidth();
+
+  // Google is done: the code of her authenticator app opens the session
+  if (challenge) {
+    return (
+      <TwoFactorStep
+        challenge={challenge}
+        onRestart={() => {
+          reset();
+          setChallenge(undefined);
+        }}
+      />
+    );
+  }
 
   return (
     <div>
       <AuthTitle title="Connexion">
-        Utilisez le compte Google dont l’adresse a été enregistrée pour vous. Aucun mot de passe à
-        retenir.
+        Utilisez le compte Google dont l’adresse a été enregistrée pour vous, puis le code de votre
+        application d’authentification. Aucun mot de passe à retenir.
       </AuthTitle>
 
       <div ref={button.ref} className="flex min-h-14 items-center justify-center">
@@ -50,7 +67,7 @@ export default function LoginPage() {
           <GoogleLogin
             onSuccess={({ credential }) => {
               setGoogleFailed(false);
-              if (credential) googleLogin(credential);
+              if (credential) googleLogin(credential, { onSuccess: setChallenge });
             }}
             onError={() => setGoogleFailed(true)}
             text="signin_with"

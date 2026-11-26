@@ -53,3 +53,17 @@ export function useDeleteUser() {
     },
   });
 }
+
+/** Lost phone: she sets up a new app at her next sign-in; her sessions end now. */
+export function useResetTwoFactor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/users/${id}/two-factor/reset`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}

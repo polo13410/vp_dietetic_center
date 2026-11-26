@@ -26,6 +26,8 @@ const practitioner: MeDto = {
   phone: '06 12 34 56 78',
   role: 'PRATICIENNE' as MeDto['role'],
   theme: 'SYSTEM',
+  twoFactorEnabledAt: '2026-11-26T09:00:00.000Z',
+  recoveryCodesLeft: 9,
 };
 
 const activity: ActivityDto = {
@@ -304,15 +306,16 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/me/formulas/f3', { archived: false }));
   });
 
-  it('only explains that she signs in with her Google account, with no password to change', async () => {
+  it('explains that she signs in with Google then her app, with no password to change', async () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Sécurité' });
     const security = section('Sécurité');
     expect(
       security.getByText(/Vous vous connectez avec votre compte Google/).textContent,
     ).toBe(
-      'Vous vous connectez avec votre compte Google valerie@example.fr. Pour plus de sécurité, activez la validation en deux étapes sur ce compte.',
+      'Vous vous connectez avec votre compte Google valerie@example.fr, puis le code de votre application d’authentification.',
     );
+    expect(security.getByText(/Double authentification active depuis le 26 novembre 2026, 9 codes de secours restants/)).toBeInTheDocument();
     const link = security.getByRole('link', { name: /validation en deux étapes/ });
     expect(link).toHaveAttribute('href', 'https://myaccount.google.com/signinoptions/two-step-verification');
     expect(link).toHaveAttribute('target', '_blank');

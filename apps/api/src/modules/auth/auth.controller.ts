@@ -9,6 +9,7 @@ import { Audited, type AuditedOptions } from '../audit/audited.decorator';
 
 import { AuthService } from './auth.service';
 import { GoogleLoginDto } from './dto/google-login.dto';
+import { TwoFactorDto } from './dto/two-factor.dto';
 
 // Firebase Hosting (in front of the app) only guarantees to forward a cookie with this name
 const REFRESH_COOKIE = '__session';
@@ -48,23 +49,31 @@ export function sendSession(res: Response, session: Session) {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /** First step: Google. Opens no session, only the challenge for the code of her app. */
   @Public()
   @Post('google')
+  @Throttle(SIGN_IN_LIMIT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Connexion avec Google, première étape (le seul moyen de se connecter)' })
+  googleLogin(@Body() dto: GoogleLoginDto) {
+    return this.authService.validateGoogleToken(dto.idToken);
+  }
+
+  /** Second step: the code of her authenticator app (or a recovery code) opens the session. */
+  @Public()
+  @Post('two-factor')
   @Audited(SIGN_IN_AUDIT)
   @Throttle(SIGN_IN_LIMIT)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Connexion avec Google (le seul moyen de se connecter)' })
-  async googleLogin(
-    @Body() dto: GoogleLoginDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const session = await this.authService.validateGoogleToken(
-      dto.idToken,
+  @ApiOperation({ summary: 'Connexion, deuxième étape : code de l’application d’authentification' })
+  async twoFactor(@Body() dto: TwoFactorDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const { recoveryCodes, ...session } = await this.authService.completeTwoFactor(
+      dto.challengeToken,
+      dto.code,
       req.ip,
       req.headers['user-agent'],
     );
-    return sendSession(res, session);
+    return { ...sendSession(res, session), recoveryCodes };
   }
 
   // Public: the refresh token (an opaque value from the cookie) is checked by the service

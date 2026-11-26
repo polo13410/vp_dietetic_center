@@ -11,6 +11,8 @@ const user = {
   lastName: 'Perrot',
   phone: null,
   role: 'PRATICIENNE',
+  twoFactorEnabledAt: null,
+  twoFactorRecoveryCodes: ['h1', 'h2'],
   preferences: null,
 };
 
@@ -32,7 +34,9 @@ describe('MeService', () => {
       lastName: 'Perrot',
       phone: null,
       role: 'PRATICIENNE',
+      twoFactorEnabledAt: null,
       theme: 'SYSTEM',
+      recoveryCodesLeft: 2,
     });
   });
 

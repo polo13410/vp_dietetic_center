@@ -29,13 +29,16 @@ export class MeService {
         lastName: true,
         phone: true,
         role: true,
+        twoFactorEnabledAt: true,
+        twoFactorRecoveryCodes: true,
         preferences: { select: { theme: true } },
       },
     });
-    const { preferences, ...profile } = user;
+    const { preferences, twoFactorRecoveryCodes, ...profile } = user;
     return {
       ...profile,
       theme: preferences?.theme ?? Theme.SYSTEM,
+      recoveryCodesLeft: twoFactorRecoveryCodes.length,
     };
   }
 

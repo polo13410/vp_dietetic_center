@@ -94,6 +94,8 @@ export interface UserDto {
   lastName: string;
   role: UserRole;
   isActive: boolean;
+  /** Users list (admin): when her authenticator app was confirmed; null = to do at next sign-in */
+  twoFactorEnabledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -128,6 +130,18 @@ export interface MeDto {
   phone: string | null;
   role: UserRole;
   theme: Theme;
+  /** When her authenticator app was confirmed (two-step verification, mandatory) */
+  twoFactorEnabledAt: string | null;
+  /** Unused recovery codes */
+  recoveryCodesLeft: number;
+}
+
+/** POST /auth/google: Google is done, the code of her authenticator app is still to type. */
+export interface TwoFactorChallengeDto {
+  twoFactor: 'setup' | 'verify';
+  challengeToken: string;
+  /** First sign-in (or after a reset): the secret to add to her app */
+  setup?: { secret: string; otpauthUrl: string };
 }
 
 /** PATCH /me */

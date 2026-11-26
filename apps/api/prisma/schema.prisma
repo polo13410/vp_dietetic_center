@@ -165,6 +165,15 @@ model User {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
+  /// Two-step verification (TOTP, mandatory after Google): base32 secret, set at enrolment
+  twoFactorSecret        String?   @map("two_factor_secret")
+  /// When enrolment was confirmed with a first code; null = enrolment still to do
+  twoFactorEnabledAt     DateTime? @map("two_factor_enabled_at")
+  /// Last 30-second step accepted: a code is never accepted twice
+  twoFactorLastStep      Int?      @map("two_factor_last_step")
+  /// SHA-256 of the unused recovery codes
+  twoFactorRecoveryCodes String[]  @default([]) @map("two_factor_recovery_codes")
+
   // Relations
   preferences   UserPreferences?
   practice      PractitionerProfile?

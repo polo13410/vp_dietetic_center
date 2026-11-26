@@ -52,3 +52,32 @@ describe('UsersService default formulas and practice', () => {
     expect(mockPrisma.formula.createMany).not.toHaveBeenCalled();
   });
 });
+
+describe('UsersService two-step verification reset', () => {
+  let service: UsersService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new UsersService(mockPrisma as any);
+  });
+
+  it('clears her app and recovery codes and ends her sessions', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u2' });
+    await service.resetTwoFactor('u2', 'admin');
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u2' },
+      data: { twoFactorSecret: null, twoFactorEnabledAt: null, twoFactorLastStep: null, twoFactorRecoveryCodes: [] },
+    });
+    expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u2', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('never resets one’s own, nor an unknown account', async () => {
+    await expect(service.resetTwoFactor('admin', 'admin')).rejects.toThrow(/propre/);
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    await expect(service.resetTwoFactor('u9', 'admin')).rejects.toThrow(/introuvable/);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -22,6 +22,7 @@ export class UsersService {
         role: true,
         isActive: true,
         lastLoginAt: true,
+        twoFactorEnabledAt: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -114,6 +115,28 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id },
       data: { isActive: false },
+      select: { id: true, email: true, isActive: true },
     });
+  }
+
+  /**
+   * Lost phone: she enrols a new app at her next sign-in. Her sessions end now, so nobody stays
+   * signed in on the strength of the old app. Never for oneself (someone using an admin session
+   * must not be able to drop its second step).
+   */
+  async resetTwoFactor(id: string, byUserId: string) {
+    if (id === byUserId) {
+      throw new BadRequestException('Vous ne pouvez pas réinitialiser votre propre double authentification.');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id },
+        data: { twoFactorSecret: null, twoFactorEnabledAt: null, twoFactorLastStep: null, twoFactorRecoveryCodes: [] },
+      }),
+      this.prisma.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+    return { id };
   }
 }

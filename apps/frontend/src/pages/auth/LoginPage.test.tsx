@@ -56,13 +56,64 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/Mot de passe oublié/)).not.toBeInTheDocument();
   });
 
-  it('signs in with the Google ID token and opens her home page', async () => {
-    api.post.mockResolvedValue({ data: session });
+  it('asks for the code of her app after Google, then opens her home page', async () => {
+    api.post
+      .mockResolvedValueOnce({ data: { twoFactor: 'verify', challengeToken: 'challenge' } })
+      .mockResolvedValueOnce({ data: session });
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Se connecter avec Google' }));
-    expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Code de vérification' })).toBeInTheDocument();
     expect(api.post).toHaveBeenCalledWith('/auth/google', { idToken: 'id-token' });
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+
+    fireEvent.change(screen.getByLabelText('Code à 6 chiffres ou code de secours'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }));
+
+    expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith('/auth/two-factor', { challengeToken: 'challenge', code: '123456' });
     expect(useAuthStore.getState()).toMatchObject({ isAuthenticated: true, accessToken: 'access' });
+  });
+
+  it('sets up her app the first time, then shows her recovery codes before opening the app', async () => {
+    api.post
+      .mockResolvedValueOnce({
+        data: {
+          twoFactor: 'setup',
+          challengeToken: 'challenge',
+          setup: { secret: 'JBSWY3DPEHPK3PXP', otpauthUrl: 'otpauth://totp/VP?secret=JBSWY3DPEHPK3PXP' },
+        },
+      })
+      .mockResolvedValueOnce({ data: { ...session, recoveryCodes: ['AAAA-BBBB', 'CCCC-DDDD'] } });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Se connecter avec Google' }));
+
+    expect(await screen.findByRole('heading', { name: 'Protéger votre compte' })).toBeInTheDocument();
+    expect(screen.getByText('JBSW Y3DP EHPK 3PXP')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Code affiché par l’application'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }));
+
+    expect(await screen.findByText('AAAA-BBBB')).toBeInTheDocument();
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    const next = screen.getByRole('button', { name: 'Continuer' });
+    expect(next).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('J’ai noté mes codes de secours'));
+    fireEvent.click(next);
+    expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
+  });
+
+  it('says when the code is wrong, and lets her try again', async () => {
+    const message = 'Ce code n’est pas bon.';
+    api.post
+      .mockResolvedValueOnce({ data: { twoFactor: 'verify', challengeToken: 'challenge' } })
+      .mockRejectedValueOnce(refused(401, message));
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Se connecter avec Google' }));
+    fireEvent.change(await screen.findByLabelText('Code à 6 chiffres ou code de secours'), {
+      target: { value: '000000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
   it('says clearly when the Google account is not registered', async () => {

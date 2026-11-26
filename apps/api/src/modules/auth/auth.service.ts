@@ -9,11 +9,35 @@ import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 
+import {
+  generateRecoveryCodes,
+  generateSecret,
+  hashRecoveryCode,
+  otpauthUrl,
+  verifyCode,
+} from './two-factor/totp';
+
 /** Shown on the sign-in page: the Google account is fine, but nobody registered its address. */
 export const NOT_REGISTERED =
   'Cette adresse Google n’est pas enregistrée dans l’application. Demandez à l’administratrice de créer votre compte avec cette adresse.';
 export const ACCOUNT_DISABLED =
   'Ce compte est désactivé. Demandez à l’administratrice de le réactiver.';
+export const WRONG_CODE =
+  'Ce code n’est pas bon. Tapez le code à 6 chiffres affiché en ce moment par votre application, ou un code de secours.';
+export const CHALLENGE_EXPIRED = 'La vérification a pris trop de temps. Reconnectez-vous avec Google.';
+
+/** Time to type the code after Google, with the signed challenge kept by the sign-in page. */
+const CHALLENGE_EXPIRES_IN = '5m';
+
+/**
+ * Google said who she is; the second step (a code from her authenticator app) is still to do.
+ * `setup` is there until she has confirmed her app once: the secret to add to it.
+ */
+export interface TwoFactorChallenge {
+  twoFactor: 'setup' | 'verify';
+  challengeToken: string;
+  setup?: { secret: string; otpauthUrl: string };
+}
 
 @Injectable()
 export class AuthService {
@@ -99,9 +123,10 @@ export class AuthService {
 
   /**
    * The only way to sign in: a Google ID token, verified with Google, whose verified e-mail
-   * belongs to a registered, active user. Never creates an account.
+   * belongs to a registered, active user, then a code from her authenticator app
+   * (`completeTwoFactor`). Never creates an account, never opens a session by itself.
    */
-  async validateGoogleToken(idToken: string, ipAddress?: string, userAgent?: string) {
+  async validateGoogleToken(idToken: string): Promise<TwoFactorChallenge> {
     // A malformed, expired, forged or foreign token is a refused sign-in, not a server error
     const ticket = await this.googleClient
       .verifyIdToken({ idToken, audience: this.config.get<string>('google.clientId') })
@@ -126,7 +151,56 @@ export class AuthService {
       });
     }
 
-    return this.startSession(user, ipAddress, userAgent);
+    return this.twoFactorChallenge(user);
+  }
+
+  /**
+   * The second step: a code of her app (or, once enrolled, one of her recovery codes) for the
+   * challenge given after Google. The first code confirms the enrolment and returns her
+   * recovery codes, shown once.
+   */
+  async completeTwoFactor(challengeToken: string, code: string, ipAddress?: string, userAgent?: string) {
+    const userId = await this.readChallenge(challengeToken);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.isActive) throw new UnauthorizedException(ACCOUNT_DISABLED);
+    if (!user.twoFactorSecret) throw new UnauthorizedException(CHALLENGE_EXPIRED);
+
+    const enrolling = !user.twoFactorEnabledAt;
+    const step = verifyCode(user.twoFactorSecret, code, user.twoFactorLastStep);
+    let recoveryCodes: string[] | undefined;
+
+    if (step !== null) {
+      // Conditional update: two requests with the same code cannot both pass
+      if (enrolling) recoveryCodes = generateRecoveryCodes();
+      const { count } = await this.prisma.user.updateMany({
+        where: {
+          id: user.id,
+          OR: [{ twoFactorLastStep: null }, { twoFactorLastStep: { lt: step } }],
+        },
+        data: {
+          twoFactorLastStep: step,
+          ...(recoveryCodes && {
+            twoFactorEnabledAt: new Date(),
+            twoFactorRecoveryCodes: recoveryCodes.map(hashRecoveryCode),
+          }),
+        },
+      });
+      if (count === 0) throw new UnauthorizedException(WRONG_CODE);
+    } else {
+      // A recovery code works only once enrolled, and only once
+      const hash = hashRecoveryCode(code);
+      if (enrolling || !user.twoFactorRecoveryCodes.includes(hash)) {
+        throw new UnauthorizedException(WRONG_CODE);
+      }
+      const { count } = await this.prisma.user.updateMany({
+        where: { id: user.id, twoFactorRecoveryCodes: { has: hash } },
+        data: { twoFactorRecoveryCodes: user.twoFactorRecoveryCodes.filter((h) => h !== hash) },
+      });
+      if (count === 0) throw new UnauthorizedException(WRONG_CODE);
+    }
+
+    const session = await this.startSession(user, ipAddress, userAgent);
+    return { ...session, recoveryCodes };
   }
 
   /**
@@ -143,6 +217,40 @@ export class AuthService {
     if (!user) throw new UnauthorizedException(NOT_REGISTERED);
     if (!user.isActive) throw new UnauthorizedException(ACCOUNT_DISABLED);
     return user;
+  }
+
+  /** After Google: a short-lived challenge, and the secret to add to her app if not done yet. */
+  private async twoFactorChallenge(user: User): Promise<TwoFactorChallenge> {
+    const challengeToken = this.jwtService.sign(
+      { sub: user.id, typ: 'two-factor' },
+      { secret: this.challengeSecret(), expiresIn: CHALLENGE_EXPIRES_IN },
+    );
+    if (user.twoFactorEnabledAt && user.twoFactorSecret) return { twoFactor: 'verify', challengeToken };
+
+    // The same secret until she confirms it, so a second try works with what she already scanned
+    let secret = user.twoFactorSecret;
+    if (!secret) {
+      secret = generateSecret();
+      await this.prisma.user.update({ where: { id: user.id }, data: { twoFactorSecret: secret } });
+    }
+    return { twoFactor: 'setup', challengeToken, setup: { secret, otpauthUrl: otpauthUrl(secret, user.email) } };
+  }
+
+  private async readChallenge(challengeToken: string): Promise<string> {
+    try {
+      const payload = await this.jwtService.verifyAsync<{ sub: string; typ?: string }>(challengeToken, {
+        secret: this.challengeSecret(),
+      });
+      if (payload.typ !== 'two-factor' || !payload.sub) throw new Error('Not a challenge');
+      return payload.sub;
+    } catch {
+      throw new UnauthorizedException(CHALLENGE_EXPIRED);
+    }
+  }
+
+  /** Its own key: a challenge can never be used as an access token, nor the other way round. */
+  private challengeSecret(): string {
+    return `${this.config.getOrThrow<string>('jwt.secret')}:two-factor`;
   }
 
   private async startSession(user: User, ipAddress?: string, userAgent?: string) {

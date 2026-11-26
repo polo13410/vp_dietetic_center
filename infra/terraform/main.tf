@@ -85,10 +85,14 @@ resource "google_sql_database_instance" "main" {
       require_ssl  = true # legacy flag: provider v5 sends false by default, which conflicts with ssl_mode
     }
 
+    # Light PITR: restore to any second of the last 3 days (WAL kept 3 days, a few cents a month
+    # for this database size). A restore clones the whole instance (staging and prod databases)
+    # into a new instance; it never rewinds this one in place.
     backup_configuration {
       enabled                        = true
       start_time                     = "03:00"
-      point_in_time_recovery_enabled = false
+      point_in_time_recovery_enabled = true
+      transaction_log_retention_days = 3
       backup_retention_settings {
         retained_backups = 7
       }

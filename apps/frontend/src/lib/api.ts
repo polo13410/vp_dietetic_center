@@ -37,7 +37,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 /** A refused sign-in is answered on the sign-in page: no session to refresh. */
-const SIGN_IN_URLS = ['/auth/google', '/auth/dev-login'];
+const SIGN_IN_URLS = ['/auth/google', '/auth/two-factor', '/auth/dev-login'];
 
 // Handle 401 — refresh token
 api.interceptors.response.use(

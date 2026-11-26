@@ -11,8 +11,8 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { LoadingSpinner } from '../../components/ui/loading-screen';
-import { useIsRole } from '../../hooks/useAuth';
-import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '../../hooks/useUsers';
+import { useCurrentUser, useIsRole } from '../../hooks/useAuth';
+import { useCreateUser, useDeleteUser, useResetTwoFactor, useUpdateUser, useUsers } from '../../hooks/useUsers';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administratrice',
@@ -30,11 +30,14 @@ export default function UsersPage() {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
+  const resetTwoFactor = useResetTwoFactor();
+  const me = useCurrentUser();
 
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserDto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserDto | null>(null);
+  const [resetTarget, setResetTarget] = useState<UserDto | null>(null);
 
   if (!isAdmin) return null;
 
@@ -66,6 +69,11 @@ export default function UsersPage() {
     } else {
       createUser.mutate(data as CreateUserDto, { onSuccess: () => setFormOpen(false) });
     }
+  };
+
+  const handleReset = () => {
+    if (!resetTarget) return;
+    resetTwoFactor.mutate(resetTarget.id, { onSuccess: () => setResetTarget(null) });
   };
 
   const handleDelete = () => {
@@ -173,10 +181,19 @@ export default function UsersPage() {
                   )}
                 </div>
 
+                <p className="w-44 text-sm text-muted-foreground">
+                  {user.twoFactorEnabledAt ? 'Double authentification active' : 'Double authentification à configurer'}
+                </p>
+
                 <div className="ml-auto flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
                     <Pencil /> Modifier
                   </Button>
+                  {user.twoFactorEnabledAt && user.id !== me?.id && (
+                    <Button variant="ghost" size="sm" onClick={() => setResetTarget(user)}>
+                      Réinitialiser la double authentification
+                    </Button>
+                  )}
                   {user.isActive && (
                     <Button
                       variant="ghost"
@@ -200,6 +217,17 @@ export default function UsersPage() {
         user={editingUser}
         onSubmit={handleFormSubmit}
         isPending={createUser.isPending || updateUser.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!resetTarget}
+        onOpenChange={(open) => !open && setResetTarget(null)}
+        title={`Réinitialiser la double authentification de ${resetTarget?.firstName ?? ''} ${resetTarget?.lastName ?? ''} ?`}
+        description="À faire si elle a perdu son téléphone. Elle est déconnectée partout et configurera une nouvelle application d’authentification à sa prochaine connexion. Vérifiez d’abord que c’est bien elle qui le demande."
+        confirmLabel="Réinitialiser"
+        variant="destructive"
+        loading={resetTwoFactor.isPending}
+        onConfirm={handleReset}
       />
 
       <ConfirmDialog

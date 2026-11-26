@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Audited } from '../audit/audited.decorator';
@@ -39,6 +40,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Mettre à jour un utilisateur (ADMIN)' })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
+  }
+
+  @Post(':id/two-factor/reset')
+  @Audited({ action: AuditAction.UPDATE, entity: 'user' })
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Réinitialiser la double authentification (téléphone perdu, ADMIN)' })
+  resetTwoFactor(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.usersService.resetTwoFactor(id, user.id);
   }
 
   @Delete(':id')

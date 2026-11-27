@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { HandCoins, Plus, X } from 'lucide-react';
+import { HandCoins, Plus, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { useAutosave } from '../../hooks/useAutosave';
@@ -8,6 +8,7 @@ import api from '../../lib/api';
 import { formatAmount } from '../../lib/invoice-document';
 import { eurosInput, parseEuros, type ShareKind } from '../../lib/invoices';
 import { type Consultation, useInvalidatePatientFile } from '../../lib/patient-file';
+import { cn } from '../../lib/utils';
 import { fieldClass } from '../patient-file/LifeEventForm';
 import { SaveIndicator } from '../shared/SaveIndicator';
 import { SegmentedControl } from '../shared/SegmentedControl';
@@ -166,9 +167,9 @@ export function SessionSplit({ session }: { session: Consultation }) {
 
   return (
     <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-lg bg-muted px-4 py-3 text-base">
-      <HandCoins className="mt-0.5 size-5 shrink-0 text-area-invoices" aria-hidden />
-      <div className="min-w-0 space-y-1">
-        <dl className="flex flex-wrap gap-x-5 gap-y-1">
+      <HandCoins className="mt-2 hidden size-5 shrink-0 text-area-invoices sm:block" aria-hidden />
+      <div className="min-w-0 flex-1 space-y-1">
+        <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <SplitItem label="Prix" cents={priceCents} />
           {discount > 0 && <SplitItem label="Remise" cents={-discount} />}
           {discount > 0 && <SplitItem label="Net" cents={netCents} />}
@@ -219,25 +220,29 @@ function PayerAmount({ session, payerName, net }: { session: Consultation; payer
     save.mutate(amount);
   };
   const id = `payer-share-${session.id}`;
-  let hint = 'Effacez le montant pour reprendre le tarif prévu.';
-  if (invalid) hint = `Indiquez un montant entre 0 et ${formatAmount(net)}.`;
-  else if (save.isError) hint = apiErrorMessage(save.error, 'Montant non enregistré. Modifiez le champ pour réessayer.');
-  else if (save.isPending) hint = 'Enregistrement…';
+  const overridden = session.payerOverrideCents != null;
+  let problem: string | undefined;
+  if (invalid) problem = `Indiquez un montant entre 0 et ${formatAmount(net)}.`;
+  else if (save.isError) problem = apiErrorMessage(save.error, 'Montant non enregistré. Modifiez le champ pour réessayer.');
 
   return (
-    <div className="flex flex-wrap items-baseline gap-1.5">
-      <dt><label htmlFor={id} className="text-sm text-muted-foreground">Pris en charge par {payerName}</label></dt>
-      <dd>
-        <div className="inline-flex items-center gap-1.5">
+    <>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <dt>
+          <label htmlFor={id} className="text-sm text-muted-foreground">
+            Pris en charge par {payerName}
+          </label>
+        </dt>
+        <dd className="flex shrink-0 items-center gap-1">
           <input
             id={id}
             inputMode="decimal"
             autoComplete="off"
-            className={`${fieldClass} max-w-24 text-right tabular-nums`}
+            className={cn(fieldClass, 'h-9 min-h-0 w-20 py-1 text-right tabular-nums aria-[invalid=true]:border-destructive')}
             value={draft ?? saved}
             disabled={save.isPending}
-            aria-invalid={invalid || save.isError}
-            aria-describedby={`${id}-hint`}
+            aria-invalid={!!problem}
+            aria-describedby={problem ? `${id}-problem` : undefined}
             onChange={(e) => {
               save.reset();
               setDraft(e.target.value);
@@ -248,23 +253,40 @@ function PayerAmount({ session, payerName, net }: { session: Consultation; payer
                 e.preventDefault();
                 e.currentTarget.blur();
               }
+              if (e.key === 'Escape') setDraft(null);
             }}
           />
           <span>€</span>
+          {overridden && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground"
+              disabled={save.isPending}
+              aria-label="Reprendre le montant prévu par la prise en charge"
+              title="Reprendre le montant prévu par la prise en charge"
+              onClick={() => save.mutate(null)}
+            >
+              <RotateCcw aria-hidden className="size-4" />
+            </Button>
+          )}
+        </dd>
+      </div>
+      {problem && (
+        <div id={`${id}-problem`} role="alert" className="order-last basis-full text-sm text-destructive">
+          {problem}
         </div>
-        <p id={`${id}-hint`} className={invalid || save.isError ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
-          {hint}
-        </p>
-      </dd>
-    </div>
+      )}
+    </>
   );
 }
 
 function SplitItem({ label, cents, strong }: { label: string; cents: number; strong?: boolean }) {
   return (
-    <div className="flex items-baseline gap-1.5">
+    <div className="flex flex-wrap items-baseline gap-x-1.5">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className={strong ? 'font-semibold tabular-nums' : 'tabular-nums'}>{formatAmount(cents)}</dd>
+      <dd className={cn('whitespace-nowrap tabular-nums', strong && 'font-semibold')}>{formatAmount(cents)}</dd>
     </div>
   );
 }

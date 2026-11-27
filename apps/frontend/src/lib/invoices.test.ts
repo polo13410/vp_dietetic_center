@@ -4,16 +4,16 @@ import { bilanInvoice, cancelledInvoice, coveredInvoice, creditNote, payerInvoic
 
 import { invoiceDocumentContent } from './invoice-document';
 import {
-  countsInTotals,
-  currentPeriod,
-  invoiceFilename,
-  invoiceStatus,
-  linksText,
-  mismatchText,
-  monthLabel,
-  periodLabel,
-  periodRange,
-  shiftPeriod,
+    countsInTotals,
+    currentPeriod,
+    invoiceFilename,
+    invoiceStatus,
+    linksText,
+    mismatchText,
+    monthLabel,
+    periodLabel,
+    periodRange,
+    shiftPeriod,
 } from './invoices';
 
 describe('invoice statuses', () => {
@@ -80,7 +80,7 @@ describe('invoiceDocumentContent (the test patient of § 3.1)', () => {
     expect(c.title).toBe('Facture');
     expect(c.number).toBe('2026-0006');
     expect(c.issuedOn).toBe('23 septembre 2026');
-    expect(c.practice).toEqual(['Valérie Perrot, diététicienne nutritionniste', '12 rue des Oliviers', '13100 Aix-en-Provence']);
+    expect(c.practice).toEqual(['Valérie Dupont, diététicienne nutritionniste', '12 rue des Oliviers', '13100 Aix-en-Provence']);
     expect(c.identifiers).toEqual(['SIRET : 912 345 678 00011', 'N° ADELI : 139512345']);
     expect(c.recipientLabel).toBe('Patient');
     expect(c.recipient).toEqual(['Martine Roux', '12 rue des Lilas', '34000 Montpellier']);

@@ -136,7 +136,7 @@ export function letterhead(practice: PracticeHeader | null, practitioner: Practi
   ].filter(present);
 }
 
-/** « Valérie Perrot, diététicienne nutritionniste » → two lines; her name otherwise. */
+/** « Valérie Dupont, diététicienne nutritionniste » → two lines; her name otherwise. */
 function signature(practice: PracticeHeader | null, practitioner: Practitioner): string {
   const name = practice?.practiceName?.trim();
   if (!name) return `${practitioner.firstName} ${practitioner.lastName}`;

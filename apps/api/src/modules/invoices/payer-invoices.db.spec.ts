@@ -68,9 +68,9 @@ describe.skipIf(!url)('payer invoices on a real database', () => {
       data: {
         email: `payers-${randomUUID()}@test.local`,
         firstName: 'Valérie',
-        lastName: 'Perrot',
+        lastName: 'Dupont',
         role: 'PRATICIENNE',
-        practice: { create: { practiceName: 'Valérie Perrot, diététicienne nutritionniste' } },
+        practice: { create: { practiceName: 'Valérie Dupont, diététicienne nutritionniste' } },
         practices: { create: { name: 'Aix', address: '12 rue des Oliviers', zipCode: '13100', city: 'Aix-en-Provence', isDefault: true } },
         formulas: { create: { label: 'Suivi', priceCents: 5000 } },
       },

@@ -22,7 +22,7 @@ vi.mock('@react-oauth/google', () => ({
 const session = {
   accessToken: 'access',
   expiresIn: 900,
-  user: { id: 'u1', email: 'valerie@gmail.com', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' },
+  user: { id: 'u1', email: 'michelle@gmail.com', firstName: 'Valérie', lastName: 'Dupont', role: 'PRATICIENNE' },
 };
 
 function renderPage() {

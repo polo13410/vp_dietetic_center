@@ -45,10 +45,10 @@ describe('GpReportsService', () => {
     });
     mockPrisma.user.findUniqueOrThrow.mockResolvedValue({
       firstName: 'Valérie',
-      lastName: 'Perrot',
+      lastName: 'Dupont',
       phone: null,
       email: 'v@example.fr',
-      practice: { practiceName: 'Valérie Perrot, diététicienne', adeliRpps: '139512345' },
+      practice: { practiceName: 'Valérie Dupont, diététicienne', adeliRpps: '139512345' },
     });
     // The letterhead takes the address of her default practice
     mockPrisma.practice.findFirst.mockResolvedValue({ address: null, zipCode: null, city: 'Aix-en-Provence' });
@@ -74,7 +74,7 @@ describe('GpReportsService', () => {
     expect(created.content).toContain('76,5 kg (IMC 30,26), soit une perte de 2,5 kg');
     expect(created.content).toContain('5,86 MJ (1 400,3 kcal) par jour au bilan, est aujourd’hui de 5,77 MJ (1 378,9 kcal)');
     expect(created.content).toContain('j’ai relevé : Santé : hypertension traitée.');
-    expect(created.content).toMatch(/Valérie Perrot\nDiététicienne$/);
+    expect(created.content).toMatch(/Valérie Dupont\nDiététicienne$/);
     // The current value of each section: its latest entry
     expect(mockPrisma.fileEntry.findMany.mock.calls[0][0]).toMatchObject({
       where: { patientId: 'p1' },
@@ -105,7 +105,7 @@ describe('GpReportsService', () => {
     expect(doc).toMatchObject({
       id: 'r1',
       patient: { firstName: 'Martine', lastName: 'Roux' },
-      letterhead: ['Valérie Perrot, diététicienne', 'Aix-en-Provence', 'v@example.fr', 'N° ADELI : 139512345'],
+      letterhead: ['Valérie Dupont, diététicienne', 'Aix-en-Provence', 'v@example.fr', 'N° ADELI : 139512345'],
     });
     expect(mockPrisma.user.findUniqueOrThrow.mock.calls[0][0].where).toEqual({ id: 'user-1' });
   });

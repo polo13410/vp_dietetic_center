@@ -27,7 +27,7 @@ const session = {
 };
 /** Her activity (« Mon activité ») */
 const activity = {
-  practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+  practiceName: 'Valérie Dupont, diététicienne nutritionniste',
   siret: '91234567800011',
   adeliRpps: '139512345',
   vatMention: 'TVA non applicable, article 261-4-1° du CGI',
@@ -79,7 +79,7 @@ describe('InvoicesService', () => {
     created = [];
     mockPrisma.consultation.findUnique.mockResolvedValue(session);
     mockPrisma.practitionerProfile.findUnique.mockResolvedValue(activity);
-    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ firstName: 'Valérie', lastName: 'Perrot' });
+    mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ firstName: 'Valérie', lastName: 'Dupont' });
     mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { sequence: null } });
     mockPrisma.invoice.findFirst.mockResolvedValue(null);
     mockPrisma.invoice.findUnique.mockResolvedValue(issued);
@@ -152,7 +152,7 @@ describe('InvoicesService', () => {
     it('uses her name when the practice has no name yet, and never invents a VAT mention', async () => {
       mockPrisma.practitionerProfile.findUnique.mockResolvedValue(null);
       const invoice = await service.issue(user as any, 'c1', NOW);
-      expect(invoice).toMatchObject({ practiceName: 'Valérie Perrot', vatMention: null, siret: null });
+      expect(invoice).toMatchObject({ practiceName: 'Valérie Dupont', vatMention: null, siret: null });
     });
 
     it("prints the address of the session's practice, and its own SIRET when it has one", async () => {

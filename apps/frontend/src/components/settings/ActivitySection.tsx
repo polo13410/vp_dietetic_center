@@ -25,7 +25,7 @@ export function ActivitySection({ activity }: { activity: ActivityDto }) {
         <AutosaveField
           className="sm:col-span-6"
           label="Nom affiché sur les factures"
-          hint="Par exemple : Valérie Perrot, diététicienne nutritionniste."
+          hint="Par exemple : Valérie Dupont, diététicienne nutritionniste."
           value={activity.practiceName}
           onSave={save('practiceName')}
           track={track}

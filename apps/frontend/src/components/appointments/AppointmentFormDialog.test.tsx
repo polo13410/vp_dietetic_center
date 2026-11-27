@@ -40,7 +40,7 @@ describe('AppointmentFormDialog: « Nouveau patient » from the agenda', () => {
     options = { formulas: [], practices: [aix] };
     serve();
     useAuthStore.setState({
-      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' as never },
+      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Dupont', role: 'PRATICIENNE' as never },
       isAuthenticated: true,
     });
     post.mockImplementation((async (url: string) =>
@@ -133,7 +133,7 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
     serve();
     post.mockResolvedValue({ data: { id: 'a-1' } });
     useAuthStore.setState({
-      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' as never },
+      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Dupont', role: 'PRATICIENNE' as never },
       isAuthenticated: true,
     });
   });

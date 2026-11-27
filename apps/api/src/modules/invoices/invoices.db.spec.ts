@@ -62,11 +62,11 @@ describe.skipIf(!url)('invoices on a real database', () => {
       data: {
         email: `invoices-${randomUUID()}@test.local`,
         firstName: 'Valérie',
-        lastName: 'Perrot',
+        lastName: 'Dupont',
         role: 'PRATICIENNE',
         practice: {
           create: {
-            practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+            practiceName: 'Valérie Dupont, diététicienne nutritionniste',
             siret: '91234567800011',
             adeliRpps: '139512345',
             vatMention: 'TVA non applicable, article 261-4-1° du CGI',
@@ -264,7 +264,7 @@ describe.skipIf(!url)('invoices on a real database', () => {
 
       const invoice = await invoices.issue(user, session.id, NOW);
       expect(invoice).toMatchObject({
-        practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+        practiceName: 'Valérie Dupont, diététicienne nutritionniste',
         practiceAddress: '40 rue Paradis',
         practiceCity: 'Marseille',
         siret: '73282932000074',

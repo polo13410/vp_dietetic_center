@@ -14,10 +14,10 @@ describe('gp reports', () => {
   });
 
   it('cuts the letter into paragraphs, keeping line breaks inside them', () => {
-    expect(paragraphs('Dr Garnier\r\n\r\nDocteur,\n\n\n  \nValérie Perrot\nDiététicienne\n')).toEqual([
+    expect(paragraphs('Dr Garnier\r\n\r\nDocteur,\n\n\n  \nValérie Dupont\nDiététicienne\n')).toEqual([
       'Dr Garnier',
       'Docteur,',
-      'Valérie Perrot\nDiététicienne',
+      'Valérie Dupont\nDiététicienne',
     ]);
   });
 

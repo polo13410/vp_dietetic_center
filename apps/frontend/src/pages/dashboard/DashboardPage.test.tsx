@@ -1,11 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type {
-  DashboardAppointmentDto,
-  DashboardSummary,
-  PayerRemindersDto,
-  SessionToInvoiceDto,
-  TaskDto,
-  UserRole,
+    DashboardAppointmentDto,
+    DashboardSummary,
+    PayerRemindersDto,
+    SessionToInvoiceDto,
+    TaskDto,
+    UserRole,
 } from '@vp/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -114,7 +114,7 @@ function serve(
 
 function login(role: 'PRATICIENNE' | 'ASSISTANTE' = 'PRATICIENNE') {
   useAuthStore.setState({
-    user: { id: 'u-1', email: 'v@example.com', firstName: 'Valérie', lastName: 'Perrot', role: role as UserRole },
+    user: { id: 'u-1', email: 'v@example.com', firstName: 'Valérie', lastName: 'Dupont', role: role as UserRole },
     isAuthenticated: true,
   });
 }

@@ -92,14 +92,14 @@ describe('AuthService sessions', () => {
 });
 
 describe('AuthService Google sign-in', () => {
-  const googleUser = createMockUser({ email: 'valerie@gmail.com' });
+  const googleUser = createMockUser({ email: 'michelle@gmail.com' });
   const findByEmail = vi.fn();
   let service: AuthService;
   let verifyIdToken: ReturnType<typeof vi.fn>;
 
   /** What Google's verification returns for an ID token. */
   const ticket = (payload: Record<string, unknown>) => ({
-    getPayload: () => ({ sub: 'google-sub', email: 'valerie@gmail.com', email_verified: true, ...payload }),
+    getPayload: () => ({ sub: 'google-sub', email: 'michelle@gmail.com', email_verified: true, ...payload }),
   });
 
   beforeEach(() => {
@@ -114,7 +114,7 @@ describe('AuthService Google sign-in', () => {
     const result = await service.validateGoogleToken('id-token');
 
     expect(verifyIdToken).toHaveBeenCalledWith({ idToken: 'id-token', audience: 'client-id' });
-    expect(findByEmail).toHaveBeenCalledWith('valerie@gmail.com');
+    expect(findByEmail).toHaveBeenCalledWith('michelle@gmail.com');
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: googleUser.id },
       data: { googleId: 'google-sub', avatarUrl: null },

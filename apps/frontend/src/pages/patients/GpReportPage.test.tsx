@@ -29,7 +29,7 @@ const draft = {
   createdAt: '2026-11-22T10:00:00.000Z',
   updatedAt: '2026-11-22T10:00:00.000Z',
   patient: { firstName: 'Martine', lastName: 'Roux', gpName: 'Dr Laurent Garnier' },
-  letterhead: ['Valérie Perrot, diététicienne nutritionniste', '12 rue des Oliviers', 'N° ADELI : 139512345'],
+  letterhead: ['Valérie Dupont, diététicienne nutritionniste', '12 rue des Oliviers', 'N° ADELI : 139512345'],
 } as GpReportDocumentDto;
 
 const URL_REPORT = `/patients/${PATIENT_ID}/gp-reports/r-1`;
@@ -69,7 +69,7 @@ describe('GpReportPage', () => {
     renderPage();
     const text = await screen.findByLabelText('Texte du compte rendu');
     expect(text).toHaveValue(draft.content);
-    expect(screen.getByText('Valérie Perrot, diététicienne nutritionniste')).toBeInTheDocument();
+    expect(screen.getByText('Valérie Dupont, diététicienne nutritionniste')).toBeInTheDocument();
     expect(screen.getByText('N° ADELI : 139512345')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Compte rendu au médecin' })).toBeInTheDocument();
     expect(screen.getByText('Brouillon')).toBeInTheDocument();

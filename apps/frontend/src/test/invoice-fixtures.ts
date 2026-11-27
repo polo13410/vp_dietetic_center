@@ -32,7 +32,7 @@ const base: InvoiceDto = {
   periodStart: null,
   periodEnd: null,
   paidAt: null,
-  practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+  practiceName: 'Valérie Dupont, diététicienne nutritionniste',
   practiceAddress: '12 rue des Oliviers',
   practiceZipCode: '13100',
   practiceCity: 'Aix-en-Provence',

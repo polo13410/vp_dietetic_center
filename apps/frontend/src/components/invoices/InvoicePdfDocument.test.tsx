@@ -39,7 +39,7 @@ describe('InvoicePdfDocument', () => {
     expect(raw.match(/\/Type \/Page\b/g)).toHaveLength(1);
     expect(raw).toMatch(/\/MediaBox \[0 0 595\.28\d* 841\.89\d*\]/);
     for (const mention of [
-      'Valérie Perrot, diététicienne nutritionniste',
+      'Valérie Dupont, diététicienne nutritionniste',
       '13100 Aix-en-Provence',
       'SIRET : 912 345 678 00011',
       'N° ADELI : 139512345',

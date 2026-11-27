@@ -60,8 +60,8 @@ describe('TOTP', () => {
     const secret = generateSecret();
     expect(base32Decode(secret)).toHaveLength(20);
     expect(generateSecret()).not.toBe(secret);
-    const url = otpauthUrl('ABC', 'valerie@gmail.com');
-    expect(url.startsWith('otpauth://totp/VP%20Dietetic%20Center%3Avalerie%40gmail.com?')).toBe(true);
+    const url = otpauthUrl('ABC', 'michelle@gmail.com');
+    expect(url.startsWith('otpauth://totp/VP%20Dietetic%20Center%3Amichelle%40gmail.com?')).toBe(true);
     expect(new URL(url).searchParams.get('secret')).toBe('ABC');
     expect(new URL(url).searchParams.get('issuer')).toBe('VP Dietetic Center');
   });

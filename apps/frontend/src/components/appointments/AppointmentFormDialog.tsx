@@ -17,6 +17,7 @@ import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { PatientCombobox } from '../shared/PatientCombobox';
 import { SegmentedControl } from '../shared/SegmentedControl';
+import { TimePicker } from '../shared/TimePicker';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -300,9 +301,11 @@ export function AppointmentFormDialog({
                   <DatePicker value={field.value} onChange={field.onChange} onBlur={field.onBlur} upcoming />
                 </Field>
               )} />
-              <Field label="Heure" required error={errors.time?.message}>
-                <Input type="time" className="w-32 tabular-nums" {...register('time')} />
-              </Field>
+              <Controller control={control} name="time" render={({ field }) => (
+                <Field label="Heure" required error={errors.time?.message}>
+                  <TimePicker value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                </Field>
+              )} />
             </div>
 
             <Field label="Durée" required error={errors.duration?.message}>

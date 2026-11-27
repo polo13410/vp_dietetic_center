@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { PaginatedResponse, PatientListItemDto } from '@vp/types';
-import { Archive, Plus, Search, UserX } from 'lucide-react';
+import { Archive, FileUp, Plus, Search, UserX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
@@ -97,11 +97,18 @@ export default function PatientsListPage() {
   });
 
   const newPatient = !isAssistant && (
-    <Button asChild>
-      <Link to="/patients/new">
-        <Plus aria-hidden /> Nouveau patient
-      </Link>
-    </Button>
+    <>
+      <Button asChild variant="outline">
+        <Link to="/patients/import">
+          <FileUp aria-hidden /> Importer
+        </Link>
+      </Button>
+      <Button asChild>
+        <Link to="/patients/new">
+          <Plus aria-hidden /> Nouveau patient
+        </Link>
+      </Button>
+    </>
   );
 
   return (

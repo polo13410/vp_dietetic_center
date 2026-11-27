@@ -49,6 +49,13 @@ Le menu « … » de l'en-tête donne l'historique des accès au dossier, l'expo
 
 **Création** : un assistant en cinq étapes (qui est-ce ?, le joindre, sa situation, dossier médical, c'est prêt). Le patient est créé dès la première étape (prénom et nom suffisent) ; les suivantes peuvent être passées. Depuis l'agenda, une version courte crée le patient sans quitter la prise de rendez-vous.
 
+**Import de ses patients existants** (« Importer » sur la liste des patients, praticienne seulement) : un fichier Numbers par patient, celui de son modèle (ou son export Excel). L'API le lit avec SheetJS et trouve ses tableaux par leurs en-têtes : « Récapitulatif » (ligne Administratif : nom, téléphone, e-mail, situation, profession, médecin), « Dossier médical » (âge, sexe, poids, taille, puis une colonne par rubrique) et « Suivi » (une ligne par séance : date, formule = prix en euros, moyen de paiement, poids, habitudes, travail en consultation, aversions, goûts, conseils). Rien n'est enregistré à la lecture : la page montre ce qui est à vérifier (dates hors de l'ordre de ses lignes, comme un Bilan daté après le Suivi 1 ; téléphone incomplet ; nom en un seul mot), le dossier et les séances ; elle corrige le prénom, le nom, le contact, l'âge, le sexe et les dates, puis « Importer le dossier » enregistre tout en une transaction :
+- le patient, avec une année de naissance estimée à partir de l'âge à la première séance (« âge déclaré ») ;
+- la taille et les rubriques du dossier médical, datées de la première séance ;
+- une séance par ligne, comme saisie dans l'app : formule Bilan ou Suivi d'après le libellé de la ligne, avec le **prix de son fichier** (celui de l'époque) ; moyen de paiement (vide ou « Non » = « Non réglé ») ; poids ; ses colonnes « Aversions » et « Goûts » deviennent des versions datées de ces rubriques.
+
+Ne sont pas repris : la feuille « Facture », les colonnes calculées (IMC, MB, constante, recalculés par l'app) et la mention « Compte rendu : Envoyé ». Les lignes vides de fin de modèle sont ignorées. Un patient du même nom bloque l'import tant qu'elle n'a pas confirmé que c'est un autre patient. Ses fichiers réels ne sont jamais versionnés (`*.numbers` dans `.gitignore`) : les tests fabriquent les leurs.
+
 ### Séance
 
 - **Temps 1, « Avant de commencer »** : le récapitulatif en pleine page pour se remémorer l'histoire du patient, puis « Commencer la séance ».
@@ -231,6 +238,7 @@ Authentification à Google Cloud par Workload Identity Federation (pas de clé).
 - Nettoyage, tests de bout en bout en CI, seuils de couverture remontés, documentation à jour (lot 9).
 - Documents dans Cloud Storage avec aperçu, journal d'accès, API accessible uniquement par le frontend.
 - Staging en ligne sur son domaine, région Paris, coupure budgétaire.
+- Import de ses patients existants depuis ses fichiers Numbers (un par patient), relus avant l'enregistrement.
 
 ### À faire
 
@@ -243,6 +251,7 @@ Authentification à Google Cloud par Workload Identity Federation (pas de clé).
    - origine ajoutée au client OAuth ;
    - comptes créés avec `create-user.cjs` ;
    - activité, cabinets et tarifs saisis dans Paramètres ;
+   - ses patients existants importés un par un depuis ses fichiers Numbers (après les tarifs : ses formules Bilan et Suivi sont reconnues à l'import) ;
    - mention TVA, numérotation et avoirs validés avec son comptable ;
    - merge `staging` → `prod`.
 4. **Plus tard** :

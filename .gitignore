@@ -71,3 +71,6 @@ next-env.d.ts
 
 # Documents stored locally in development (no GCS bucket)
 .uploads/
+
+# Patient files to import (real health data): never committed
+*.numbers

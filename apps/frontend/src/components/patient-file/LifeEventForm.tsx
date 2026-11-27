@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { EVENT_CATEGORIES, type LifeEventCategory, usePatientFileMutation } from '../../lib/patient-file';
 import { todayISO } from '../../lib/utils';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -46,7 +47,7 @@ export function LifeEventForm({
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-[11rem_1fr]">
         <Field label="Date">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DatePicker value={date} onChange={setDate} />
         </Field>
         <Field label="Ce qui s’est passé">
           <Input
@@ -76,7 +77,7 @@ export function LifeEventForm({
             Annuler
           </Button>
         )}
-        <Button onClick={submit} disabled={!title.trim() || create.isPending}>
+        <Button onClick={submit} disabled={!date || !title.trim() || create.isPending}>
           Ajouter le fait marquant
         </Button>
       </div>

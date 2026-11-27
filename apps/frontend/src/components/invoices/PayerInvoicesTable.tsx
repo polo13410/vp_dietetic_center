@@ -15,8 +15,8 @@ import {
   useSetPayerInvoicePaid,
 } from '../../lib/invoices';
 import { cn, formatLongDate, todayISO } from '../../lib/utils';
-import { fieldClass } from '../patient-file/LifeEventForm';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -24,6 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from '../ui/toaster';
 
 import { CancelInvoiceDialog } from './CancelInvoiceDialog';
+import { InvoicePreviewButton } from './InvoicePreviewButton';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
 
 type Action = { kind: 'paid' | 'correct' | 'cancel'; invoice: PayerInvoiceListItemDto } | null;
@@ -108,6 +109,7 @@ export function PayerInvoicesTable({ invoices }: { invoices: PayerInvoiceListIte
                   </td>
                   <td className="py-1.5 pr-3">
                     <div className="flex justify-end">
+                      <InvoicePreviewButton invoice={invoice} />
                       <Button
                         variant="ghost"
                         size="icon"
@@ -184,7 +186,7 @@ function PaidDialog({ invoice, onClose }: { invoice: PayerInvoiceListItemDto; on
           </DialogDescription>
         </DialogHeader>
         <Field label="Réglée le">
-          <input type="date" className={fieldClass} value={day} min={issuedOn} onChange={(e) => setDay(e.target.value)} />
+          <DatePicker value={day} min={issuedOn} onChange={setDay} />
         </Field>
         <DialogFooter>
           {invoice.paidAt && (

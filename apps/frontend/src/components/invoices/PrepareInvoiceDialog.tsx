@@ -12,7 +12,8 @@ import {
   usePayerPreview,
 } from '../../lib/invoices';
 import { formatLongDate } from '../../lib/utils';
-import { fieldClass } from '../patient-file/LifeEventForm';
+import { InvoicePreviewButton } from '../invoices/InvoicePreviewButton';
+import { DatePicker } from '../shared/DatePicker';
 import { EmptyState } from '../shared/EmptyState';
 import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
@@ -95,6 +96,7 @@ export function PrepareInvoiceDialog({
               {periodText(from, to)} · {issued.lines?.length ?? sessions.length} séance
               {(issued.lines?.length ?? sessions.length) > 1 ? 's' : ''}
             </p>
+            <InvoicePreviewButton invoice={issued} showLabel />
             <Button variant="outline" onClick={download} disabled={downloading}>
               <Download aria-hidden /> Télécharger la facture
             </Button>
@@ -103,10 +105,10 @@ export function PrepareInvoiceDialog({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Du">
-                <input type="date" className={fieldClass} value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+                <DatePicker value={from} max={to} onChange={setFrom} />
               </Field>
               <Field label="Au" error={from && to && from > to ? 'La fin est avant le début.' : undefined}>
-                <input type="date" className={fieldClass} value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+                <DatePicker value={to} min={from} onChange={setTo} />
               </Field>
             </div>
 

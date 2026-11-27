@@ -7,6 +7,7 @@ import { useIsRole } from '../../hooks/useAuth';
 import { useShowPractices } from '../../hooks/useMe';
 import api from '../../lib/api';
 import { formatLongDate, formatTime, todayISO } from '../../lib/utils';
+import { DatePicker } from '../shared/DatePicker';
 import { EmptyState } from '../shared/EmptyState';
 import { Pagination } from '../shared/Pagination';
 import { StatusBadge } from '../shared/StatusBadge';
@@ -19,7 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
-import { Input } from '../ui/input';
 import { LoadingSpinner } from '../ui/loading-screen';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from '../ui/toaster';
@@ -110,11 +110,10 @@ export function AppointmentsTable() {
           <label htmlFor="appointments-from" className="text-sm font-medium text-muted-foreground">
             Du
           </label>
-          <Input
+          <DatePicker
             id="appointments-from"
-            type="date"
             value={from}
-            onChange={(e) => filter(() => setFrom(e.target.value))}
+            onChange={(day) => filter(() => setFrom(day))}
             className="w-44"
           />
         </div>
@@ -122,11 +121,10 @@ export function AppointmentsTable() {
           <label htmlFor="appointments-to" className="text-sm font-medium text-muted-foreground">
             Au
           </label>
-          <Input
+          <DatePicker
             id="appointments-to"
-            type="date"
             value={to}
-            onChange={(e) => filter(() => setTo(e.target.value))}
+            onChange={(day) => filter(() => setTo(day))}
             className="w-44"
           />
         </div>

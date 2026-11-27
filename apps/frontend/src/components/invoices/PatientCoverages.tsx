@@ -17,6 +17,7 @@ import {
 import { FILE_ANCHORS } from '../../lib/patient-file';
 import { fieldClass } from '../patient-file/LifeEventForm';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { Section } from '../shared/Section';
 import { SegmentedControl } from '../shared/SegmentedControl';
@@ -236,17 +237,19 @@ function CoverageForm({
         </label>
         <div className="flex flex-wrap items-center gap-3">
           <SegmentedControl label="En euros ou en pourcentage" options={KINDS} value={kind} onChange={setKind} />
-          <input
-            id="coverage-value"
-            inputMode="decimal"
-            autoComplete="off"
-            className={`${fieldClass} w-32 text-right tabular-nums`}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            aria-invalid={!!errors.value}
-            aria-describedby={errors.value ? 'coverage-value-error' : 'coverage-value-hint'}
-          />
-          <span className="text-base text-muted-foreground">{kind === 'AMOUNT' ? '€' : '% du prix, après remise'}</span>
+          <div className="inline-flex items-center gap-2">
+            <input
+              id="coverage-value"
+              inputMode="decimal"
+              autoComplete="off"
+              className={`${fieldClass} max-w-28 text-right tabular-nums`}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              aria-invalid={!!errors.value}
+              aria-describedby={errors.value ? 'coverage-value-error' : 'coverage-value-hint'}
+            />
+            <span className="text-base text-muted-foreground">{kind === 'AMOUNT' ? '€' : '%'}</span>
+          </div>
         </div>
         {errors.value ? (
           <p id="coverage-value-error" className="text-sm font-medium text-destructive">
@@ -268,10 +271,10 @@ function CoverageForm({
         />
       </Field>
       <Field className="sm:col-span-2" label="Du" hint="Facultatif">
-        <input type="date" className={fieldClass} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <DatePicker value={startDate} onChange={setStartDate} />
       </Field>
       <Field className="sm:col-span-2" label="Au" hint="Facultatif" error={errors.endDate}>
-        <input type="date" className={fieldClass} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        <DatePicker value={endDate} onChange={setEndDate} />
       </Field>
       <Field className="sm:col-span-6" label="Numéro de prise en charge" hint="Facultatif, repris sur la facture de l’organisme.">
         <input className={fieldClass} value={number} onChange={(e) => setNumber(e.target.value)} maxLength={100} />

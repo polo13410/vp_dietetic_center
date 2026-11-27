@@ -19,6 +19,7 @@ import {
 } from '../../lib/patient-file';
 import { formatLongDate, formatNumber, todayISO } from '../../lib/utils';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { DatePicker } from '../shared/DatePicker';
 import { EmptyState } from '../shared/EmptyState';
 import { Field } from '../shared/Field';
 import { Section } from '../shared/Section';
@@ -319,7 +320,7 @@ function AddMeasurement({ patientId, onClose }: { patientId: string; onClose: ()
     >
       <div className="grid gap-3 sm:grid-cols-[11rem_1fr_9rem]">
         <Field label="Date" hint="Même ancienne">
-          <Input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} required />
+          <DatePicker value={date} max={todayISO()} onChange={setDate} required />
         </Field>
         <Field label="Mesure">
           <select value={type} onChange={(e) => setType(e.target.value as MetricType)} className={fieldClass}>
@@ -387,7 +388,7 @@ function EditMeasurement({
     >
       <div className="grid gap-3 sm:grid-cols-[11rem_9rem_1fr]">
         <Field label="Date" hint={m.session ? `Celle de la séance « ${sessionName(m.session.sequence)} »` : undefined}>
-          <Input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} disabled={!!m.session} />
+          <DatePicker value={date} max={todayISO()} onChange={setDate} disabled={!!m.session} />
         </Field>
         <Field label={`${METRICS[m.type].label} (${METRICS[m.type].unit})`}>
           <Input inputMode="decimal" value={raw} onChange={(e) => setRaw(e.target.value)} autoFocus />
@@ -433,7 +434,7 @@ function EditEvent({ patientId, event, onDone }: { patientId: string; event: Lif
     >
       <div className="grid gap-3 sm:grid-cols-[11rem_1fr_12rem]">
         <Field label="Date">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <DatePicker value={date} onChange={setDate} required />
         </Field>
         <Field label="Ce qui s’est passé">
           <Input value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} autoFocus />

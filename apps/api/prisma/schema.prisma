@@ -378,6 +378,7 @@ model Formula {
   priceCents      Int?      @map("price_cents")
   /// Duration of an appointment of this type
   durationMinutes Int       @default(45) @map("duration_minutes")
+  firstAppointment Boolean  @default(false) @map("first_appointment")
   position        Int       @default(0)
   archivedAt      DateTime? @map("archived_at")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -417,6 +418,7 @@ model Consultation {
   // price. net = price - discount = payer part + patient part.
   discountCents Int?    @map("discount_cents")
   netCents      Int?    @map("net_cents")
+  payerOverrideCents Int? @map("payer_override_cents")
   payerCents    Int?    @map("payer_cents")
   patientCents  Int?    @map("patient_cents")
   /// The payer of the payer part, and the coverage it came from

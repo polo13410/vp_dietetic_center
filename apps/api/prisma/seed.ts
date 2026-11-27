@@ -114,7 +114,7 @@ async function upsertFormulas(practitionerId: string): Promise<Formulas> {
     const existing = await prisma.formula.findFirst({ where: { practitionerId, label } });
     if (existing) return existing.id;
     return (
-      await prisma.formula.create({ data: { practitionerId, label, priceCents, durationMinutes, position } })
+      await prisma.formula.create({ data: { practitionerId, label, firstAppointment: label === 'Bilan', priceCents, durationMinutes, position } })
     ).id;
   };
   return { bilan: await upsert('Bilan', 6000, 60, 0), suivi: await upsert('Suivi', 5000, 45, 1) };

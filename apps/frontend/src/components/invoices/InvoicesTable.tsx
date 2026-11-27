@@ -16,6 +16,7 @@ import { cn, formatLongDate } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { toast } from '../ui/toaster';
 
+import { InvoicePreviewButton } from './InvoicePreviewButton';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
 
 /**
@@ -51,8 +52,8 @@ export function InvoicesTable({ invoices, showPatient = false }: { invoices: Inv
                 {c}
               </th>
             ))}
-            <th scope="col" className="w-16 pr-3">
-              <span className="sr-only">Télécharger</span>
+            <th scope="col" className="w-24 pr-3">
+              <span className="sr-only">Actions</span>
             </th>
           </tr>
         </thead>
@@ -104,7 +105,8 @@ export function InvoicesTable({ invoices, showPatient = false }: { invoices: Inv
                 <td className="px-3 py-3">
                   <InvoiceStatusBadge invoice={invoice} />
                 </td>
-                <td className="py-1.5 pr-3">
+                <td className="whitespace-nowrap py-1.5 pr-3">
+                  <InvoicePreviewButton invoice={invoice} />
                   <Button
                     variant="ghost"
                     size="icon"

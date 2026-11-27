@@ -33,6 +33,15 @@ test('books an appointment by type: the type gives the duration', async ({ page 
   await page.getByRole('button', { name: 'Demain', exact: true }).click();
   await expect(day).not.toHaveValue(slotDay);
   await day.fill(slotDay);
+  // A short time is read on leaving the field, and the list of slots works from the keyboard
+  const time = dialog.getByLabel(/^Heure/);
+  await time.fill('9h');
+  await time.press('Tab');
+  await expect(time).toHaveValue('09:00');
+  await time.fill('1515');
+  await time.press('ArrowDown');
+  await time.press('ArrowDown');
+  await time.press('Enter');
   await expect(dialog.getByLabel('Durée en minutes')).toHaveValue('45');
   await expect(dialog.getByLabel(/^Heure/)).toHaveValue('15:30');
   await dialog.getByRole('button', { name: 'Prendre le rendez-vous' }).click();

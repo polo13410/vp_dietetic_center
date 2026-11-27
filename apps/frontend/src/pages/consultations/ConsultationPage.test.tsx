@@ -224,7 +224,7 @@ describe('ConsultationPage', () => {
       await screen.findByRole('option', { name: 'Bilan · 60,00 €' });
       expect(screen.getByLabelText('Formule')).toHaveValue('f-suivi');
       expect(screen.getByLabelText('Moyen de paiement')).toHaveValue('CHECK');
-      expect(screen.getByLabelText('Date')).toHaveValue('2026-11-22');
+      expect(screen.getByLabelText('Date')).toHaveValue('22/11/2026');
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Suivi 3');
     });
 

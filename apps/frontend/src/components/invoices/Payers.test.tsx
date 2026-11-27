@@ -94,8 +94,8 @@ describe('PayersPanel (« Organismes »)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Préparer la facture' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByLabelText('Du')).toHaveValue('2026-10-01');
-    expect(within(dialog).getByLabelText('Au')).toHaveValue('2026-10-31');
+    expect(within(dialog).getByLabelText('Du')).toHaveValue('01/10/2026');
+    expect(within(dialog).getByLabelText('Au')).toHaveValue('31/10/2026');
     const table = await within(dialog).findByRole('table');
     expect(within(table).getAllByRole('row')).toHaveLength(4);
     expect(table).toHaveTextContent('Martine Roux');

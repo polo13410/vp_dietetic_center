@@ -32,7 +32,7 @@ describe('AppointmentsPage week view', () => {
   it('books an appointment on the Sunday slot that was clicked', () => {
     renderAgenda('/appointments?view=week&date=2026-11-25');
     fireEvent.click(screen.getByRole('button', { name: 'Nouveau rendez-vous le dimanche 29 novembre à 10 h 00' }));
-    expect(screen.getByLabelText(/^Date du rendez-vous/)).toHaveValue('2026-11-29');
+    expect(screen.getByLabelText(/^Date du rendez-vous/)).toHaveValue('29/11/2026');
     expect(screen.getByLabelText(/^Heure/)).toHaveValue('10:00');
   });
 });

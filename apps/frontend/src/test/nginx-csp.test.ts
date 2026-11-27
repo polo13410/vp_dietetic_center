@@ -31,11 +31,10 @@ describe('nginx Content-Security-Policy', () => {
 
 describe('nginx logs and referrers', () => {
   it('log requests without query string, referer or user agent', () => {
-    const format = nginxConf.match(/log_format path_only '([^']+)'/);
+    const format = nginxConf.match(/log_format request_metrics '([^']+)'/);
     expect(format?.[1]).toBeDefined();
-    expect(format![1]).toContain('$uri');
-    expect(format![1]).not.toMatch(/\$request(?![_a-z])|\$request_uri|\$args|\$query_string|\$http_referer|\$http_user_agent/);
-    expect(nginxConf).toMatch(/access_log \S+ path_only;/);
+    expect(format![1]).not.toMatch(/\$uri|\$request(?![_a-z])|\$request_uri|\$args|\$query_string|\$http_referer|\$http_user_agent/);
+    expect(nginxConf).toMatch(/access_log \S+ request_metrics;/);
   });
 
   it('never send the page URL as referer, even to the API', () => {

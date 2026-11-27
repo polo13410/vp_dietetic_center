@@ -23,7 +23,7 @@
   const { PrismaClient } = req('@prisma/client');
   // Same as DEFAULT_FORMULAS in src/modules/me/default-formulas.ts
   const DEFAULT_FORMULAS = [
-    { label: 'Bilan', durationMinutes: 60 },
+    { label: 'Bilan', firstAppointment: true, durationMinutes: 60 },
     { label: 'Suivi', durationMinutes: 45 },
   ];
   // Same as DEFAULT_PRACTICE_NAME in src/modules/me/default-practice.ts
@@ -42,10 +42,10 @@
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      console.log(`User ${email} already exists (role ${existing.role}): nothing changed`);
+      console.log('Account already exists');
       return;
     }
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email,
         firstName,
@@ -57,11 +57,12 @@
         }),
       },
     });
-    console.log(`Created ${role} ${user.email} (${user.id})`);
+    console.log('Account created');
   } finally {
     await prisma.$disconnect();
   }
 })().catch((error) => {
-  console.error(error);
+  const usage = ['USER_EMAIL is missing or invalid', 'USER_ROLE must be ADMIN or PRATICIENNE'];
+  console.error(usage.includes(error?.message) ? error.message : 'Account creation failed');
   process.exit(1);
 });

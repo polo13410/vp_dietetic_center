@@ -51,7 +51,6 @@ export class StorageService {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, file.buffer);
     }
-    this.logger.log(`Document stored: ${storagePath} (${file.size} bytes)`);
     return { storagePath, sizeBytes: file.size, mimeType: file.mimetype };
   }
 

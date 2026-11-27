@@ -40,22 +40,22 @@ export class AuditInterceptor implements NestInterceptor {
             ipAddress: req.ip,
             userAgent: req.headers['user-agent'],
           })
-          .catch((error) => this.logger.error(`Audit entry not written: ${error}`));
+          .catch(() => this.logger.error('Audit entry not written'));
       }),
     );
   }
 }
 
-/** Reads `param:x`, `body:x` or `result:a.b` from the request or the handler's result. */
+/** Reads `param:x`, `query:x`, `body:x` or `result:a.b` from the request or the handler's result. */
 function resolve(source: string | undefined, req: Request, result: unknown): string | undefined {
   if (!source) return undefined;
-  const [where, path] = source.split(':') as ['param' | 'body' | 'result', string];
-  const root: unknown = where === 'param' ? req.params : where === 'body' ? req.body : result;
+  const [where, path] = source.split(':') as ['param' | 'body' | 'query' | 'result', string];
+  const root: unknown = where === 'param' ? req.params : where === 'body' ? req.body : where === 'query' ? req.query : result;
   const value = path.split('.').reduce<unknown>((obj, key) => (obj as Record<string, unknown>)?.[key], root);
   return typeof value === 'string' ? value : undefined;
 }
 
 /** The route pattern (/api/v1/patients/:id), not the actual ids. */
 function routeOf(req: Request): string {
-  return `${req.baseUrl ?? ''}${(req.route as { path?: string } | undefined)?.path ?? req.path}`;
+  return (req.route as { path?: string } | undefined)?.path ?? 'unknown';
 }

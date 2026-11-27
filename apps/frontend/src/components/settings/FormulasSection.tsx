@@ -59,7 +59,7 @@ export function FormulasSection({ formulas }: { formulas: FormulaDto[] }) {
       icon={Euro}
       area="settings"
       title="Mes tarifs"
-      description="Vos formules, qui sont aussi vos types de rendez-vous : la durée remplit le rendez-vous, le prix la facture."
+      description="Cochez les formules de premier rendez-vous. Lors de la réservation, la première formule de la liste correspondant au patient est proposée avec sa durée."
       action={<SaveIndicator state={state} />}
     >
       <div className="space-y-5">
@@ -127,7 +127,7 @@ interface FormulaRowProps {
 }
 
 function FormulaRow({ formula, track, onUp, onDown, onRemove }: FormulaRowProps) {
-  const { mutateAsync: update } = useUpdateFormula();
+  const { mutateAsync: update, isPending } = useUpdateFormula();
 
   return (
     <li className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-lg border border-border p-4">
@@ -165,6 +165,14 @@ function FormulaRow({ formula, track, onUp, onDown, onRemove }: FormulaRowProps)
         track={track}
         inputProps={{ inputMode: 'numeric' }}
       />
+      <label className="flex min-h-11 items-center gap-2">
+        <input type="checkbox" className="size-5 accent-primary" checked={formula.firstAppointment} disabled={isPending}
+          onChange={(e) => {
+            const firstAppointment = e.target.checked;
+            void track(() => update({ id: formula.id, dto: { firstAppointment } }));
+          }} />
+        Premier rendez-vous
+      </label>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -196,6 +204,7 @@ function NewFormula({ track }: { track: Track }) {
   const { mutateAsync: create, isPending } = useCreateFormula();
   const [label, setLabel] = useState('');
   const [price, setPrice] = useState('');
+  const [firstAppointment, setFirstAppointment] = useState(false);
   const [duration, setDuration] = useState('45');
   const [errors, setErrors] = useState<{ label?: string; price?: string; duration?: string }>({});
 
@@ -209,12 +218,13 @@ function NewFormula({ track }: { track: Track }) {
     setErrors(found);
     if (found.label || found.price || found.duration) return;
     const ok = await track(() =>
-      create({ label: label.trim(), priceCents: parseEuros(price) ?? null, durationMinutes: Number(duration) }),
+      create({ label: label.trim(), priceCents: parseEuros(price) ?? null, durationMinutes: Number(duration), firstAppointment }),
     );
     if (ok) {
       setLabel('');
       setPrice('');
       setDuration('45');
+      setFirstAppointment(false);
     }
   };
 
@@ -242,6 +252,11 @@ function NewFormula({ track }: { track: Track }) {
       <Field className="w-40" label="Durée en minutes" error={errors.duration}>
         <Input value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="numeric" />
       </Field>
+      <label className="flex min-h-11 items-center gap-2">
+        <input type="checkbox" className="size-5 accent-primary" checked={firstAppointment}
+          onChange={(e) => setFirstAppointment(e.target.checked)} />
+        Premier rendez-vous
+      </label>
       <Button type="submit" variant="outline" disabled={isPending}>
         <Plus /> Ajouter la formule
       </Button>

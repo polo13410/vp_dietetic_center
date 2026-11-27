@@ -39,9 +39,9 @@ const activity: ActivityDto = {
 };
 
 const formulas: FormulaDto[] = [
-  { id: 'f1', label: 'Bilan', priceCents: 6000, durationMinutes: 60, position: 0, archivedAt: null },
-  { id: 'f2', label: 'Suivi', priceCents: null, durationMinutes: 45, position: 1, archivedAt: null },
-  { id: 'f3', label: 'Ancien forfait', priceCents: 15000, durationMinutes: 90, position: 0, archivedAt: '2026-01-01T00:00:00Z' },
+  { id: 'f1', label: 'Bilan', priceCents: 6000, firstAppointment: true, durationMinutes: 60, position: 0, archivedAt: null },
+  { id: 'f2', label: 'Suivi', priceCents: null, firstAppointment: false, durationMinutes: 45, position: 1, archivedAt: null },
+  { id: 'f3', label: 'Ancien forfait', priceCents: 15000, firstAppointment: false, durationMinutes: 90, position: 0, archivedAt: '2026-01-01T00:00:00Z' },
 ];
 
 const place = (over: Partial<PracticeDto>): PracticeDto => ({
@@ -224,6 +224,7 @@ describe('SettingsPage', () => {
       expect(api.post).toHaveBeenCalledWith('/me/formulas', {
         label: 'Séance de groupe',
         priceCents: 3000,
+        firstAppointment: false,
         durationMinutes: 90,
       }),
     );

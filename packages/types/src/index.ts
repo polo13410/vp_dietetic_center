@@ -874,3 +874,60 @@ export interface PayerRemindersDto {
     days: number;
   }[];
 }
+
+// ─── Import of existing patients (her Numbers files) ─────────────────────────
+
+/** One row of the « Suivi » table of her file: a past session. */
+export interface PatientImportSessionDto {
+  /** As written in the file: « Bilan », « Suivi 3 » */
+  label: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** The price written in the « Formule » column, in cents */
+  priceCents: number | null;
+  paymentMethod: PaymentMethod;
+  weightKg: number | null;
+  habits: string | null;
+  sessionWork: string | null;
+  advice: string | null;
+  /** The « Aversions » and « Goûts » columns: versions of the medical file, dated by the session */
+  aversions: string | null;
+  tastes: string | null;
+}
+
+/** What one Numbers file becomes. Sent back, possibly corrected, to import it. */
+export interface PatientImportDraftDto {
+  firstName: string;
+  lastName: string;
+  sex: Sex | null;
+  /** The age written in the file, taken as the age on `ageOn` (the first session) */
+  age: number | null;
+  ageOn: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  zipCode: string | null;
+  familySituation: string | null;
+  profession: string | null;
+  gpName: string | null;
+  consultationReason: string | null;
+  referralSource: string | null;
+  heightCm: number | null;
+  /** The weight of the « Dossier médical » table: kept only when no session has one */
+  weightKg: number | null;
+  /** The medical file sections found, dated by the first session */
+  file: Partial<Record<FileField, string>>;
+  sessions: PatientImportSessionDto[];
+}
+
+/** POST /patients/import/preview: nothing is saved yet */
+export interface PatientImportPreviewDto {
+  draft: PatientImportDraftDto;
+  /** Things to check before importing (dates out of order, incomplete phone…) */
+  warnings: string[];
+  /** What the file holds that is not imported (invoice sheet, report status…) */
+  ignored: string[];
+  /** Her patients with the same name */
+  duplicates: { id: string; firstName: string; lastName: string }[];
+}

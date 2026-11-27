@@ -406,14 +406,18 @@ export function invoiceFilename(invoice: Pick<InvoiceDto, 'type' | 'number'>): s
   return `${isCreditNote(invoice) ? 'avoir' : 'facture'}-${invoice.number}.pdf`;
 }
 
-/** Fetches the document (recorded in the access log as a download), renders and saves its PDF. */
-export async function downloadInvoicePdf(invoiceId: string) {
+export async function invoicePdf(invoiceId: string, action: 'preview' | 'document', signal?: AbortSignal) {
   const [{ data: invoice }, { renderInvoicePdf }] = await Promise.all([
-    api.get<InvoiceDto>(`/invoices/${invoiceId}/document`),
-    // The PDF renderer is heavy: loaded on the first download only
+    api.get<InvoiceDto>(`/invoices/${invoiceId}/${action}`, { signal }),
     import('../components/invoices/InvoicePdfDocument'),
   ]);
-  saveFile(await renderInvoicePdf(invoice), invoiceFilename(invoice));
+  signal?.throwIfAborted();
+  return { blob: await renderInvoicePdf(invoice), filename: invoiceFilename(invoice) };
+}
+
+export async function downloadInvoicePdf(invoiceId: string) {
+  const { blob, filename } = await invoicePdf(invoiceId, 'document');
+  saveFile(blob, filename);
 }
 
 /** The period's invoices and credit notes, every status, for the accountant. */

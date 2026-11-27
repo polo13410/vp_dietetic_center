@@ -48,6 +48,14 @@ test('runs a bilan with the test case figures, then issues and downloads its inv
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: /Faire la facture/ }).click();
     await expect(dialog.getByText(/Facture n° \d{4}-\d{4} faite \(60,00\s€\)/)).toBeVisible();
+    await dialog.getByRole('button', { name: /^Voir facture-/ }).click();
+    const preview = page.getByRole('dialog', { name: /^Facture n°/ });
+    const frame = preview.locator('iframe');
+    await expect(frame).toHaveAttribute('src', /^blob:/);
+    const url = (await frame.getAttribute('src'))!;
+    expect(await page.evaluate(async (src) => (await (await fetch(src)).blob()).slice(0, 5).text(), url)).toBe('%PDF-');
+    await preview.getByRole('button', { name: 'Fermer' }).click();
+    expect(await page.evaluate((src) => fetch(src).then(() => false, () => true), url)).toBe(true);
     await expectPdfDownload(
       page,
       () => dialog.getByRole('button', { name: 'Télécharger la facture' }).click(),
@@ -83,4 +91,36 @@ test('corrects the price of an old, invoiced séance with a credit note and a ne
   await expect(page.getByText(/^50,00\s€ · faite le/)).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'ne correspond plus' })).toHaveCount(0);
   await expect(page.getByText(/^Avoir n° A-\d{4}-\d{4}/)).toBeVisible();
+});
+
+test('edits one session’s payer amount and keeps the patient’s agreement', async ({ page }) => {
+  await openPatient(page, 'Martine', 'Roux');
+  await page.getByRole('tab', { name: 'Suivi' }).click();
+  await page.getByRole('link', { name: 'Bilan', exact: true }).click();
+  const amount = page.getByLabel(/^Pris en charge par/);
+  const original = await amount.inputValue();
+  await amount.fill('0');
+  await amount.press('Enter');
+  await expect(amount).toHaveValue('0,00');
+  await page.reload();
+  await expect(amount).toHaveValue('0,00');
+  await amount.fill('');
+  await amount.press('Enter');
+  await expect(amount).toHaveValue(original);
+
+  await openPatient(page, 'Martine', 'Roux');
+  await page.getByRole('tab', { name: 'Factures' }).click();
+  await page.getByRole('button', { name: 'Ajouter une prise en charge' }).click();
+  const field = page.getByLabel(/^Part prise en charge/);
+  for (const width of [390, 1024]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const [button, unit] of [['En euros', '€'], ['En %', '%']]) {
+      await page.getByRole('button', { name: button, exact: true }).click();
+      const inputBox = await field.boundingBox();
+      const unitBox = await field.locator('..').getByText(unit, { exact: true }).boundingBox();
+      expect(inputBox!.width).toBeLessThan(145);
+      expect(unitBox!.x).toBeGreaterThanOrEqual(inputBox!.x + inputBox!.width);
+      expect(unitBox!.y).toBeLessThan(inputBox!.y + inputBox!.height);
+    }
+  }
 });

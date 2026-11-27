@@ -241,7 +241,7 @@ export const TWO_PRACTICES = [practice('pr-aix', 'Cabinet d’Aix', true), pract
 /** Signed in as the practitioner: what depends on her own settings (her practices) shows. */
 export function signInPractitioner() {
   useAuthStore.setState({
-    user: { id: 'u-1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' as never },
+    user: { id: 'u-1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Dupont', role: 'PRATICIENNE' as never },
     isAuthenticated: true,
   });
 }

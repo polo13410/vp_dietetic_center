@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Prisma, ShareKind } from '@prisma/client';
 
 import { coverageGap, sessionSplit } from './split';
@@ -6,6 +7,7 @@ type Db = Pick<Prisma.TransactionClient, 'patientCoverage' | 'consultation'>;
 
 /** The split columns of a session (Consultation), as saved. */
 export interface SplitColumns {
+  payerOverrideCents: number | null;
   discountCents: number | null;
   netCents: number | null;
   payerCents: number | null;
@@ -15,6 +17,7 @@ export interface SplitColumns {
 }
 
 export const NO_SPLIT: SplitColumns = {
+  payerOverrideCents: null,
   discountCents: null,
   netCents: null,
   payerCents: null,
@@ -26,6 +29,11 @@ export const NO_SPLIT: SplitColumns = {
 export interface SessionToSplit {
   /** Left out for a session being created */
   id?: string;
+  coverageId?: string | null;
+  payerId?: string | null;
+  payerOverrideCents?: number | null;
+  /** A newly entered amount must still match this coverage and fit the net price. */
+  editingOverride?: boolean;
   patientId: string;
   date: Date;
   priceCents: number | null;
@@ -53,14 +61,19 @@ export async function coverageOn(db: Db, patientId: string, date: Date) {
  * later change of the coverage does not touch it.
  */
 export async function splitColumns(db: Db, session: SessionToSplit): Promise<SplitColumns> {
-  if (session.priceCents === null || session.priceCents === undefined) return NO_SPLIT;
+  const requested = session.payerOverrideCents ?? null;
+  const validating = session.editingOverride && requested !== null;
+  if (session.priceCents == null) {
+    if (validating) throw new BadRequestException('Indiquez d’abord le prix de la séance.');
+    return NO_SPLIT;
+  }
   const coverage = await coverageOn(db, session.patientId, session.date);
   const coveredBefore = coverage?.maxSessions
     ? await db.consultation.count({
         where: {
           coverageId: coverage.id,
           payerCents: { gt: 0 },
-          date: { lte: session.date },
+          ...(session.editingOverride ? {} : { date: { lte: session.date } }),
           ...(session.id && { id: { not: session.id } }),
         },
       })
@@ -75,13 +88,24 @@ export async function splitColumns(db: Db, session: SessionToSplit): Promise<Spl
     date: session.date,
     coveredBefore,
   });
+  const sameCoverage = coverage && coverage.id === session.coverageId &&
+    (!session.payerId || coverage.payerId === session.payerId) && !split.uncovered;
+  if (validating && !sameCoverage) {
+    throw new BadRequestException('La prise en charge a changé ou ne couvre plus cette séance.');
+  }
+  if (validating && requested > split.netCents) {
+    throw new BadRequestException('La part de l’organisme dépasse le prix après remise.');
+  }
+  const payerOverrideCents = sameCoverage ? requested : null;
+  const payerCents = Math.min(payerOverrideCents ?? split.payerCents, split.netCents);
   return {
+    payerOverrideCents,
     discountCents: split.discountCents,
     netCents: split.netCents,
-    payerCents: split.payerCents,
-    patientCents: split.patientCents,
+    payerCents,
+    patientCents: split.netCents - payerCents,
     // The payer only when it pays something; the coverage also when it no longer applies
-    payerId: split.payerCents > 0 ? coverage!.payerId : null,
+    payerId: payerCents > 0 ? coverage!.payerId : null,
     coverageId: coverage?.id ?? null,
   };
 }

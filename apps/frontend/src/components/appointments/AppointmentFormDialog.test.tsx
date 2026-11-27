@@ -40,7 +40,7 @@ describe('AppointmentFormDialog: « Nouveau patient » from the agenda', () => {
     options = { formulas: [], practices: [aix] };
     serve();
     useAuthStore.setState({
-      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' as never },
+      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Dupont', role: 'PRATICIENNE' as never },
       isAuthenticated: true,
     });
     post.mockImplementation((async (url: string) =>
@@ -133,7 +133,7 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
     serve();
     post.mockResolvedValue({ data: { id: 'a-1' } });
     useAuthStore.setState({
-      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Perrot', role: 'PRATICIENNE' as never },
+      user: { id: 'u1', email: 'v@example.fr', firstName: 'Valérie', lastName: 'Dupont', role: 'PRATICIENNE' as never },
       isAuthenticated: true,
     });
   });
@@ -167,6 +167,16 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
         reason: null,
       }),
     );
+  });
+
+  it('prefills the suggested type and duration for the selected patient', async () => {
+    options = { formulas, practices: [aix], suggestedFormulaId: 'f-bilan' };
+    book();
+    expect(await typeField()).toHaveValue('f-bilan');
+    expect(screen.getByLabelText('Durée en minutes')).toHaveValue(60);
+    expect(get).toHaveBeenCalledWith('/appointments/options', { params: { patientId: 'p-1' } });
+    fireEvent.change(await typeField(), { target: { value: 'f-suivi' } });
+    expect(screen.getByLabelText('Durée en minutes')).toHaveValue(45);
   });
 
   it('asks for the type of a new appointment', async () => {
@@ -210,7 +220,7 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
     );
   });
 
-  it('prefills the default practice when opened after the options were loaded (agenda, dashboard)', async () => {
+  it('loads booking options only when opened and prefills the default practice', async () => {
     options = { formulas, practices: [aix, marseille] };
     function Agenda() {
       const [open, setOpen] = useState(false);
@@ -222,8 +232,7 @@ describe('AppointmentFormDialog: type of appointment and practice (lot 15)', () 
       );
     }
     renderWithProviders(<Agenda />);
-    await waitFor(() => expect(get).toHaveBeenCalledWith('/appointments/options', expect.anything()));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(get).not.toHaveBeenCalledWith('/appointments/options', expect.anything());
     click('Ouvrir');
     expect(await screen.findByLabelText('Cabinet')).toHaveValue('pr-aix');
   });

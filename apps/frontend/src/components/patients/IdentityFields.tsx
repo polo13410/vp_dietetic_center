@@ -2,6 +2,7 @@ import { useId } from 'react';
 
 import type { IdentityDraft, IdentityErrors } from '../../lib/new-patient';
 import { todayISO } from '../../lib/utils';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -86,11 +87,11 @@ export function IdentityFields({ value, onChange, errors, autoFocus }: IdentityF
             </Field>
           ) : (
             <Field label="Date de naissance" hint={BMR_HINT} error={errors.dateOfBirth}>
-              <Input
-                type="date"
+              <DatePicker
+                birthDate
                 max={todayISO()}
                 value={value.dateOfBirth}
-                onChange={(e) => set({ dateOfBirth: e.target.value })}
+                onChange={(day) => set({ dateOfBirth: day })}
               />
             </Field>
           )}

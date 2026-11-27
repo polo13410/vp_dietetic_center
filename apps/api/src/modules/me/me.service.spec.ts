@@ -6,9 +6,9 @@ import { MeService } from './me.service';
 
 const user = {
   id: 'user-1',
-  email: 'valerie@example.fr',
+  email: 'michelle@example.fr',
   firstName: 'Valérie',
-  lastName: 'Perrot',
+  lastName: 'Dupont',
   phone: null,
   role: 'PRATICIENNE',
   twoFactorEnabledAt: null,
@@ -29,9 +29,9 @@ describe('MeService', () => {
     const profile = await service.getProfile('user-1');
     expect(profile).toEqual({
       id: 'user-1',
-      email: 'valerie@example.fr',
+      email: 'michelle@example.fr',
       firstName: 'Valérie',
-      lastName: 'Perrot',
+      lastName: 'Dupont',
       phone: null,
       role: 'PRATICIENNE',
       twoFactorEnabledAt: null,

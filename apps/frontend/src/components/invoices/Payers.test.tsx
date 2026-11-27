@@ -240,11 +240,18 @@ describe('the séance: discount, split and patient invoice (lot 16)', () => {
     vi.mocked(api.patch).mockResolvedValue({ data: {} });
   });
 
-  it('shows the split next to the price', () => {
+  it('edits only the payer amount of this session and refuses an amount above the net price', async () => {
     renderWithProviders(<SessionSplit session={covered} />);
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Prix60,00 €Remise-10,00 €Net50,00 €Pris en charge par Mutuelle Horizon Santé30,00 €À payer par le patient20,00 €',
-    );
+    const input = screen.getByLabelText('Pris en charge par Mutuelle Horizon Santé');
+    expect(input).toHaveValue('30,00');
+    expect(screen.getByRole('status')).toHaveTextContent('À payer par le patient20,00 €');
+    fireEvent.change(input, { target: { value: '50,01' } });
+    fireEvent.blur(input);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(api.patch).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: '0' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(`/consultations/${covered.id}`, { payerOverrideCents: 0, expectedPayerId: mutuelle.id }));
   });
 
   it('a free séance needs no invoice; one paid in full by the payer needs no patient invoice', () => {

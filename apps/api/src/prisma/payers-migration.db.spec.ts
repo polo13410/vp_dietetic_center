@@ -58,7 +58,7 @@ describe.skipIf(!url)('lot 16 migration on existing data', () => {
     db = new PrismaClient({ datasourceUrl: scratchUrl });
     const run = (sql: string) => db.$executeRawUnsafe(sql);
     await run(`INSERT INTO "user" (id, email, first_name, last_name, role, updated_at)
-      VALUES ('u-val', 'valerie@test.local', 'Valérie', 'Perrot', 'PRATICIENNE', now())`);
+      VALUES ('u-val', 'michelle@test.local', 'Valérie', 'Dupont', 'PRATICIENNE', now())`);
     await run(`INSERT INTO patient (id, practitioner_id, first_name, last_name, updated_at)
       VALUES ('p-1', 'u-val', 'Martine', 'Roux', now())`);
     await run(`INSERT INTO consultation (id, patient_id, practitioner_id, date, formula_label, price_cents, payment_method, updated_at)
@@ -67,7 +67,7 @@ describe.skipIf(!url)('lot 16 migration on existing data', () => {
     await run(`INSERT INTO invoice (id, practitioner_id, patient_id, consultation_id, type, year, sequence, number, issued_at,
         amount_cents, payment_method, service_label, service_date, practice_name, patient_first_name, patient_last_name)
       VALUES ('i-1', 'u-val', 'p-1', 'c-1', 'INVOICE', 2026, 1, '2026-0001', '2026-11-20 10:00', 6000, 'CARD', 'Bilan',
-        '2026-11-20 09:00', 'Valérie Perrot, diététicienne', 'Martine', 'Roux')`);
+        '2026-11-20 09:00', 'Valérie Dupont, diététicienne', 'Martine', 'Roux')`);
 
     copyMigration(MIGRATION);
     deploy();
@@ -83,7 +83,9 @@ describe.skipIf(!url)('lot 16 migration on existing data', () => {
   });
 
   it('gives existing sessions their split: no discount, no payer, the patient pays the price', async () => {
-    expect(await db.consultation.findUnique({ where: { id: 'c-1' } })).toMatchObject({
+    expect(await db.consultation.findUnique({ where: { id: 'c-1' },
+      select: { discountKind: true, discountCents: true, netCents: true, payerCents: true, patientCents: true, payerId: true },
+    })).toMatchObject({
       discountKind: null,
       discountCents: 0,
       netCents: 6000,
@@ -92,7 +94,7 @@ describe.skipIf(!url)('lot 16 migration on existing data', () => {
       payerId: null,
     });
     // No price, no split
-    expect(await db.consultation.findUnique({ where: { id: 'c-2' } })).toMatchObject({ netCents: null, patientCents: null });
+    expect(await db.consultation.findUnique({ where: { id: 'c-2' }, select: { netCents: true, patientCents: true } })).toMatchObject({ netCents: null, patientCents: null });
   });
 
   it('leaves issued invoices as they were: a patient invoice, without the new copies', async () => {

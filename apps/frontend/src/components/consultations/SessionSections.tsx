@@ -26,6 +26,7 @@ import { SessionDiscount, SessionSplit } from '../invoices/SessionDiscount';
 import { AdultFormulaNote, BmiBadge } from '../patient-file/BmiBadge';
 import { FileSectionCard, FileSectionEditor } from '../patient-file/FilePanel';
 import { fieldClass, LifeEventForm } from '../patient-file/LifeEventForm';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { SaveIndicator } from '../shared/SaveIndicator';
 import { Section } from '../shared/Section';
@@ -87,11 +88,9 @@ export function SessionHeaderFields({ session }: { session: Consultation }) {
     <div className="space-y-2 rounded-xl border bg-card p-5 shadow-sm sm:p-6">
       <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-4">
         <Field label="Date">
-          <input
-            type="date"
-            className={fieldClass}
+          <DatePicker
             value={dayValue(session.date)}
-            onChange={(e) => changeDay(e.target.value)}
+            onChange={changeDay}
           />
         </Field>
         <Field label="Formule">

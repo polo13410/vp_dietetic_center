@@ -30,14 +30,14 @@ const report = {
   createdAt: '2026-11-22T10:00:00.000Z',
   updatedAt: '2026-11-22T10:00:00.000Z',
   patient: { firstName: 'Martine', lastName: 'Roux', gpName: 'Dr Laurent Garnier' },
-  letterhead: ['Valérie Perrot, diététicienne nutritionniste', '12 rue des Oliviers', 'N° ADELI : 139512345'],
+  letterhead: ['Valérie Dupont, diététicienne nutritionniste', '12 rue des Oliviers', 'N° ADELI : 139512345'],
   content: [
     'Dr Laurent Garnier',
     'Aix-en-Provence, le 22 novembre 2026',
     'Docteur,',
     'Lors du bilan, son poids était de 79 kg (IMC 31,25). Au 15 novembre 2026, il est de 76,5 kg (IMC 30,26), soit une perte de 2,5 kg.',
     'Au fil de nos échanges, j’ai relevé les éléments suivants :\n– Santé : hypertension traitée.\n– Histoire du poids : régime en 2019 : −8 kg.',
-    'Valérie Perrot\nDiététicienne nutritionniste',
+    'Valérie Dupont\nDiététicienne nutritionniste',
   ].join('\n\n'),
 } as GpReportDocumentDto;
 
@@ -49,7 +49,7 @@ describe('GpReportPdfDocument', () => {
     expect(raw.startsWith('%PDF-')).toBe(true);
     expect(raw.match(/\/Type \/Page\b/g)).toHaveLength(1);
     for (const line of [
-      'Valérie Perrot, diététicienne nutritionniste',
+      'Valérie Dupont, diététicienne nutritionniste',
       'N° ADELI : 139512345',
       'Aix-en-Provence, le 22 novembre 2026',
       '76,5 kg (IMC 30,26)',

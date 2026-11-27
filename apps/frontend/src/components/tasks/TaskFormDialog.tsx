@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { format, parseISO } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -133,9 +134,10 @@ export function TaskFormDialog({ open, onOpenChange, defaultValues, editId }: Ta
                 name="dueAt"
                 render={({ field }) => (
                   <DatePicker
-                    value={field.value ? new Date(field.value) : undefined}
-                    onChange={(d) => field.onChange(d?.toISOString() ?? '')}
-                    placeholder="Date limite..."
+                    value={field.value ? format(parseISO(field.value), 'yyyy-MM-dd') : ''}
+                    onChange={(day) => field.onChange(day ? parseISO(day).toISOString() : '')}
+                    aria-label="Échéance"
+                    upcoming
                   />
                 )}
               />

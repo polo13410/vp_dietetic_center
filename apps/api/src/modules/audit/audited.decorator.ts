@@ -4,7 +4,7 @@ import { AuditAction } from '@prisma/client';
 export const AUDITED_KEY = 'audited';
 
 /** Where to find an id: a route parameter, a body field, or a field of the response. */
-type Source = `param:${string}` | `body:${string}` | `result:${string}`;
+type Source = `param:${string}` | `query:${string}` | `body:${string}` | `result:${string}`;
 
 export interface AuditedOptions {
   action: AuditAction;

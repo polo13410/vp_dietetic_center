@@ -21,6 +21,7 @@ import { Button } from '../ui/button';
 import { toast } from '../ui/toaster';
 
 import { CancelInvoiceDialog } from './CancelInvoiceDialog';
+import { InvoicePreviewButton } from './InvoicePreviewButton';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
 
 /**
@@ -149,6 +150,7 @@ function IssuedInvoice({ invoice, mismatches }: { invoice: InvoiceDto; mismatche
       )}
 
       <div className="flex flex-wrap gap-2">
+        <InvoicePreviewButton invoice={invoice} showLabel />
         <Button variant="outline" onClick={() => download.run(invoice)} disabled={download.pending === invoice.id}>
           <Download aria-hidden /> Télécharger la facture
         </Button>
@@ -197,15 +199,18 @@ function History({ invoices }: { invoices: InvoiceDto[] }) {
                 {[formatAmount(invoice.amountCents), ...linksText(invoice)].join(' · ')}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Télécharger ${invoice.type === 'CREDIT_NOTE' ? 'l’avoir' : 'la facture'} n° ${invoice.number}`}
-              onClick={() => download.run(invoice)}
-              disabled={download.pending === invoice.id}
-            >
-              <Download aria-hidden />
-            </Button>
+            <div className="flex">
+              <InvoicePreviewButton invoice={invoice} />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Télécharger ${invoice.type === 'CREDIT_NOTE' ? 'l’avoir' : 'la facture'} n° ${invoice.number}`}
+                onClick={() => download.run(invoice)}
+                disabled={download.pending === invoice.id}
+              >
+                <Download aria-hidden />
+              </Button>
+            </div>
           </li>
         ))}
       </ul>

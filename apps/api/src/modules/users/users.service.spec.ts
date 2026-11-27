@@ -22,7 +22,7 @@ describe('UsersService default formulas and practice', () => {
     await service.create({ ...dto, role: 'PRATICIENNE' as any });
     expect(mockPrisma.formula.createMany).toHaveBeenCalledWith({
       data: [
-        { practitionerId: 'u2', label: 'Bilan', durationMinutes: 60, position: 0 },
+        { practitionerId: 'u2', label: 'Bilan', firstAppointment: true, durationMinutes: 60, position: 0 },
         { practitionerId: 'u2', label: 'Suivi', durationMinutes: 45, position: 1 },
       ],
     });

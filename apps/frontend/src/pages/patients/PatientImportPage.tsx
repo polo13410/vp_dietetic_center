@@ -12,6 +12,7 @@ import {
 import { type DragEvent, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
+import { DatePicker } from '../../components/shared/DatePicker';
 import { Field } from '../../components/shared/Field';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Section } from '../../components/shared/Section';
@@ -376,13 +377,12 @@ function Review({
                     <tr key={i} className="border-b last:border-0">
                       <td className="px-4 py-2 font-medium">{s.label}</td>
                       <td className="px-4 py-2">
-                        <Input
-                          type="date"
+                        <DatePicker
                           aria-label={`Date de ${s.label}`}
                           aria-invalid={flagged.has(i) || (showErrors && !!errors[`session-${i}`])}
-                          className={cn('w-40', flagged.has(i) && 'border-warning')}
+                          className={cn('w-40', flagged.has(i) && '[&_input]:border-warning')}
                           value={s.date}
-                          onChange={(e) => setSession(i, { date: e.target.value })}
+                          onChange={(day) => setSession(i, { date: day })}
                         />
                       </td>
                       <td className="px-4 py-2">{s.priceCents === null ? '—' : formatPrice(s.priceCents)}</td>

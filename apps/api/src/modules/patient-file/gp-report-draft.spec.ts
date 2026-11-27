@@ -10,13 +10,13 @@ function martine(): GpReportDraftInput {
   return {
     today: day('2026-11-22'),
     practice: {
-      practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+      practiceName: 'Valérie Dupont, diététicienne nutritionniste',
       address: '12 rue des Oliviers',
       zipCode: '13100',
       city: 'Aix-en-Provence',
       adeliRpps: '139512345',
     },
-    practitioner: { firstName: 'Valérie', lastName: 'Perrot', phone: '06 12 34 56 78', email: 'valerie@example.fr' },
+    practitioner: { firstName: 'Valérie', lastName: 'Dupont', phone: '06 12 34 56 78', email: 'michelle@example.fr' },
     patient: {
       firstName: 'Martine',
       lastName: 'Roux',
@@ -94,7 +94,7 @@ describe('buildGpReportDraft', () => {
         ].join('\n'),
         'Je reste à votre disposition pour tout complément d’information.',
         'Je vous prie d’agréer, Docteur, l’expression de mes salutations distinguées.',
-        'Valérie Perrot\nDiététicienne nutritionniste',
+        'Valérie Dupont\nDiététicienne nutritionniste',
       ].join('\n\n'),
     );
   });
@@ -103,7 +103,7 @@ describe('buildGpReportDraft', () => {
     const text = buildGpReportDraft({
       today: day('2026-11-22'),
       practice: null,
-      practitioner: { firstName: 'Valérie', lastName: 'Perrot' },
+      practitioner: { firstName: 'Valérie', lastName: 'Dupont' },
       patient: { firstName: 'Jean', lastName: 'Martin' },
       weights: [],
       sessions: [],
@@ -117,7 +117,7 @@ describe('buildGpReportDraft', () => {
         'Je vous fais part du suivi diététique de Jean Martin.',
         'Je reste à votre disposition pour tout complément d’information.',
         'Je vous prie d’agréer, Madame, Monsieur, l’expression de mes salutations distinguées.',
-        'Valérie Perrot',
+        'Valérie Dupont',
       ].join('\n\n'),
     );
     expect(text).not.toMatch(/undefined|null|NaN|: *\n|: *$/m);
@@ -203,18 +203,18 @@ describe('buildGpReportDraft', () => {
 describe('letterhead', () => {
   it('lists the practice, then how to reach her', () => {
     expect(letterhead(martine().practice, martine().practitioner)).toEqual([
-      'Valérie Perrot, diététicienne nutritionniste',
+      'Valérie Dupont, diététicienne nutritionniste',
       '12 rue des Oliviers',
       '13100 Aix-en-Provence',
       'Tél. 06 12 34 56 78',
-      'valerie@example.fr',
+      'michelle@example.fr',
       'N° ADELI : 139512345',
     ]);
   });
 
   it('falls back to her name, and labels an RPPS number', () => {
-    expect(letterhead({ adeliRpps: '10001234567', city: 'Aix' }, { firstName: 'Valérie', lastName: 'Perrot' })).toEqual([
-      'Valérie Perrot',
+    expect(letterhead({ adeliRpps: '10001234567', city: 'Aix' }, { firstName: 'Valérie', lastName: 'Dupont' })).toEqual([
+      'Valérie Dupont',
       'Aix',
       'N° RPPS : 10001234567',
     ]);

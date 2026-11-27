@@ -114,7 +114,7 @@ async function upsertFormulas(practitionerId: string): Promise<Formulas> {
     const existing = await prisma.formula.findFirst({ where: { practitionerId, label } });
     if (existing) return existing.id;
     return (
-      await prisma.formula.create({ data: { practitionerId, label, priceCents, durationMinutes, position } })
+      await prisma.formula.create({ data: { practitionerId, label, firstAppointment: label === 'Bilan', priceCents, durationMinutes, position } })
     ).id;
   };
   return { bilan: await upsert('Bilan', 6000, 60, 0), suivi: await upsert('Suivi', 5000, 45, 1) };
@@ -157,7 +157,7 @@ async function upsertPractices(practitionerId: string): Promise<Practices> {
 /** Her activity, as printed on her invoices (fictitious numbers that pass the checks). */
 async function upsertActivity(userId: string) {
   const practice = {
-    practiceName: 'Valérie Perrot, diététicienne nutritionniste',
+    practiceName: 'Valérie Dupont, diététicienne nutritionniste',
     siret: '91234567800011',
     adeliRpps: '139512345',
     vatMention: 'TVA non applicable, article 261-4-1° du CGI',
@@ -351,7 +351,7 @@ async function seedGpReports(patientId: string, practitionerId: string) {
         'Nous avons convenu d’un suivi mensuel, centré sur le rythme des repas et le grignotage lié au stress au travail.',
         'Je vous tiendrai informé de son évolution.',
         'Je vous prie d’agréer, Docteur, l’expression de mes salutations distinguées.',
-        'Valérie Perrot\nDiététicienne nutritionniste',
+        'Valérie Dupont\nDiététicienne nutritionniste',
       ].join('\n\n'),
     },
   });
@@ -481,7 +481,7 @@ async function demoPractitioner() {
   });
   const pract = await upsertUser('praticienne@vp-dietetic.fr', {
     firstName: 'Valérie',
-    lastName: 'Perrot',
+    lastName: 'Dupont',
     role: UserRole.PRATICIENNE,
     phone: '06 12 34 56 78',
   });
@@ -945,7 +945,7 @@ de connexion, avec une de ces adresses.`
 
 ${accounts}
 
-7 patients suivis par Valérie Perrot (Bilan 60 €, 1 h ; Suivi 50 €, 45 min), à Aix (cabinet par
+7 patients suivis par Valérie Dupont (Bilan 60 €, 1 h ; Suivi 50 €, 45 min), à Aix (cabinet par
 défaut) et à Marseille (Marie Dubois, Lucas Moreau), dont Martine Roux,
 le cas de test des calculs (femme, 56 ans, 1,59 m, 79 → 78,2 → 76,5 kg) avec son histoire du
 poids avant le suivi, et Hugo Lefèvre, 10 ans, dont la taille suit la croissance.

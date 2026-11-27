@@ -15,20 +15,21 @@ export type BookingFormula = BookingOptionsDto['formulas'][number];
  * duration) and practices of the patient's practitioner. A practitioner gets hers before a
  * patient is chosen; an assistant once the patient is chosen.
  */
-export function useBookingOptions(patientId?: string) {
-  const isPractitioner = useAuthStore((s) => s.user?.role === 'PRATICIENNE');
-  // A practitioner's patients are all hers: one list whatever the patient
-  const key = isPractitioner ? 'mine' : (patientId ?? null);
+export function useBookingOptions(patientId: string | undefined, open: boolean) {
+  const user = useAuthStore((s) => s.user);
+  const isPractitioner = user?.role === 'PRATICIENNE';
+  const key = patientId ?? (isPractitioner ? 'mine' : null);
   return useQuery<BookingOptionsDto>({
-    queryKey: [...BOOKING_OPTIONS, key],
+    queryKey: [...BOOKING_OPTIONS, user?.id, key],
     queryFn: async () =>
       (
         await api.get<BookingOptionsDto>('/appointments/options', {
-          params: !isPractitioner && patientId ? { patientId } : {},
+          params: patientId ? { patientId } : {},
         })
       ).data,
-    enabled: key !== null,
-    staleTime: 60_000,
+    enabled: open && key !== null,
+    gcTime: patientId ? 0 : 60_000,
+    staleTime: patientId ? 0 : 60_000,
   });
 }
 

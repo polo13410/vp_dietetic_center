@@ -20,9 +20,9 @@ vi.mock('../../lib/api', () => ({ default: api, api }));
 
 const practitioner: MeDto = {
   id: 'u1',
-  email: 'valerie@example.fr',
+  email: 'michelle@example.fr',
   firstName: 'Valérie',
-  lastName: 'Perrot',
+  lastName: 'Dupont',
   phone: '06 12 34 56 78',
   role: 'PRATICIENNE' as MeDto['role'],
   theme: 'SYSTEM',
@@ -31,7 +31,7 @@ const practitioner: MeDto = {
 };
 
 const activity: ActivityDto = {
-  practiceName: 'Valérie Perrot, diététicienne',
+  practiceName: 'Valérie Dupont, diététicienne',
   siret: '91234567800011',
   adeliRpps: '139512345',
   vatMention: 'TVA non applicable, article 261-4-1° du CGI',
@@ -39,9 +39,9 @@ const activity: ActivityDto = {
 };
 
 const formulas: FormulaDto[] = [
-  { id: 'f1', label: 'Bilan', priceCents: 6000, durationMinutes: 60, position: 0, archivedAt: null },
-  { id: 'f2', label: 'Suivi', priceCents: null, durationMinutes: 45, position: 1, archivedAt: null },
-  { id: 'f3', label: 'Ancien forfait', priceCents: 15000, durationMinutes: 90, position: 0, archivedAt: '2026-01-01T00:00:00Z' },
+  { id: 'f1', label: 'Bilan', priceCents: 6000, firstAppointment: true, durationMinutes: 60, position: 0, archivedAt: null },
+  { id: 'f2', label: 'Suivi', priceCents: null, firstAppointment: false, durationMinutes: 45, position: 1, archivedAt: null },
+  { id: 'f3', label: 'Ancien forfait', priceCents: 15000, firstAppointment: false, durationMinutes: 90, position: 0, archivedAt: '2026-01-01T00:00:00Z' },
 ];
 
 const place = (over: Partial<PracticeDto>): PracticeDto => ({
@@ -120,7 +120,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
     }
     expect(screen.getByDisplayValue('06 12 34 56 78')).toBeInTheDocument();
-    expect(section('Mon profil').getByText('valerie@example.fr')).toBeInTheDocument();
+    expect(section('Mon profil').getByText('michelle@example.fr')).toBeInTheDocument();
     expect(screen.getByDisplayValue('91234567800011')).toBeInTheDocument();
     expect(screen.getByDisplayValue('139512345')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Bilan')).toBeInTheDocument();
@@ -224,6 +224,7 @@ describe('SettingsPage', () => {
       expect(api.post).toHaveBeenCalledWith('/me/formulas', {
         label: 'Séance de groupe',
         priceCents: 3000,
+        firstAppointment: false,
         durationMinutes: 90,
       }),
     );
@@ -313,7 +314,7 @@ describe('SettingsPage', () => {
     expect(
       security.getByText(/Vous vous connectez avec votre compte Google/).textContent,
     ).toBe(
-      'Vous vous connectez avec votre compte Google valerie@example.fr, puis le code de votre application d’authentification.',
+      'Vous vous connectez avec votre compte Google michelle@example.fr, puis le code de votre application d’authentification.',
     );
     expect(security.getByText(/Double authentification active depuis le 26 novembre 2026, 9 codes de secours restants/)).toBeInTheDocument();
     const link = security.getByRole('link', { name: /validation en deux étapes/ });

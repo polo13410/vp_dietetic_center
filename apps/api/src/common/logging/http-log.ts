@@ -8,7 +8,7 @@
 interface SerializedRequest {
   id?: unknown;
   method?: string;
-  url?: string;
+  raw?: { route?: { path?: string } };
 }
 
 /** Pino's standard response shape, as handed to a custom serializer by pino-http. */
@@ -16,15 +16,9 @@ interface SerializedResponse {
   statusCode?: number;
 }
 
-/** The URL without its query string (and fragment). */
-export function pathOnly(url: string | undefined): string | undefined {
-  if (url === undefined) return undefined;
-  const end = url.search(/[?#]/);
-  return end === -1 ? url : url.slice(0, end);
-}
-
+/** Only the server's matched route template may reach general-purpose logs. */
 export function requestLog(req: SerializedRequest) {
-  return { id: req.id, method: req.method, url: pathOnly(req.url) };
+  return { id: req.id, method: req.method, route: req.raw?.route?.path };
 }
 
 export function responseLog(res: SerializedResponse) {

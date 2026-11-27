@@ -20,11 +20,11 @@ import {
 } from '../../lib/patient-file';
 import { formatLongDate } from '../../lib/utils';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { SaveIndicator } from '../shared/SaveIndicator';
 import { Section } from '../shared/Section';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { toast } from '../ui/toaster';
 
@@ -210,7 +210,7 @@ function HistoryVersion({ patientId, entry, isCurrent }: { patientId: string; en
     return (
       <li className="space-y-3 rounded-lg border bg-background p-3">
         <Field label="Date de la version" className="max-w-[14rem]">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DatePicker value={date} onChange={setDate} />
         </Field>
         <Field label="Texte">
           <Textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} />

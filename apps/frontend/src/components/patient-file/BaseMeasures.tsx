@@ -18,6 +18,7 @@ import {
   usePatientBrief,
 } from '../../lib/patient-file';
 import { ageInYears, formatLongDate, formatNumber, todayISO } from '../../lib/utils';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { SaveIndicator } from '../shared/SaveIndicator';
 import { Section } from '../shared/Section';
@@ -175,15 +176,15 @@ function AgeField({ patient }: { patient: Patient }) {
   return (
     <div>
       <Field label="Date de naissance" hint={knownAge !== null && !patient.birthDateEstimated ? `${knownAge} ans` : undefined}>
-        <Input
-          type="date"
+        <DatePicker
+          birthDate
           max={todayISO()}
           value={date}
-          onChange={(e) => {
-            setDate(e.target.value);
+          onChange={(day) => {
+            setDate(day);
             // While the year is being typed the browser gives years like 0019: wait for a real one
-            if (!e.target.value) save.schedule({ dateOfBirth: null });
-            else if (Number(e.target.value.slice(0, 4)) >= 1900) save.schedule({ dateOfBirth: e.target.value });
+            if (!day) save.schedule({ dateOfBirth: null });
+            else if (Number(day.slice(0, 4)) >= 1900) save.schedule({ dateOfBirth: day });
           }}
           onBlur={() => void save.flush()}
         />

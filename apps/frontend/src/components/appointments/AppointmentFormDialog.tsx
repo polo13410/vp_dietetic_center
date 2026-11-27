@@ -10,9 +10,10 @@ import api from '../../lib/api';
 import { formulaOption, useBookingOptions } from '../../lib/appointments';
 import { type IdentityDraft, identityFromSearch } from '../../lib/new-patient';
 import { addressLine } from '../../lib/settings-format';
-import { cn } from '../../lib/utils';
+import { cn, formatDate, todayISO } from '../../lib/utils';
 import { fieldClass } from '../patient-file/LifeEventForm';
 import { QuickPatientForm } from '../patients/QuickPatientForm';
+import { DatePicker } from '../shared/DatePicker';
 import { Field } from '../shared/Field';
 import { PatientCombobox } from '../shared/PatientCombobox';
 import { SegmentedControl } from '../shared/SegmentedControl';
@@ -32,7 +33,8 @@ import { toast } from '../ui/toaster';
 const schema = z.object({
   patientId: z.string().min(1, 'Choisissez le patient.'),
   formulaId: z.string(),
-  startAt: z.string().min(1, 'Choisissez la date et l’heure.'),
+  day: z.iso.date('Choisissez la date.'),
+  time: z.iso.time({ precision: -1, error: 'Choisissez l’heure.' }),
   duration: z
     .number({ message: 'Indiquez la durée en minutes.' })
     .min(15, 'Comptez au moins 15 minutes.')
@@ -59,7 +61,8 @@ const TYPES = [
 const EMPTY: FormData = {
   patientId: '',
   formulaId: '',
-  startAt: '',
+  day: '',
+  time: '',
   duration: 45,
   type: 'IN_PERSON',
   practiceId: '',
@@ -69,10 +72,16 @@ const EMPTY: FormData = {
 interface AppointmentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultValues?: Partial<FormData>;
+  defaultValues?: Partial<Omit<FormData, 'day' | 'time'> & { startAt: string }>;
   editId?: string;
   /** Edited appointment: its type and practice, still shown if no longer offered */
   booked?: { formula?: { id: string; label: string } | null; practice?: { id: string; name: string } | null };
+}
+
+function bookingDefaults(defaults: AppointmentFormDialogProps['defaultValues']): FormData {
+  const { startAt, ...fields } = defaults ?? {};
+  const [day, time] = startAt?.split('T') ?? [];
+  return { ...EMPTY, ...fields, day: day || todayISO(), time: time?.slice(0, 5) ?? '' };
 }
 
 /**
@@ -104,11 +113,11 @@ export function AppointmentFormDialog({
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { ...EMPTY, ...defaultValues },
+    defaultValues: bookingDefaults(defaultValues),
   });
 
   const [patientId, type, formulaId] = useWatch({ control, name: ['patientId', 'type', 'formulaId'] });
-  const { data: options } = useBookingOptions(patientId || undefined);
+  const { data: options, isFetching, isError, refetch } = useBookingOptions(patientId || undefined, open);
   const formulas = useMemo(() => options?.formulas ?? [], [options]);
   const practices = useMemo(() => options?.practices ?? [], [options]);
   const formulaGone = !!booked?.formula && !formulas.some((f) => f.id === booked.formula?.id);
@@ -121,15 +130,15 @@ export function AppointmentFormDialog({
   useEffect(() => {
     if (open) {
       setNewPatient(null);
-      reset({ ...EMPTY, ...(JSON.parse(defaultsKey) as Partial<FormData>) });
+      reset(bookingDefaults(JSON.parse(defaultsKey)));
     }
   }, [open, defaultsKey, reset]);
 
   // In person: her default practice unless one is chosen; another practitioner's patient (an
   // assistant booking) brings that practitioner's types and practices. Runs again on opening,
-  // after the reset above: the options are often loaded while the window is still closed.
+  // after resetting the form, including when options are already cached.
   useEffect(() => {
-    if (!open || !options) return;
+    if (!open || !options || getValues('patientId') !== patientId) return;
     const { formulaId: chosen, practiceId } = getValues();
     if (chosen && !formulas.some((f) => f.id === chosen) && chosen !== booked?.formula?.id) {
       setValue('formulaId', '');
@@ -137,7 +146,24 @@ export function AppointmentFormDialog({
     if (!practices.some((p) => p.id === practiceId) && practiceId !== booked?.practice?.id) {
       setValue('practiceId', practices.find((p) => p.isDefault)?.id ?? practices[0]?.id ?? '');
     }
-  }, [open, options, formulas, practices, getValues, setValue, booked]);
+  }, [open, options, formulas, practices, getValues, setValue, booked, patientId]);
+
+  useEffect(() => {
+    if (!open || isEdit || isFetching || !patientId || !options?.suggestedFormulaId) return;
+    if (getValues('patientId') !== patientId || getValues('formulaId')) return;
+    const suggested = formulas.find((f) => f.id === options.suggestedFormulaId);
+    if (suggested) {
+      setValue('formulaId', suggested.id);
+      setValue('duration', suggested.durationMinutes);
+    }
+  }, [open, isEdit, isFetching, patientId, options, formulas, getValues, setValue]);
+
+  const changePatient = (id: string) => {
+    if (id === patientId) return;
+    setValue('formulaId', '');
+    setValue('duration', EMPTY.duration);
+    setValue('patientId', id, { shouldValidate: true });
+  };
 
   const chooseFormula = (id: string) => {
     setValue('formulaId', id, { shouldValidate: true });
@@ -152,7 +178,7 @@ export function AppointmentFormDialog({
         patientId: data.patientId,
         // The field holds a local time ("2026-11-20T14:00"): send it as an exact instant, or a
         // server in another time zone would read it differently
-        startAt: new Date(data.startAt).toISOString(),
+        startAt: new Date(`${data.day}T${data.time}`).toISOString(),
         duration: data.duration,
         type: data.type,
         formulaId: data.formulaId || null,
@@ -175,6 +201,11 @@ export function AppointmentFormDialog({
     // A new appointment says what it is, when she has types to choose from
     if (!isEdit && !data.formulaId && formulas.length > 0) {
       setError('formulaId', { message: 'Choisissez le type de rendez-vous.' });
+      return;
+    }
+    const local = `${data.day}T${data.time}`;
+    if (formatDate(new Date(local), 'yyyy-MM-ddTHH:mm') !== local) {
+      setError('time', { message: 'Cette heure n’existe pas ce jour-là. Choisissez une autre heure.' });
       return;
     }
     mutate(data);
@@ -204,7 +235,7 @@ export function AppointmentFormDialog({
             initial={newPatient}
             onCancel={() => setNewPatient(null)}
             onCreated={(patient) => {
-              setValue('patientId', patient.id, { shouldValidate: true });
+              changePatient(patient.id);
               setNewPatient(null);
             }}
           />
@@ -218,7 +249,7 @@ export function AppointmentFormDialog({
                   render={({ field }) => (
                     <PatientCombobox
                       value={field.value}
-                      onChange={(id) => field.onChange(id ?? '')}
+                      onChange={(id) => changePatient(id ?? '')}
                       disabled={isEdit}
                       onCreate={isEdit ? undefined : (search) => setNewPatient(identityFromSearch(search))}
                       className="min-w-0 flex-1"
@@ -234,6 +265,12 @@ export function AppointmentFormDialog({
               </div>
             </Field>
 
+            {isError && (
+              <p role="alert" className="text-sm text-destructive">
+                Impossible de charger les types de rendez-vous.{' '}
+                <button type="button" className="underline" onClick={() => void refetch()}>Réessayer</button>
+              </p>
+            )}
             {(formulas.length > 0 || formulaGone) && (
               <Field
                 label="Type de rendez-vous"
@@ -257,9 +294,16 @@ export function AppointmentFormDialog({
               </Field>
             )}
 
-            <Field label="Date et heure" required error={errors.startAt?.message}>
-              <Input type="datetime-local" {...register('startAt')} />
-            </Field>
+            <div className="flex flex-wrap items-start gap-3">
+              <Controller control={control} name="day" render={({ field }) => (
+                <Field label="Date du rendez-vous" required error={errors.day?.message}>
+                  <DatePicker value={field.value} onChange={field.onChange} onBlur={field.onBlur} upcoming />
+                </Field>
+              )} />
+              <Field label="Heure" required error={errors.time?.message}>
+                <Input type="time" className="w-32 tabular-nums" {...register('time')} />
+              </Field>
+            </div>
 
             <Field label="Durée" required error={errors.duration?.message}>
               <div className="flex flex-wrap items-center gap-3">
@@ -321,7 +365,7 @@ export function AppointmentFormDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Annuler
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending || (!!patientId && !options)}>
                 {isPending && <Loader2 className="animate-spin" aria-hidden />}
                 {isEdit ? 'Enregistrer les modifications' : 'Prendre le rendez-vous'}
               </Button>

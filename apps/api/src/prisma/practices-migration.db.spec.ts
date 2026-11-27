@@ -58,11 +58,11 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
     db = new PrismaClient({ datasourceUrl: scratchUrl });
     const run = (sql: string) => db.$executeRawUnsafe(sql);
     await run(`INSERT INTO "user" (id, email, first_name, last_name, role, updated_at) VALUES
-      ('u-val', 'valerie@test.local', 'Valérie', 'Perrot', 'PRATICIENNE', now()),
+      ('u-val', 'michelle@test.local', 'Valérie', 'Dupont', 'PRATICIENNE', now()),
       ('u-new', 'nouvelle@test.local', 'Jeanne', 'Martin', 'PRATICIENNE', now()),
       ('u-admin', 'admin@test.local', 'Admin', 'Test', 'ADMIN', now())`);
     await run(`INSERT INTO practitioner_profile (id, user_id, practice_name, address, zip_code, city, siret, adeli_rpps, updated_at)
-      VALUES ('pp-val', 'u-val', 'Valérie Perrot, diététicienne', '12 rue des Oliviers', '13100', 'Aix-en-Provence',
+      VALUES ('pp-val', 'u-val', 'Valérie Dupont, diététicienne', '12 rue des Oliviers', '13100', 'Aix-en-Provence',
               '91234567800011', '139512345', now())`);
     await run(`INSERT INTO formula (id, practitioner_id, label, price_cents, position, updated_at) VALUES
       ('f-bilan', 'u-val', 'Bilan', 6000, 0, now()), ('f-suivi', 'u-val', 'Suivi', 5000, 1, now())`);
@@ -77,7 +77,7 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
         amount_cents, payment_method, service_label, service_date, practice_name, practice_address, practice_zip_code,
         practice_city, siret, patient_first_name, patient_last_name)
       VALUES ('i-1', 'u-val', 'p-1', 'c-1', 'INVOICE', 2026, 1, '2026-0001', '2026-11-20 10:00', 6000, 'CARD', 'Bilan',
-        '2026-11-20 09:00', 'Valérie Perrot, diététicienne', '12 rue des Oliviers', '13100', 'Aix-en-Provence',
+        '2026-11-20 09:00', 'Valérie Dupont, diététicienne', '12 rue des Oliviers', '13100', 'Aix-en-Provence',
         '91234567800011', 'Martine', 'Roux')`);
 
     copyMigration(MIGRATION);
@@ -108,7 +108,7 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
     ]);
     // Her activity keeps who she is
     expect(await db.practitionerProfile.findUnique({ where: { userId: 'u-val' } })).toMatchObject({
-      practiceName: 'Valérie Perrot, diététicienne',
+      practiceName: 'Valérie Dupont, diététicienne',
       siret: '91234567800011',
       adeliRpps: '139512345',
     });
@@ -136,7 +136,7 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
   });
 
   it('gives each formula a duration: an hour for « Bilan », 45 minutes otherwise', async () => {
-    const formulas = await db.formula.findMany({ orderBy: { position: 'asc' } });
+    const formulas = await db.formula.findMany({ orderBy: { position: 'asc' }, select: { label: true, durationMinutes: true } });
     expect(formulas.map((f) => [f.label, f.durationMinutes])).toEqual([
       ['Bilan', 60],
       ['Suivi', 45],

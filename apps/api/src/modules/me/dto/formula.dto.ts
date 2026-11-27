@@ -24,6 +24,11 @@ export const MIN_DURATION = 15;
 export const MAX_DURATION = 480;
 
 export class CreateFormulaDto {
+  @ApiPropertyOptional({ description: 'Proposer cette formule pour un premier rendez-vous' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  firstAppointment?: boolean;
+
   @ApiProperty({ example: 'Bilan' })
   @Transform(trim)
   @IsString()
@@ -47,6 +52,11 @@ export class CreateFormulaDto {
 }
 
 export class UpdateFormulaDto {
+  @ApiPropertyOptional({ description: 'Proposer cette formule pour un premier rendez-vous' })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  firstAppointment?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(trim)

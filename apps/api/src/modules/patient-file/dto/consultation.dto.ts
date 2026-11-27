@@ -52,6 +52,18 @@ export class CreateConsultationDto {
 }
 
 export class UpdateConsultationDto {
+  @ApiPropertyOptional({ nullable: true, description: 'Part de l’organisme pour cette séance en centimes (null reprend le tarif prévu)' })
+  @nullable
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000)
+  payerOverrideCents?: number | null;
+
+  @ApiPropertyOptional({ description: 'Organisme affiché lors de la saisie de la part' })
+  @IsOptional()
+  @IsUUID()
+  expectedPayerId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()

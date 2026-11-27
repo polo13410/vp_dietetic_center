@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query';
 import { HandCoins, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 
@@ -158,9 +159,10 @@ export function SessionSplit({ session }: { session: Consultation }) {
   const discount = discountCents ?? 0;
   const payer = payerCents ?? 0;
   const patient = patientCents ?? netCents;
-  const payerName = session.payer?.name ?? 'l’organisme';
-  const uncovered = !!session.coverage && payer === 0 && netCents > 0;
-  if (discount === 0 && payer === 0 && !uncovered) return null;
+  const payerName = session.payer?.name ?? session.coverage?.payer.name ?? 'l’organisme';
+  const editable = netCents > 0 && (payer > 0 || (!!session.coverage && session.payerOverrideCents != null));
+  const uncovered = !!session.coverage && !editable && payer === 0 && netCents > 0;
+  if (discount === 0 && payer === 0 && !uncovered && !editable) return null;
 
   return (
     <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-lg bg-muted px-4 py-3 text-base">
@@ -170,7 +172,9 @@ export function SessionSplit({ session }: { session: Consultation }) {
           <SplitItem label="Prix" cents={priceCents} />
           {discount > 0 && <SplitItem label="Remise" cents={-discount} />}
           {discount > 0 && <SplitItem label="Net" cents={netCents} />}
-          {payer > 0 && <SplitItem label={`Pris en charge par ${payerName}`} cents={payer} />}
+          {editable && (
+            <PayerAmount key={`${session.id}-${session.coverageId}`} session={session} payerName={payerName} net={netCents} />
+          )}
           <SplitItem label="À payer par le patient" cents={patient} strong />
         </dl>
         {netCents === 0 ? (
@@ -186,6 +190,72 @@ export function SessionSplit({ session }: { session: Consultation }) {
           </p>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function PayerAmount({ session, payerName, net }: { session: Consultation; payerName: string; net: number }) {
+  const invalidate = useInvalidatePatientFile();
+  const [draft, setDraft] = useState<string | null>(null);
+  const saved = eurosInput(session.payerCents ?? 0);
+  const amount = draft?.trim() ? parseEuros(draft) : null;
+  const invalid = !!draft?.trim() && (amount === null || amount > net);
+  const save = useMutation({
+    mutationFn: (payerOverrideCents: number | null) => api.patch(`/consultations/${session.id}`, {
+      payerOverrideCents,
+      expectedPayerId: session.payerId ?? session.coverage?.payer.id,
+    }),
+    onSuccess: async () => {
+      await invalidate(session.patientId);
+      setDraft(null);
+    },
+  });
+  const commit = () => {
+    if (draft === null || invalid || save.isPending) return;
+    if (amount === session.payerCents || (amount === null && session.payerOverrideCents == null)) {
+      setDraft(null);
+      return;
+    }
+    save.mutate(amount);
+  };
+  const id = `payer-share-${session.id}`;
+  let hint = 'Effacez le montant pour reprendre le tarif prévu.';
+  if (invalid) hint = `Indiquez un montant entre 0 et ${formatAmount(net)}.`;
+  else if (save.isError) hint = apiErrorMessage(save.error, 'Montant non enregistré. Modifiez le champ pour réessayer.');
+  else if (save.isPending) hint = 'Enregistrement…';
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-1.5">
+      <dt><label htmlFor={id} className="text-sm text-muted-foreground">Pris en charge par {payerName}</label></dt>
+      <dd>
+        <div className="inline-flex items-center gap-1.5">
+          <input
+            id={id}
+            inputMode="decimal"
+            autoComplete="off"
+            className={`${fieldClass} max-w-24 text-right tabular-nums`}
+            value={draft ?? saved}
+            disabled={save.isPending}
+            aria-invalid={invalid || save.isError}
+            aria-describedby={`${id}-hint`}
+            onChange={(e) => {
+              save.reset();
+              setDraft(e.target.value);
+            }}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+          />
+          <span>€</span>
+        </div>
+        <p id={`${id}-hint`} className={invalid || save.isError ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
+          {hint}
+        </p>
+      </dd>
     </div>
   );
 }

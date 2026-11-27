@@ -5,6 +5,7 @@ import { AccessUser, PatientAccessService } from '../../common/access/patient-ac
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { CreateCoverageDto, CreatePayerDto, UpdateCoverageDto, UpdatePayerDto } from './dto/payer.dto';
+import { withInvoiceLock } from './invoice-writing';
 import { parisDay, parisStartOfDay } from './numbering';
 import { splitColumns } from './session-split';
 import { isoDay } from './split';
@@ -63,42 +64,48 @@ export class PayersService {
 
   async createCoverage(user: AccessUser, patientId: string, dto: CreateCoverageDto) {
     const { practitionerId } = await this.access.assertPatient(user, patientId);
-    await this.activePayer(practitionerId, dto.payerId);
-    checkCoverage(dto);
-    const coverage = await this.prisma.patientCoverage.create({
-      data: { ...dto, ...days(dto), patientId },
-      include: { payer: PAYER_OF_COVERAGE },
+    return withInvoiceLock(this.prisma, practitionerId, async (tx) => {
+      await this.activePayer(tx, practitionerId, dto.payerId);
+      checkCoverage(dto);
+      const coverage = await tx.patientCoverage.create({
+        data: { ...dto, ...days(dto), patientId },
+        include: { payer: PAYER_OF_COVERAGE },
+      });
+      await this.refreshOpenSessions(tx, patientId);
+      return coverage;
     });
-    await this.refreshOpenSessions(patientId);
-    return coverage;
   }
 
   async updateCoverage(user: AccessUser, patientId: string, id: string, dto: UpdateCoverageDto) {
     const { practitionerId } = await this.access.assertPatient(user, patientId);
-    const coverage = await this.coverageOf(patientId, id);
-    if (dto.payerId && dto.payerId !== coverage.payerId) await this.activePayer(practitionerId, dto.payerId);
-    checkCoverage({
-      kind: dto.kind ?? coverage.kind,
-      value: dto.value ?? coverage.value,
-      startDate: dto.startDate !== undefined ? dto.startDate : coverage.startDate && isoDay(coverage.startDate),
-      endDate: dto.endDate !== undefined ? dto.endDate : coverage.endDate && isoDay(coverage.endDate),
+    return withInvoiceLock(this.prisma, practitionerId, async (tx) => {
+      const coverage = await this.coverageOf(tx, patientId, id);
+      if (dto.payerId && dto.payerId !== coverage.payerId) await this.activePayer(tx, practitionerId, dto.payerId);
+      checkCoverage({
+        kind: dto.kind ?? coverage.kind,
+        value: dto.value ?? coverage.value,
+        startDate: dto.startDate !== undefined ? dto.startDate : coverage.startDate && isoDay(coverage.startDate),
+        endDate: dto.endDate !== undefined ? dto.endDate : coverage.endDate && isoDay(coverage.endDate),
+      });
+      const updated = await tx.patientCoverage.update({
+        where: { id },
+        data: { ...dto, ...days(dto) },
+        include: { payer: PAYER_OF_COVERAGE },
+      });
+      await this.refreshOpenSessions(tx, patientId, updated.payerId !== coverage.payerId ? id : undefined);
+      return updated;
     });
-    const updated = await this.prisma.patientCoverage.update({
-      where: { id },
-      data: { ...dto, ...days(dto) },
-      include: { payer: PAYER_OF_COVERAGE },
-    });
-    await this.refreshOpenSessions(patientId);
-    return updated;
   }
 
   /** Past sessions keep the split they had; the patient's open sessions lose it. */
   async removeCoverage(user: AccessUser, patientId: string, id: string) {
-    await this.access.assertPatient(user, patientId);
-    await this.coverageOf(patientId, id);
-    await this.prisma.patientCoverage.delete({ where: { id } });
-    await this.refreshOpenSessions(patientId);
-    return { id };
+    const { practitionerId } = await this.access.assertPatient(user, patientId);
+    return withInvoiceLock(this.prisma, practitionerId, async (tx) => {
+      await this.coverageOf(tx, patientId, id);
+      await tx.patientCoverage.delete({ where: { id } });
+      await this.refreshOpenSessions(tx, patientId);
+      return { id };
+    });
   }
 
   /**
@@ -106,23 +113,27 @@ export class PayersService {
    * patient invoice in force, in no payer invoice) take it. Earlier sessions keep their split
    * (docs/REFONTE.md lot 16: a later change of coverage leaves past sessions alone).
    */
-  async refreshOpenSessions(patientId: string, now = new Date()) {
-    const sessions = await this.prisma.consultation.findMany({
+  private async refreshOpenSessions(tx: Prisma.TransactionClient, patientId: string, changedPayerCoverageId?: string) {
+    const sessions = await tx.consultation.findMany({
       where: {
         patientId,
         priceCents: { not: null },
-        date: { gte: parisStartOfDay(parisDay(now)) },
+        date: { gte: parisStartOfDay(parisDay(new Date())) },
         invoices: { none: { type: InvoiceType.INVOICE, recipient: InvoiceRecipient.PATIENT, cancelledAt: null } },
         invoiceLines: { none: { invoice: { type: InvoiceType.INVOICE, cancelledAt: null } } },
       },
       orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, patientId: true, date: true, priceCents: true, discountKind: true, discountValue: true },
+      select: { id: true, patientId: true, date: true, priceCents: true, discountKind: true, discountValue: true,
+        coverageId: true, payerId: true, payerOverrideCents: true },
     });
     // One after the other: each one counts the sessions covered before it
     for (const session of sessions) {
-      await this.prisma.consultation.update({
+      await tx.consultation.update({
         where: { id: session.id },
-        data: await splitColumns(this.prisma, session),
+        data: await splitColumns(tx, {
+          ...session,
+          payerOverrideCents: session.coverageId === changedPayerCoverageId ? null : session.payerOverrideCents,
+        }),
       });
     }
   }
@@ -137,15 +148,15 @@ export class PayersService {
   }
 
   /** One of the patient's practitioner's payers, still offered. */
-  private async activePayer(practitionerId: string, payerId: string) {
-    const payer = await this.prisma.payer.findUnique({ where: { id: payerId } });
+  private async activePayer(tx: Prisma.TransactionClient, practitionerId: string, payerId: string) {
+    const payer = await tx.payer.findUnique({ where: { id: payerId } });
     if (!payer || payer.practitionerId !== practitionerId) throw new BadRequestException('Organisme introuvable');
     if (payer.archivedAt) throw new BadRequestException("Cet organisme est archivé");
     return payer;
   }
 
-  private async coverageOf(patientId: string, id: string) {
-    const coverage = await this.prisma.patientCoverage.findUnique({ where: { id } });
+  private async coverageOf(tx: Prisma.TransactionClient, patientId: string, id: string) {
+    const coverage = await tx.patientCoverage.findUnique({ where: { id } });
     if (!coverage || coverage.patientId !== patientId) throw new NotFoundException('Prise en charge introuvable');
     return coverage;
   }

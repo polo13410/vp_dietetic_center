@@ -407,12 +407,12 @@ export function useInvalidatePatientFile() {
   const queryClient = useQueryClient();
   return (patientId: string) => {
     queryClient.invalidateQueries({ queryKey: fileKey(patientId) });
-    queryClient.invalidateQueries({ queryKey: ['consultation'] });
     queryClient.invalidateQueries({ queryKey: ['patient', patientId] });
     queryClient.invalidateQueries({ queryKey: ['patients'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     // An invoice may no longer match its session
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    return queryClient.invalidateQueries({ queryKey: ['consultation'] });
   };
 }
 

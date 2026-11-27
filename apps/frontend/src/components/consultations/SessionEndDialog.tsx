@@ -7,6 +7,7 @@ import { formatAmount } from '../../lib/invoice-document';
 import { downloadInvoicePdf, patientBilling, useIssueInvoice, useSessionInvoices } from '../../lib/invoices';
 import { sessionName, useConsultation } from '../../lib/patient-file';
 import { AppointmentFormDialog } from '../appointments/AppointmentFormDialog';
+import { InvoicePreviewButton } from '../invoices/InvoicePreviewButton';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { toast } from '../ui/toaster';
@@ -99,6 +100,7 @@ function EndChoices({ sessionId, onBook, onClose }: { sessionId: string; onBook:
             <p className="text-base text-success">
               Facture n° {invoice.number} faite ({formatAmount(invoice.amountCents)}).
             </p>
+            <InvoicePreviewButton invoice={invoice} showLabel />
             <Button variant="outline" onClick={download} disabled={downloading}>
               <Download aria-hidden /> Télécharger la facture
             </Button>

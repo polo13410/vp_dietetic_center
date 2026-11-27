@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, MetricType, PaymentMethod, Prisma, ShareKind } from '@prisma/client';
+import { AppointmentStatus, Consultation, MetricType, PaymentMethod, Prisma, ShareKind } from '@prisma/client';
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { withInvoiceLock } from '../invoices/invoice-writing';
 import { InvoicesService } from '../invoices/invoices.service';
 import { splitColumns } from '../invoices/session-split';
+import { isFirstVisit } from '../me/default-formulas';
 import { defaultPractice } from '../me/default-practice';
 
 import { SessionInSeries, sessionSeries } from './calculations';
@@ -24,7 +26,7 @@ const SESSION_CONTENT = {
   },
   practice: { select: { id: true, name: true } },
   payer: { select: { id: true, name: true } },
-  coverage: { select: { id: true, maxSessions: true, startDate: true, endDate: true, payer: { select: { name: true } } } },
+  coverage: { select: { id: true, maxSessions: true, startDate: true, endDate: true, payer: { select: { id: true, name: true } } } },
   patient: { select: { id: true, firstName: true, lastName: true } },
   measurements: { orderBy: { type: 'asc' as const } },
   fileEntries: { orderBy: { createdAt: 'asc' as const } },
@@ -86,8 +88,7 @@ export class ConsultationsService {
   /**
    * Starts a session. Starting it again from the same appointment returns the existing one.
    * From an appointment, it takes the appointment's type (formula, with its price now) and
-   * practice. Otherwise, unless given, the formula is « Bilan » for the first session and
-   * « Suivi » after (her formulas with those names), and the practice her default one. The
+   * practice. Otherwise, unless given, the formula follows the configured visit type, and the practice her default one. The
    * payment method is the patient's last one, the discount the one of their previous session
    * (lot 16: not typed again). The split of the price follows from the patient's coverage.
    */
@@ -156,24 +157,39 @@ export class ConsultationsService {
    */
   async update(user: AccessUser, id: string, dto: UpdateConsultationDto) {
     const session = await this.ofUser(user, id);
-    const { formulaId, date, practiceId, discountKind, discountValue, discountReason, ...texts } = dto;
+    const changesSplit = dto.formulaId !== undefined || dto.date !== undefined || dto.payerOverrideCents !== undefined ||
+      dto.discountKind !== undefined || dto.discountValue !== undefined || dto.discountReason !== undefined;
+    if (!changesSplit) return this.applyUpdate(this.prisma, session, dto);
+    return withInvoiceLock(this.prisma, session.practitionerId, async (tx) => {
+      const fresh = await tx.consultation.findUniqueOrThrow({ where: { id, practitionerId: session.practitionerId } });
+      return this.applyUpdate(tx, fresh, dto);
+    });
+  }
+
+  private async applyUpdate(db: Prisma.TransactionClient, session: Consultation, dto: UpdateConsultationDto) {
+    const { id } = session;
+    const { formulaId, date, practiceId, discountKind, discountValue, discountReason, payerOverrideCents, expectedPayerId, ...texts } = dto;
     let formula: { formulaId: string | null; formulaLabel: string | null; priceCents: number | null } | null = null;
     if (formulaId === null) formula = { formulaId: null, formulaLabel: null, priceCents: null };
     // Choosing the same formula again keeps the price copied at the time
     else if (formulaId && formulaId !== session.formulaId) {
-      formula = await this.formulaCopy(session.practitionerId, formulaId);
+      formula = await this.formulaCopy(session.practitionerId, formulaId, false, db);
     }
     const place =
       practiceId && practiceId !== session.practiceId
-        ? { practiceId: await this.ownPractice(session.practitionerId, practiceId) }
+        ? { practiceId: await this.ownPractice(session.practitionerId, practiceId, db) }
         : {};
     const discount = discountChange(session, { discountKind, discountValue, discountReason });
     const newDate = date ? new Date(date) : undefined;
     const moved = !!newDate && newDate.getTime() !== new Date(session.date).getTime();
     const split =
-      formula || discount || moved
-        ? await splitColumns(this.prisma, {
+      formula || discount || moved || payerOverrideCents !== undefined
+        ? await splitColumns(db, {
             id,
+            coverageId: session.coverageId,
+            payerId: payerOverrideCents !== undefined ? expectedPayerId ?? session.payerId : session.payerId,
+            payerOverrideCents: payerOverrideCents === undefined ? session.payerOverrideCents : payerOverrideCents,
+            editingOverride: payerOverrideCents !== undefined,
             patientId: session.patientId,
             date: newDate ?? session.date,
             priceCents: formula ? formula.priceCents : session.priceCents,
@@ -181,7 +197,7 @@ export class ConsultationsService {
             discountValue: discount ? discount.discountValue : session.discountValue,
           })
         : {};
-    return this.prisma.consultation.update({
+    return db.consultation.update({
       where: { id },
       data: { ...texts, ...formula, ...place, ...discount, ...split, date: newDate },
     });
@@ -237,18 +253,17 @@ export class ConsultationsService {
     );
   }
 
-  /** Her « Bilan » formula for the first session, « Suivi » after; none if she has no such name. */
+  /** First matching type in the practitioner’s chosen order. */
   private async defaultFormulaId(practitionerId: string, patientId: string) {
-    const [done, formulas] = await Promise.all([
-      this.prisma.consultation.count({ where: { patientId } }),
+    const [firstVisit, formulas] = await Promise.all([
+      isFirstVisit(this.prisma, practitionerId, patientId),
       this.prisma.formula.findMany({
         where: { practitionerId, archivedAt: null },
-        orderBy: { position: 'asc' },
-        select: { id: true, label: true },
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, firstAppointment: true },
       }),
     ]);
-    const name = done ? 'suivi' : 'bilan';
-    return (formulas ?? []).find((f) => plain(f.label).startsWith(name))?.id;
+    return formulas?.find((f) => f.firstAppointment === firstVisit)?.id;
   }
 
   /** The discount of the patient's previous session, to prefill the new one. */
@@ -280,8 +295,8 @@ export class ConsultationsService {
    * The formula's label and price, copied so later price changes leave the session as it was.
    * An archived formula is refused, unless it comes from the appointment (`fromAppointment`).
    */
-  private async formulaCopy(practitionerId: string, formulaId: string, fromAppointment = false) {
-    const formula = await this.prisma.formula.findUnique({ where: { id: formulaId } });
+  private async formulaCopy(practitionerId: string, formulaId: string, fromAppointment = false, db: Prisma.TransactionClient = this.prisma) {
+    const formula = await db.formula.findUnique({ where: { id: formulaId } });
     if (!formula || formula.practitionerId !== practitionerId) {
       throw new BadRequestException('Formule introuvable');
     }
@@ -292,8 +307,8 @@ export class ConsultationsService {
   }
 
   /** One of her active practices. */
-  private async ownPractice(practitionerId: string, practiceId: string) {
-    const practice = await this.prisma.practice.findUnique({ where: { id: practiceId } });
+  private async ownPractice(practitionerId: string, practiceId: string, db: Prisma.TransactionClient = this.prisma) {
+    const practice = await db.practice.findUnique({ where: { id: practiceId } });
     if (!practice || practice.practitionerId !== practitionerId) {
       throw new BadRequestException('Cabinet introuvable');
     }
@@ -332,7 +347,3 @@ export function discountChange(
   if (!kind) return { discountKind: null, discountValue: null, discountReason: null };
   return { discountKind: kind, discountValue: value ?? 0, discountReason: reason };
 }
-
-/** « Bilan », « bilan » and « BILAN » alike, accents ignored. */
-const plain = (label: string) =>
-  label.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim().toLowerCase();

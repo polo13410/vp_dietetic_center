@@ -122,7 +122,7 @@ describe('ensureDefaultFormulas', () => {
     expect(DEFAULT_FORMULAS.map((f) => f.label)).toEqual(['Bilan', 'Suivi']);
     expect(mockPrisma.formula.createMany).toHaveBeenCalledWith({
       data: [
-        { practitionerId: 'user-1', label: 'Bilan', durationMinutes: 60, position: 0 },
+        { practitionerId: 'user-1', label: 'Bilan', firstAppointment: true, durationMinutes: 60, position: 0 },
         { practitionerId: 'user-1', label: 'Suivi', durationMinutes: 45, position: 1 },
       ],
     });

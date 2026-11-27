@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { AuditAction, UserRole } from '@prisma/client';
 import type { Response } from 'express';
@@ -50,7 +50,16 @@ export class InvoicesController {
     return this.invoices.sessionsToInvoice(user);
   }
 
+  @Get(':id/preview')
+  @Header('Cache-Control', 'private, no-store')
+  @Audited({ action: AuditAction.READ, entity: 'invoice', patientId: 'result:patientId' })
+  @ApiOperation({ summary: 'Consulter une facture ou un avoir dans le navigateur' })
+  preview(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {
+    return this.invoices.findOne(user, id);
+  }
+
   @Get(':id/document')
+  @Header('Cache-Control', 'private, no-store')
   @Audited({ action: AuditAction.EXPORT, entity: 'invoice', patientId: 'result:patientId' })
   @ApiOperation({ summary: 'Une facture ou un avoir, pour en faire le PDF' })
   document(@CurrentUser() user: AccessUser, @Param('id', uuid) id: string) {

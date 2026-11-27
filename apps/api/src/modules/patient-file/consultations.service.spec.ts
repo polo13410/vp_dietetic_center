@@ -64,6 +64,7 @@ describe('ConsultationsService', () => {
           discountValue: null,
           discountReason: null,
           discountCents: null,
+          payerOverrideCents: null,
           netCents: null,
           payerCents: null,
           patientCents: null,
@@ -178,7 +179,7 @@ describe('ConsultationsService', () => {
         { id: 'f-suivi', label: 'Suivi', priceCents: 5000, practitionerId: 'user-1', archivedAt: null },
       ];
       beforeEach(() => {
-        mockPrisma.formula.findMany.mockResolvedValue(formulas.map(({ id, label }) => ({ id, label })));
+        mockPrisma.formula.findMany.mockResolvedValue(formulas.map(({ id }) => ({ id, firstAppointment: id === 'f-bilan' })));
         mockPrisma.formula.findUnique.mockImplementation(async ({ where }: any) =>
           formulas.find((f) => f.id === where.id),
         );
@@ -218,13 +219,13 @@ describe('ConsultationsService', () => {
         });
       });
 
-      it('finds her formula whatever its case or accents, and leaves it empty without one', async () => {
+      it('uses the configured visit type regardless of label, leaving it empty without a match', async () => {
         mockPrisma.consultation.count.mockResolvedValue(1);
-        mockPrisma.formula.findMany.mockResolvedValueOnce([{ id: 'f-suivi', label: 'SUIVI (45 min)' }]);
+        mockPrisma.formula.findMany.mockResolvedValueOnce([{ id: 'f-suivi', firstAppointment: false }]);
         await service.create(user as any, 'p1', {});
         expect(mockPrisma.consultation.create.mock.calls[0][0].data.formulaId).toBe('f-suivi');
 
-        mockPrisma.formula.findMany.mockResolvedValueOnce([{ id: 'f-x', label: 'Consultation' }]);
+        mockPrisma.formula.findMany.mockResolvedValueOnce([{ id: 'f-x', firstAppointment: true }]);
         await service.create(user as any, 'p1', {});
         expect(mockPrisma.consultation.create.mock.calls[1][0].data).not.toHaveProperty('formulaId');
       });
@@ -347,7 +348,10 @@ describe('ConsultationsService', () => {
   });
 
   describe('update', () => {
-    beforeEach(() => mockPrisma.consultation.findUnique.mockResolvedValue(session));
+    beforeEach(() => {
+      mockPrisma.consultation.findUnique.mockResolvedValue(session);
+      mockPrisma.consultation.findUniqueOrThrow.mockImplementation((args) => mockPrisma.consultation.findUnique(args));
+    });
 
     it('changes any session, even a past one', async () => {
       await service.update(user as any, 'c1', {
@@ -395,6 +399,7 @@ describe('ConsultationsService', () => {
           discountReason: 'geste',
           discountCents: 1000,
           netCents: 5000,
+          payerOverrideCents: null,
           payerCents: 2500,
           patientCents: 2500,
           payerId: 'payer-1',
@@ -405,6 +410,18 @@ describe('ConsultationsService', () => {
         expect(mockPrisma.consultation.count).toHaveBeenCalledWith({
           where: { coverageId: 'cov-1', payerCents: { gt: 0 }, date: { lte: priced.date }, id: { not: 'c1' } },
         });
+      });
+
+      it('refuses an override for expired or exhausted coverage, or after a change of payer', async () => {
+        mockPrisma.consultation.findUnique.mockResolvedValue({ ...priced, coverageId: mutuelle.id });
+        for (const coverage of [
+          { ...mutuelle, endDate: d('2026-10-01') }, mutuelle, { ...mutuelle, id: 'new-coverage' },
+        ]) {
+          mockPrisma.patientCoverage.findMany.mockResolvedValueOnce([coverage]);
+          mockPrisma.consultation.count.mockResolvedValue(coverage === mutuelle ? 10 : 0);
+          await expect(service.update(user as any, 'c1', { payerOverrideCents: 500 })).rejects.toThrow(BadRequestException);
+        }
+        expect(mockPrisma.consultation.update).not.toHaveBeenCalled();
       });
 
       it('no kind removes the discount, its value and its reason', async () => {

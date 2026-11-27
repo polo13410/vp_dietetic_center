@@ -83,7 +83,9 @@ describe.skipIf(!url)('lot 16 migration on existing data', () => {
   });
 
   it('gives existing sessions their split: no discount, no payer, the patient pays the price', async () => {
-    expect(await db.consultation.findUnique({ where: { id: 'c-1' } })).toMatchObject({
+    expect(await db.consultation.findUnique({ where: { id: 'c-1' },
+      select: { discountKind: true, discountCents: true, netCents: true, payerCents: true, patientCents: true, payerId: true },
+    })).toMatchObject({
       discountKind: null,
       discountCents: 0,
       netCents: 6000,
@@ -92,7 +94,7 @@ describe.skipIf(!url)('lot 16 migration on existing data', () => {
       payerId: null,
     });
     // No price, no split
-    expect(await db.consultation.findUnique({ where: { id: 'c-2' } })).toMatchObject({ netCents: null, patientCents: null });
+    expect(await db.consultation.findUnique({ where: { id: 'c-2' }, select: { netCents: true, patientCents: true } })).toMatchObject({ netCents: null, patientCents: null });
   });
 
   it('leaves issued invoices as they were: a patient invoice, without the new copies', async () => {

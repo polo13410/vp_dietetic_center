@@ -136,7 +136,7 @@ describe.skipIf(!url)('lot 15 migration on existing data', () => {
   });
 
   it('gives each formula a duration: an hour for « Bilan », 45 minutes otherwise', async () => {
-    const formulas = await db.formula.findMany({ orderBy: { position: 'asc' } });
+    const formulas = await db.formula.findMany({ orderBy: { position: 'asc' }, select: { label: true, durationMinutes: true } });
     expect(formulas.map((f) => [f.label, f.durationMinutes])).toEqual([
       ['Bilan', 60],
       ['Suivi', 45],

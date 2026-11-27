@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '@prisma/client';
 import { UserRole } from '@prisma/client';
@@ -28,6 +28,8 @@ export class AppointmentsController {
   }
 
   @Get('options')
+  @Header('Cache-Control', 'private, no-store')
+  @Audited({ action: AuditAction.READ, entity: 'appointment', patientId: 'query:patientId' })
   @ApiOperation({ summary: 'Types de rendez-vous (formules, avec leur durée) et cabinets proposés' })
   options(@CurrentUser() user: any, @Query() query: BookingOptionsQueryDto) {
     return this.service.options(user, query.patientId);

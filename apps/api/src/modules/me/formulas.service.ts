@@ -7,6 +7,7 @@ import type { CreateFormulaDto, UpdateFormulaDto } from './dto/formula.dto';
 const SELECT = {
   id: true,
   label: true,
+  firstAppointment: true,
   priceCents: true,
   durationMinutes: true,
   position: true,
@@ -35,6 +36,7 @@ export class FormulasService {
       data: {
         practitionerId,
         label: dto.label,
+        firstAppointment: dto.firstAppointment,
         priceCents: dto.priceCents ?? null,
         ...(dto.durationMinutes ? { durationMinutes: dto.durationMinutes } : {}),
         position: await this.nextPosition(practitionerId),

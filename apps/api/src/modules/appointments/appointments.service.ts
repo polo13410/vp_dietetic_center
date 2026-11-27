@@ -3,6 +3,7 @@ import { Appointment, AppointmentStatus, AppointmentType, Prisma, User, UserRole
 
 import { AccessUser, PatientAccessService } from '../../common/access/patient-access.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isFirstVisit } from '../me/default-formulas';
 import { defaultPractice } from '../me/default-practice';
 
 import { AppointmentQueryDto } from './dto/appointment-query.dto';
@@ -83,19 +84,24 @@ export class AppointmentsService {
     else if (user.role === UserRole.PRATICIENNE) practitionerId = user.id;
     if (!practitionerId) return { formulas: [], practices: [] };
 
-    const [formulas, practices] = await Promise.all([
+    const [formulas, practices, firstVisit] = await Promise.all([
       this.prisma.formula.findMany({
         where: { practitionerId, archivedAt: null },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-        select: { id: true, label: true, priceCents: true, durationMinutes: true },
+        select: { id: true, label: true, priceCents: true, durationMinutes: true, firstAppointment: true },
       }),
       this.prisma.practice.findMany({
         where: { practitionerId, archivedAt: null },
         orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
         select: { id: true, name: true, address: true, zipCode: true, city: true, isDefault: true },
       }),
+      patientId ? isFirstVisit(this.prisma, practitionerId, patientId) : null,
     ]);
-    return { formulas, practices };
+    return {
+      formulas,
+      practices,
+      ...(patientId && { suggestedFormulaId: formulas.find((f) => f.firstAppointment === firstVisit)?.id ?? null }),
+    };
   }
 
   async create(dto: CreateAppointmentDto, user: User) {

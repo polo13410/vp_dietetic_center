@@ -197,6 +197,7 @@ export interface UpdatePracticeDto extends Partial<CreatePracticeDto> {
 
 /** GET /me/formulas: offered ones first (in her order), then archived ones. */
 export interface FormulaDto {
+  firstAppointment: boolean;
   id: string;
   label: string;
   /** Null: price still to fill in */
@@ -209,12 +210,14 @@ export interface FormulaDto {
 }
 
 export interface CreateFormulaDto {
+  firstAppointment?: boolean;
   label: string;
   priceCents?: number | null;
   durationMinutes?: number;
 }
 
 export interface UpdateFormulaDto {
+  firstAppointment?: boolean;
   label?: string;
   priceCents?: number | null;
   durationMinutes?: number;
@@ -341,6 +344,7 @@ export interface SessionFiguresDto {
 
 /** A session ("séance"): one row of the practitioner's follow-up sheet. */
 export interface ConsultationDto {
+  payerOverrideCents?: number | null;
   id: string;
   patientId: string;
   practitionerId: string;
@@ -374,7 +378,7 @@ export interface ConsultationDto {
     maxSessions: number | null;
     startDate: string | null;
     endDate: string | null;
-    payer: { name: string };
+    payer: { id?: string; name: string };
   } | null;
   /** Habitudes et évolution */
   habits: string | null;
@@ -393,6 +397,8 @@ export interface ConsultationDto {
 }
 
 export interface UpdateConsultationDto {
+  expectedPayerId?: string;
+  payerOverrideCents?: number | null;
   date?: string;
   formulaId?: string | null;
   paymentMethod?: PaymentMethod;
@@ -485,6 +491,7 @@ export interface CreateAppointmentDto {
 
 /** GET /appointments/options?patientId=: what an appointment of that patient can be booked with. */
 export interface BookingOptionsDto {
+  suggestedFormulaId?: string | null;
   /** Her offered formulas, in her order */
   formulas: Pick<FormulaDto, 'id' | 'label' | 'priceCents' | 'durationMinutes'>[];
   /** Her active practices, the default one first */

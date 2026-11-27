@@ -112,6 +112,38 @@ describe.skipIf(!url)('payer invoices on a real database', () => {
     });
   });
 
+  it('uses only this session’s override on both invoices and restores the agreement when cleared', async () => {
+    const { user, mutuelle, martine, session } = await practice();
+    const first = await session(martine.id, '2026-11-03T09:00:00Z');
+    const second = await session(martine.id, '2026-11-10T09:00:00Z');
+    expect(first.payerCents).toBe(3000);
+    const update = (cents: number | null) => sessions.update(user, first.id, { payerOverrideCents: cents });
+    expect(await update(0)).toMatchObject({ payerCents: 0, patientCents: 5000, payerId: null });
+    expect(await update(null)).toMatchObject({ payerCents: 3000, patientCents: 2000, payerOverrideCents: null });
+    await expect(update(5001)).rejects.toThrow('dépasse');
+    await update(1250);
+    await sessions.update(user, first.id, { discountKind: ShareKind.AMOUNT, discountValue: 500 });
+    expect(await invoices.issue(user, first.id, NOW)).toMatchObject({ amountCents: 3250, payerCents: 1250 });
+    const invoice = await payerInvoices.issue(user, mutuelle.id, '2026-11-01', '2026-11-30', NOW);
+    expect(invoice.lines.map(({ consultationId, amountCents }) => [consultationId, amountCents]))
+      .toEqual([[first.id, 1250], [second.id, 3000]]);
+  });
+
+  it('keeps an open session’s override when the agreement rate changes and drops it for a different payer', async () => {
+    const { user, martine, session } = await practice();
+    const open = await session(martine.id, new Date().toISOString());
+    const agreement = open.coverageId!;
+    await sessions.update(user, open.id, { payerOverrideCents: 800 });
+    await payers.updateCoverage(user, martine.id, agreement, { value: 50 });
+    const read = () => prisma.consultation.findUniqueOrThrow({ where: { id: open.id } });
+    expect(await read()).toMatchObject({ payerOverrideCents: 800, payerCents: 800 });
+    const next = await payers.create(user, { name: 'Autre organisme' });
+    await payers.updateCoverage(user, martine.id, agreement, { payerId: next.id });
+    expect(await read()).toMatchObject({ payerId: next.id, payerOverrideCents: null, payerCents: 2500 });
+    await expect(sessions.update(user, open.id, { payerOverrideCents: 600, expectedPayerId: open.payerId! }))
+      .rejects.toThrow('prise en charge a changé');
+  });
+
   it('caps a coverage by its number of sessions; the next session is the patient’s', async () => {
     const { paul, session } = await practice();
     const first = await session(paul.id, '2026-11-03T09:00:00Z');
